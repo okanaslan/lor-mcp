@@ -34,3 +34,4 @@ expand an agent's assigned folder or permissions.
 - `docs/roadmap.md`: feature spec roadmap.
 - `docs/feature-specs/`: feature specification drafts and template.
 - `docs/use-cases/`: use case scenario drafts and template.
+- `docs/tech-specs/`: technical design drafts and template.
