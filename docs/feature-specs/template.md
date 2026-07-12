@@ -23,8 +23,8 @@ that describe what the system must do.
 
 ## 5. User Stories / Use Cases
 
-Optional. Add when user-facing workflows or agent workflows need to be made
-explicit.
+Optional. Link to detailed workflow or scenario files under `docs/use-cases/`
+when user-facing workflows or agent workflows need to be made explicit.
 
 ## 6. Data Model
 

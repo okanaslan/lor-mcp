@@ -27,3 +27,10 @@ bootstrap automation.
 Copy the shared and relevant role files into a project, then adapt local paths
 and verification commands to that project. Skills remain optional and do not
 expand an agent's assigned folder or permissions.
+
+## Agentic Router Docs
+
+- `docs/readme.md`: planning docs overview.
+- `docs/roadmap.md`: feature spec roadmap.
+- `docs/feature-specs/`: feature specification drafts and template.
+- `docs/use-cases/`: use case scenario drafts and template.
