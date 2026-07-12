@@ -1,37 +1,34 @@
-# Codex Agent Library
+# Agentic Router MCP Server
 
-This repository contains copy-ready Codex agent instructions and personal
-skills. It does not include application starters, deployment config, CI, or
-bootstrap automation.
+Agentic Router is a planned MCP server that acts as a local catalog for Codex
+agents and skills. It will let a configured workspace introduce known agents
+and skills, store their routing metadata, and help a current Codex agent find
+relevant catalog entries for a task.
 
-## Agent Files
+The project is currently in the specification phase. Implementation decisions,
+feature behavior, and workflow scenarios are documented under `docs/` before
+server code is scaffolded.
 
-- `AGENTS.md`: shared defaults.
-- `.temp/backend-agents.md`: Go API rules.
-- `.temp/deno-agents.md`: Deno service rules.
-- `.temp/mobile-agents.md`: Expo React Native rules.
-- `.temp/web-agents.md`: React web rules.
-- `.temp/design-agents.md`: Figma and design-system rules.
-- `.temp/deploy-agents.md`: deployment planning rules.
-- `.temp/review-agents.md`: code and branch review rules.
-- `.temp/security-agents.md`: security and authorization review rules.
-- `.temp/process-agents.md`: engineering communication and process rules.
+## Project Goals
 
-## Skills
+- Provide a workspace-scoped catalog of introduced Codex agents and skills.
+- Support task-based lookup for relevant agents and skills.
+- Return structured MCP tool responses that Codex agents can consume
+  reliably.
+- Keep catalog data durable, local, and isolated by configured workspace
+  namespace.
 
-- `.temp/skills/catalog.md`: current vendored skill inventory.
-- `.temp/skills/packs/`: role-oriented skill suggestions.
-- `.temp/skills/_template/SKILL.md`: starter for personal skills.
-- `.temp/skills/<name>/SKILL.md`: vendored skill instructions.
-
-Copy the shared and relevant role files into a project, then adapt local paths
-and verification commands to that project. Skills remain optional and do not
-expand an agent's assigned folder or permissions.
-
-## Agentic Router Docs
+## Documentation
 
 - `docs/readme.md`: planning docs overview.
 - `docs/roadmap.md`: feature spec roadmap.
 - `docs/feature-specs/`: feature specification drafts and template.
 - `docs/use-cases/`: use case scenario drafts and template.
 - `docs/tech-specs/`: technical design drafts and template.
+
+## Repository Notes
+
+- `AGENTS.md`: repository-specific Codex operating instructions.
+- `.temp/`: local agent-supporting guidance and vendored skills used while
+  developing this repository.
+- Server implementation files have not been scaffolded yet.
