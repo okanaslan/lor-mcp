@@ -19,7 +19,7 @@ export interface HandoffMetadata {
 }
 
 export interface BaseCatalogEntry extends VerificationMetadata {
-  catalogNamespace: string;
+  workspace: string;
   entryType: EntryType;
   entryKey: string;
   projectName: string;
@@ -44,6 +44,7 @@ export interface SkillCatalogEntry extends BaseCatalogEntry {
 export type CatalogEntry = AgentCatalogEntry | SkillCatalogEntry;
 
 export interface IntroduceAgentInput {
+  workspace: string;
   codexSessionId: string;
   projectName: string;
   displayName: string;
@@ -53,6 +54,7 @@ export interface IntroduceAgentInput {
 }
 
 export interface IntroduceSkillInput {
+  workspace: string;
   skillName: string;
   projectName: string;
   displayName: string;
@@ -61,16 +63,19 @@ export interface IntroduceSkillInput {
 }
 
 export interface ListEntriesFilter {
+  workspace: string;
   entryType?: EntryType;
   projectName?: string;
 }
 
 export interface EntryLookup {
+  workspace: string;
   entryType: EntryType;
   entryKey: string;
 }
 
 export interface MatchRequest {
+  workspace: string;
   task: string;
   projectName?: string;
   preferredType?: EntryType;
@@ -118,25 +123,25 @@ export interface MatchResult {
 export interface CatalogRepository {
   initialize(): Promise<void>;
   createAgent(
-    namespace: string,
+    workspace: string,
     input: IntroduceAgentInput & {
       verification: VerificationMetadata;
       now: string;
     },
   ): Promise<AgentCatalogEntry>;
   createSkill(
-    namespace: string,
+    workspace: string,
     input: IntroduceSkillInput & {
       verification: VerificationMetadata;
       now: string;
     },
   ): Promise<SkillCatalogEntry>;
   listEntries(
-    namespace: string,
+    workspace: string,
     filter: ListEntriesFilter,
   ): Promise<CatalogEntry[]>;
   getEntry(
-    namespace: string,
+    workspace: string,
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined>;
   close(): void;

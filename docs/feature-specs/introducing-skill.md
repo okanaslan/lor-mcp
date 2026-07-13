@@ -4,13 +4,12 @@
 
 Implemented for v1. This feature lets a user introduce an existing Codex skill
 to the Agentic Router MCP Server by recording its skill name and routing
-metadata in durable storage scoped to the workspace catalog namespace.
+metadata in durable storage scoped to the workspace.
 
 ## 2. Goals
 
 - Allow users to introduce an existing Codex skill by skill name.
-- Store introduced skills in durable storage scoped to the workspace catalog
-  namespace.
+- Store introduced skills in durable storage scoped to the workspace.
 - Capture enough metadata to support later skill routing and catalog lookup.
 
 ## 3. Non-Goals
@@ -24,21 +23,22 @@ metadata in durable storage scoped to the workspace catalog namespace.
 
 - The server must accept an introduce-skill request for an existing Codex skill.
 - The request must include the skill name for the existing Codex skill.
+- The request must include the client workspace folder name or stable
+  workspace slug.
 - The request must include the project name the skill is focused on.
 - The request must include a human-readable display name.
 - The request must include one primary specialty.
 - The request must include specialty tags.
 - The server must reject requests missing any required field.
-- The server must associate the introduced skill with the resolved workspace
-  catalog namespace.
-- The server must reject a duplicate skill name within the same workspace
-  catalog namespace.
+- The server must associate the introduced skill with the client-supplied
+  workspace.
+- The server must reject a duplicate skill name within the same workspace.
 - The server may allow the same skill name to be introduced in different
-  workspace catalog namespaces.
+  workspaces.
 - The server must persist accepted skill records in durable storage.
-- The server must scope persisted skill records by workspace catalog namespace.
-- The server must prevent one workspace namespace from accessing another
-  namespace's introduced skill records.
+- The server must scope persisted skill records by workspace.
+- The server must prevent one workspace from accessing another
+  workspace's introduced skill records.
 - Fetching, listing, searching, and routing introduced skills must be handled by
   separate feature specs.
 
@@ -52,8 +52,7 @@ catalog for future routing decisions.
 
 Conceptual `IntroducedSkill` fields:
 
-- `catalogNamespace`: identifies the workspace catalog namespace that owns the
-  record.
+- `workspace`: identifies the client workspace that owns the record.
 - `skillName`: identifies the existing Codex skill.
 - `projectName`: names the project the skill is focused on.
 - `displayName`: provides a human-readable name for catalog display.
@@ -70,19 +69,17 @@ persistence implementation.
 
 - Missing required fields must return a validation error.
 - Missing or invalid MCP readiness context must return a session error.
-- Duplicate skill names within the same workspace catalog namespace must return
-  a duplicate error.
+- Duplicate skill names within the same workspace must return a duplicate
+  error.
 - Durable storage failures must return a storage error and must not report the
   skill as introduced.
 
 ## 8. Security and Permissions
 
-- Introduced skill records must be isolated by workspace catalog namespace.
-- A user must only be able to introduce records into the active workspace
-  catalog namespace.
-- A user must not be able to see, overwrite, or infer another workspace
-  namespace's introduced skill records through duplicate checks or error
-  responses.
+- Introduced skill records must be isolated by workspace.
+- A user must only be able to introduce records into the requested workspace.
+- A user must not be able to see, overwrite, or infer another workspace's
+  introduced skill records through duplicate checks or error responses.
 
 ## 9. Open Questions
 
@@ -103,7 +100,7 @@ persistence implementation.
 - 2026-07-11: Keep persistent storage abstract and defer database selection.
 - 2026-07-11: Keep fetching, listing, searching, and routing skills as separate
   feature specs.
-- 2026-07-13: Use the workspace catalog namespace as the durable storage scope
+- 2026-07-13: Use the client-supplied workspace as the durable storage scope
   and keep MCP session state as protocol readiness context.
 - 2026-07-13: Implement `introduce_skill` as non-blocking registration with
   `mcp_introduction` verification metadata.

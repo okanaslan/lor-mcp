@@ -102,7 +102,7 @@ When this tech spec is implemented as code, verification should include:
 - Introduced agents and skills are stored with
   `verificationSource: mcp_introduction`.
 - Missing required fields still return validation errors.
-- Duplicate checks remain namespace-local.
+- Duplicate checks remain workspace-local.
 - Matching can recommend introduced entries.
 - Runtime startup does not require pre-registration environment variables.
 

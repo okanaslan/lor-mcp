@@ -13,9 +13,8 @@ Implemented in the first runnable v1 slice:
 - Stdio fallback through `deno task run`.
 - URL-only Codex setup with `codex mcp add agentic-router --url
   http://127.0.0.1:8765/mcp`.
-- Server-owned local defaults for catalog namespace and SQLite storage under
-  `.agentic-router/`.
-- SQLite-backed durable catalog storage scoped by workspace namespace.
+- Server-owned local defaults for SQLite storage under `.agentic-router/`.
+- SQLite-backed durable catalog storage scoped by client-supplied `workspace`.
 - V1 MCP tools:
   - `introduce_agent`
   - `introduce_skill`
@@ -51,9 +50,8 @@ Latest implementation verification:
   Implemented for v1 deterministic local fuzzy matching.
 - [List Catalog Entries](feature-specs/list-catalog-entries.md): Implemented
   for v1 catalog inspection.
-- [Get Catalog Entry Detail](feature-specs/get-catalog-entry-detail.md): Draft.
-  Implemented for v1 detail lookup; the spec still needs wording refresh to
-  reflect the current namespace and HTTP runtime model.
+- [Get Catalog Entry Detail](feature-specs/get-catalog-entry-detail.md):
+  Implemented for v1 detail lookup.
 - [Update Catalog Entry](feature-specs/update-catalog-entry.md): Draft. Defines
   how users edit display and routing metadata for an introduced entry.
 - [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Draft. Defines
@@ -74,8 +72,8 @@ Latest implementation verification:
 
 ## Next
 
-- Refresh feature specs that still describe initialized-session-only scoping so
-  they match the current workspace namespace and Streamable HTTP runtime.
+- Keep feature specs aligned with client-supplied `workspace` scoping and the
+  Streamable HTTP runtime.
 - Add update and remove tools for catalog maintenance.
 - Decide whether import/export should land before richer recommendation
   explanation.

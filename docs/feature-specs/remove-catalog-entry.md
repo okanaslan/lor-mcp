@@ -3,12 +3,12 @@
 ## 1. Summary
 
 Draft. This feature lets a user remove an introduced agent or skill from the
-active workspace catalog namespace.
+requested workspace.
 
 ## 2. Goals
 
 - Allow users to delete catalog entries they no longer want routed.
-- Keep removal scoped to the active workspace catalog namespace.
+- Keep removal scoped to the requested workspace.
 - Preserve simple behavior for missing entries.
 
 ## 3. Non-Goals
@@ -54,7 +54,7 @@ Conceptual `CatalogEntryRemoval` fields:
 
 ## 8. Security and Permissions
 
-- Removal must only affect entries in the active workspace catalog namespace.
+- Removal must only affect entries in the requested workspace.
 - Not-found responses must not reveal whether the same identifier exists in
   another session.
 

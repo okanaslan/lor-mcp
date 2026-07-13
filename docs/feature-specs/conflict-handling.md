@@ -56,8 +56,7 @@ Conceptual `CatalogConflictResult` fields:
 
 ## 8. Security and Permissions
 
-- Conflict candidates must only come from the active workspace catalog
-  namespace.
+- Conflict candidates must only come from the requested workspace.
 - Conflict responses must not reveal entries from other sessions.
 
 ## 9. Open Questions

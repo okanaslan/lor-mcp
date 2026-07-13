@@ -3,7 +3,7 @@
 ## 1. Summary
 
 A Codex user registers an existing Codex agent for the current project so
-Agentic Router can recommend it for future tasks in the active workspace.
+Agentic Router can recommend it for future tasks in the requested workspace.
 
 ## 2. Actor
 
@@ -22,7 +22,7 @@ project, display, and specialty metadata.
 3. The user provides the Codex session ID and project-focused metadata.
 4. The current Codex agent calls Agentic Router MCP to introduce the agent.
 5. Agentic Router validates the required metadata.
-6. Agentic Router stores the agent in the active workspace catalog namespace.
+6. Agentic Router stores the agent in the requested workspace.
 7. The current Codex agent reports that the agent is available for future
    recommendations.
 

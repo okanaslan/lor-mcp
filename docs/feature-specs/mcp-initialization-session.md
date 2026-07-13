@@ -98,7 +98,7 @@ database schema.
   `create_session` tool.
 - 2026-07-10: Initially scoped catalog operations to the active initialized MCP
   session.
-- 2026-07-13: Use the workspace catalog namespace as the durable catalog scope
+- 2026-07-13: Use the workspace as the durable catalog scope
   while keeping MCP initialization as the readiness boundary.
 - 2026-07-10: Treat `clientInfo` as descriptive metadata only.
 - 2026-07-10: Defer user authentication and durable cross-session identity.

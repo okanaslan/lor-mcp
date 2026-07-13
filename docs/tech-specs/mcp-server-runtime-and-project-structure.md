@@ -70,11 +70,12 @@ connect it to stdio, and report fatal startup failures to stderr. Neither
 entrypoint should contain catalog matching, storage, or tool-specific business
 logic.
 
-Server configuration should have local defaults so Codex client configuration
-only needs the HTTP URL. Environment variables remain server-side overrides:
-namespace defaults to the current workspace directory name, storage defaults to
-`.agentic-router/catalog.db`, and introduction tools register supplied agent or
-skill metadata directly without requiring server-side pre-registration files.
+Server configuration should have local storage and transport defaults so Codex
+client configuration only needs the HTTP URL. Environment variables remain
+server-side overrides for storage, host, and port. Catalog workspace scope must
+come from the client-supplied `workspace` tool input, and introduction tools
+register supplied agent or skill metadata directly without requiring
+server-side pre-registration files.
 
 MCP tools should use Zod schemas for input validation. Tool modules should adapt
 MCP requests into catalog/session domain calls and return MCP-compatible
@@ -169,5 +170,7 @@ checking the docs tree, running `git diff --check`, and checking git status.
   deployment to separate specs.
 - 2026-07-13: Add manual local Streamable HTTP as the primary Codex connection
   mode and keep stdio as a fallback.
-- 2026-07-13: Use server-owned local defaults so Codex client configuration only
-  needs the MCP URL.
+- 2026-07-13: Use server-owned local transport and storage defaults so Codex
+  client configuration only needs the MCP URL.
+- 2026-07-13: Keep catalog workspace scope in client-supplied tool input
+  instead of server configuration.

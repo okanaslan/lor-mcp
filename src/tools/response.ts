@@ -12,7 +12,6 @@ const UNSAFE_DETAIL_KEYS = new Set([
   "path",
   "dbPath",
   "namespace",
-  "catalogNamespace",
   "stack",
   "sql",
 ]);

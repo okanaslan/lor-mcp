@@ -28,7 +28,7 @@ represented in returned candidates.
 - Keep explanations deterministic and testable.
 - Provide enough signal data for Codex agents to summarize decisions to users.
 - Avoid leaking non-returned catalog entries.
-- Avoid leaking entries from other catalog namespaces.
+- Avoid leaking entries from other workspaces.
 - Keep explanation behavior inline with `find_matching_catalog_entry`.
 
 ## 4. Non-Goals
@@ -69,7 +69,7 @@ only visible candidate data and matched signals. Summary text must not mention:
 
 - Rejected candidates.
 - Hidden candidates.
-- Entries from other catalog namespaces.
+- Entries from other workspaces.
 - Private storage or session identifiers.
 - Internal DB paths or configuration values.
 
@@ -121,7 +121,7 @@ matcher did not provide.
 
 Confidence thresholds should be derived from deterministic match scores during
 implementation. Exact thresholds remain open, but returned candidates must not
-use confidence to hide cross-namespace data or rejected candidate details.
+use confidence to hide cross-workspace data or rejected candidate details.
 
 ## 8. Risks and Tradeoffs
 
@@ -145,7 +145,7 @@ When this tech spec is implemented as code, verification should include:
 - Explanation summaries are deterministic for the same inputs.
 - Explanations only reference matched fields and signals from visible returned
   candidates.
-- Cross-namespace entries never appear in summaries, fields, signals, or
+- Cross-workspace entries never appear in summaries, fields, signals, or
   candidate explanation metadata.
 
 For this documentation change, verification is limited to reading back the

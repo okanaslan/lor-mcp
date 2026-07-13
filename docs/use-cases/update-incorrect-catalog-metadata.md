@@ -22,8 +22,8 @@ update the entry through Agentic Router MCP.
 2. The user provides the corrected metadata.
 3. The current Codex agent calls Agentic Router MCP to update the catalog entry.
 4. Agentic Router validates the update.
-5. Agentic Router updates only editable metadata in the active workspace
-   catalog namespace.
+5. Agentic Router updates only editable metadata in the requested workspace
+   workspace.
 6. The current Codex agent reports the updated catalog entry to the user.
 
 ## 5. Expected Outcome

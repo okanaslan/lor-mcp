@@ -24,7 +24,7 @@ initialized MCP session from an approved import source.
 - The server must parse import data into agent and skill catalog entries.
 - Imported entries must follow the same required metadata rules as manual
   introduction.
-- Imported entries must be scoped to the active workspace catalog namespace.
+- Imported entries must be scoped to the requested workspace.
 - Duplicate entries within the active session must be rejected or reported.
 - The server must return a summary of imported, skipped, and failed entries.
 - The server must not import entries into another initialized MCP session.
@@ -58,8 +58,7 @@ Conceptual `CatalogImportResult` fields:
 ## 8. Security and Permissions
 
 - Import sources must be restricted to approved local or configured locations.
-- Imported entries must be scoped only to the active workspace catalog
-  namespace.
+- Imported entries must be scoped only to the requested workspace.
 - Import errors must not expose sensitive filesystem paths or unrelated session
   data.
 

@@ -1,8 +1,7 @@
 import { AgenticRouterError } from "@src/errors.ts";
-import { basename, dirname, join } from "@std/path";
+import { dirname, join } from "@std/path";
 
 export interface AgenticRouterConfig {
-  catalogNamespace: string;
   dbPath: string;
 }
 
@@ -23,14 +22,10 @@ export function loadConfig(
 ): AgenticRouterConfig {
   const cwd = options.cwd ?? Deno.cwd();
   const dataDir = join(cwd, ".agentic-router");
-  const catalogNamespace =
-    optionalEnv(env, "AGENTIC_ROUTER_CATALOG_NAMESPACE") ??
-      defaultCatalogNamespace(cwd);
   const dbPath = optionalEnv(env, "AGENTIC_ROUTER_DB_PATH") ??
     join(dataDir, "catalog.db");
 
   return {
-    catalogNamespace,
     dbPath,
   };
 }
@@ -61,9 +56,6 @@ export async function prepareConfigStorage(
 
 function readDenoEnv(): Env {
   return {
-    AGENTIC_ROUTER_CATALOG_NAMESPACE: Deno.env.get(
-      "AGENTIC_ROUTER_CATALOG_NAMESPACE",
-    ),
     AGENTIC_ROUTER_DB_PATH: Deno.env.get("AGENTIC_ROUTER_DB_PATH"),
     AGENTIC_ROUTER_HOST: Deno.env.get("AGENTIC_ROUTER_HOST"),
     AGENTIC_ROUTER_PORT: Deno.env.get("AGENTIC_ROUTER_PORT"),
@@ -73,8 +65,4 @@ function readDenoEnv(): Env {
 function optionalEnv(env: Env, name: string): string | undefined {
   const value = env[name]?.trim();
   return value ? value : undefined;
-}
-
-function defaultCatalogNamespace(cwd: string): string {
-  return basename(cwd) || "default";
 }

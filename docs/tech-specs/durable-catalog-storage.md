@@ -6,24 +6,24 @@ Draft. This tech spec defines v1 durable storage for Agentic Router catalog
 records using SQLite in a configured local database file.
 
 The storage layer must persist introduced agents and skills across MCP
-reconnects and server restarts while keeping records isolated by the configured
-catalog namespace.
+reconnects and server restarts while keeping records isolated by the
+client-supplied workspace.
 
 ## 2. Context
 
 Agentic Router v1 is a Deno TypeScript MCP server with local Streamable HTTP as
 the primary Codex connection mode and stdio as a fallback. Session identity and
-catalog scoping use a workspace catalog namespace as the durable catalog scope.
+catalog scoping use a workspace as the durable catalog scope.
 
 The catalog storage layer must support introducing agents and skills,
-namespace-local duplicate checks, listing, detail lookup, matching, update,
+workspace-local duplicate checks, listing, detail lookup, matching, update,
 remove, import/export, and catalog health checks. The storage design should
 keep catalog domain logic independent from MCP transport code.
 
 ## 3. Goals
 
 - Persist introduced agents and skills across reconnects and restarts.
-- Enforce namespace-local catalog isolation.
+- Enforce workspace-local catalog isolation.
 - Support duplicate constraints for agent Codex session IDs.
 - Support duplicate constraints for skill names.
 - Keep SQLite-specific behavior isolated from MCP tool handlers.
@@ -58,12 +58,12 @@ The v1 schema should use separate catalog tables:
 - `introduced_agents`: stores introduced Codex agents.
 - `introduced_skills`: stores introduced Codex skills.
 
-Each table must include `catalogNamespace` from the resolved workspace
-namespace. All catalog reads and writes must filter by `catalogNamespace`.
+Each table must include the client-supplied `workspace`. All catalog reads and
+writes must filter by `workspace`.
 
 `introduced_agents` should store:
 
-- `catalogNamespace`
+- `workspace`
 - `codexSessionId`
 - `projectName`
 - `displayName`
@@ -74,7 +74,7 @@ namespace. All catalog reads and writes must filter by `catalogNamespace`.
 
 `introduced_skills` should store:
 
-- `catalogNamespace`
+- `workspace`
 - `skillName`
 - `projectName`
 - `displayName`
@@ -87,19 +87,19 @@ namespace. All catalog reads and writes must filter by `catalogNamespace`.
 schema simple while preserving the option to normalize tags later if matching
 or filtering requires it.
 
-Namespace-local unique constraints must prevent duplicates:
+Workspace-local unique constraints must prevent duplicates:
 
-- Agents: unique `(catalogNamespace, codexSessionId)`.
-- Skills: unique `(catalogNamespace, skillName)`.
+- Agents: unique `(workspace, codexSessionId)`.
+- Skills: unique `(workspace, skillName)`.
 
 Remove operations should hard-delete records. After deletion, list, detail,
 match, update, export, and health operations must behave as though the record
-does not exist in that namespace.
+does not exist in that workspace.
 
 ## 6. Alternatives Considered
 
 JSON file storage was considered. It was not chosen because duplicate
-constraints, updates, import transactions, and namespace filtering become
+constraints, updates, import transactions, and workspace filtering become
 fragile as catalog operations expand.
 
 Deno KV was considered. It was not chosen because SQLite is more portable as a
@@ -152,11 +152,11 @@ When this tech spec is implemented as code, verification should include:
 
 - Missing `AGENTIC_ROUTER_DB_PATH` uses `.agentic-router/catalog.db`.
 - Schema initializes on an empty SQLite database.
-- Duplicate agent Codex session IDs are rejected within one namespace.
-- Duplicate skill names are rejected within one namespace.
-- The same agent or skill references are allowed across different namespaces.
+- Duplicate agent Codex session IDs are rejected within one workspace.
+- Duplicate skill names are rejected within one workspace.
+- The same agent or skill references are allowed across different workspaces.
 - List, detail, match, update, remove, export, and health checks never cross
-  namespace boundaries.
+  workspace boundaries.
 - Hard delete removes entries from later list, detail, match, and export
   results.
 - Import writes use transactions enough to avoid partially corrupted records on
@@ -180,7 +180,7 @@ status.
 - 2026-07-12: Use SQLite as the v1 durable catalog storage engine.
 - 2026-07-12: Use `AGENTIC_ROUTER_DB_PATH` as the configured SQLite database
   file path.
-- 2026-07-12: Use `catalogNamespace` on every catalog table for storage
+- 2026-07-12: Use `workspace` on every catalog table for storage
   isolation.
 - 2026-07-12: Use separate `introduced_agents` and `introduced_skills` tables.
 - 2026-07-12: Store `specialtyTags` as JSON text for v1.
@@ -189,3 +189,5 @@ status.
   schema version in SQLite.
 - 2026-07-13: Default SQLite storage to `.agentic-router/catalog.db` and keep
   `AGENTIC_ROUTER_DB_PATH` as a server-side override.
+- 2026-07-13: Rename legacy storage scope to client-supplied `workspace`, with
+  migration for existing local databases.

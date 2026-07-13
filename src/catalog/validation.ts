@@ -9,6 +9,7 @@ export function validateIntroduceAgent(
   input: IntroduceAgentInput,
 ): IntroduceAgentInput {
   return {
+    workspace: requireString(input.workspace, "workspace"),
     codexSessionId: requireString(input.codexSessionId, "codexSessionId"),
     projectName: requireString(input.projectName, "projectName"),
     displayName: requireString(input.displayName, "displayName"),
@@ -22,12 +23,17 @@ export function validateIntroduceSkill(
   input: IntroduceSkillInput,
 ): IntroduceSkillInput {
   return {
+    workspace: requireString(input.workspace, "workspace"),
     skillName: requireString(input.skillName, "skillName"),
     projectName: requireString(input.projectName, "projectName"),
     displayName: requireString(input.displayName, "displayName"),
     primarySpecialty: requireString(input.primarySpecialty, "primarySpecialty"),
     specialtyTags: requireTags(input.specialtyTags),
   };
+}
+
+export function validateWorkspace(workspace: string): string {
+  return requireString(workspace, "workspace");
 }
 
 function requireString(value: string, field: string): string {

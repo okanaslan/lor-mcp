@@ -6,8 +6,8 @@ Draft. This tech spec defines how Agentic Router scopes catalog records across
 local HTTP and stdio v1 runtimes.
 
 Catalog records should survive MCP reconnects and server restarts for the same
-workspace. To support that, v1 uses a resolved workspace catalog namespace as
-the durable catalog scope.
+client workspace. To support that, v1 uses a client-supplied `workspace` value
+as the durable catalog scope.
 
 ## 2. Context
 
@@ -28,8 +28,8 @@ cases describe the catalog as belonging to the current project or workspace.
 ## 3. Goals
 
 - Define stable workspace catalog scoping for local HTTP and stdio v1.
-- Preserve catalog records across reconnects for the same configured workspace
-  namespace.
+- Preserve catalog records across reconnects for the same client-supplied
+  workspace.
 - Keep MCP initialization as the readiness boundary for catalog tools.
 - Prevent accidental cross-workspace catalog mixing.
 - Avoid treating MCP `clientInfo` as identity or access control.
@@ -44,34 +44,33 @@ cases describe the catalog as belonging to the current project or workspace.
 
 ## 5. Proposed Design
 
-Agentic Router v1 should use a workspace catalog namespace for durable catalog
-ownership. The namespace defaults to the current workspace directory name and
-can be overridden with `AGENTIC_ROUTER_CATALOG_NAMESPACE`.
+Agentic Router v1 should use a client-supplied `workspace` value for durable
+catalog ownership. The caller should pass the client workspace folder name, or
+another stable client-chosen workspace slug, with every catalog tool request.
 
 After MCP initialization completes, the active request context combines:
 
 - `connectionId`: a process-local identifier for the initialized MCP
   connection.
 - `mcpSessionId`: HTTP transport session ID when running over Streamable HTTP.
-- `catalogNamespace`: the configured stable workspace namespace.
+- `workspace`: the client-supplied stable workspace.
 - `clientInfo`: descriptive client metadata received during initialization.
 
-Catalog records are stored and queried by `catalogNamespace`, not by
+Catalog records are stored and queried by `workspace`, not by
 `clientInfo`. `clientInfo` may be recorded for diagnostics, but it must not be
 used as authentication, authorization, or durable catalog identity.
 
-Catalog tools must reject calls before MCP initialization completes. The server
-must not silently create a global default namespace or an ephemeral namespace
-for catalog operations.
+Catalog tools must reject calls before MCP initialization completes. Tool input
+validation must reject a missing or empty `workspace`.
 
 All catalog operations that read or write records must filter by
-`catalogNamespace`, including duplicate checks, list, detail, match, update,
+`workspace`, including duplicate checks, list, detail, match, update,
 remove, import, export, and health checks when those tools exist.
 
-When the MCP server reconnects or restarts with the same namespace, it should
-read the same durable catalog records. When the server starts with a different
-namespace, it must not list, match, update, remove, or infer records from the
-other namespace.
+When a client reconnects or the server restarts and the caller sends the same
+`workspace`, the server should read the same durable catalog records. When the
+caller sends a different `workspace`, the server must not list, match, update,
+remove, or infer records from the other workspace.
 
 ## 6. Alternatives Considered
 
@@ -87,54 +86,45 @@ Deriving scope from the process working directory was considered. It was not
 chosen because launch contexts can vary and may not reliably represent the
 intended workspace.
 
-Creating a global default namespace when configuration is missing was
-considered. It was not chosen because it can silently mix unrelated workspace
-catalogs. The implemented default is derived from the workspace directory name,
-which keeps client setup simple without using a shared global namespace.
+Deriving workspace scope from server configuration or server current working
+directory was considered. It was rejected because catalog scope is user data
+from the client workspace, not static server state.
 
 ## 7. Implementation Notes
 
-Future code should expose a small session module that resolves the active
-catalog scope for tool handlers. Tool handlers should call this module instead
-of reading environment variables or initialization metadata directly.
+Tool handlers should accept `workspace` through each tool input schema and pass
+it to catalog domain and repository functions. They must not read workspace
+scope from environment variables, server cwd, or initialization metadata.
 
-The Deno run and serve tasks should grant environment access for
-`AGENTIC_ROUTER_CATALOG_NAMESPACE` when env access is needed. The namespace
-value is configuration, not a secret.
+The workspace value should be documented as client-specific, stable, and
+user-chosen. A practical value is the client's workspace folder name.
 
-The namespace should be documented as workspace-specific, stable, and
-user-chosen. A practical namespace value may be a short project slug or another
-stable workspace identifier selected by the user.
+Storage code should treat `workspace` as part of every catalog record's
+ownership boundary. Duplicate detection must be workspace-local.
 
-Storage code should treat `catalogNamespace` as part of every catalog record's
-ownership boundary. Duplicate detection must be namespace-local.
-
-Setup/session errors caused by a missing namespace should be explicit enough
-for the caller to fix MCP configuration without revealing records from any
-other namespace.
+Validation errors caused by a missing workspace should be explicit enough for
+the caller to resend the tool call with the client workspace folder name
+without revealing records from any other workspace.
 
 ## 8. Risks and Tradeoffs
 
-- Misconfigured duplicate namespaces can mix catalogs across workspaces.
-- The workspace-derived default reduces setup but can be wrong if the server is
-  launched from the wrong directory.
-- Explicit namespace override remains available for stable multi-workspace
-  setups.
-- The v1 namespace is not authentication; future multi-user deployments need a
+- Misconfigured duplicate workspace values can mix catalogs across workspaces.
+- Requiring the client to provide workspace increases tool input verbosity but
+  avoids depending on server launch context.
+- The v1 workspace value is not authentication; future multi-user deployments need a
   stronger identity and authorization model.
 
 ## 9. Verification Plan
 
 When this tech spec is implemented as code, verification should include:
 
-- Missing `AGENTIC_ROUTER_CATALOG_NAMESPACE` falls back to the workspace
-  directory name.
+- Missing tool-input `workspace` returns a validation error.
 - Catalog calls before MCP initialization fail.
-- Reconnecting with the same namespace can read prior durable records.
-- Different namespaces cannot list, match, update, remove, or infer each
+- Reconnecting with the same workspace can read prior durable records.
+- Different workspaces cannot list, match, update, remove, or infer each
   other's records.
-- Changing `clientInfo` does not change catalog scope when the namespace is
-  unchanged.
+- Changing `clientInfo` does not change catalog scope when the tool-input
+  workspace is unchanged.
 
 For this documentation change, verification is limited to reading back the
 spec, checking the docs tree, running `git diff --check`, and checking git
@@ -142,19 +132,19 @@ status.
 
 ## 10. Open Questions
 
-- Should namespace format be free-form or restricted later?
-- Should future import/export include the namespace or require an explicit
-  target namespace?
-- Should a diagnostics tool report the active namespace without exposing
+- Should workspace format be free-form or restricted later?
+- Should future import/export include workspace or require an explicit target
+  workspace?
+- Should a diagnostics tool report the requested workspace without exposing
   catalog data?
 
 ## 11. Decision Log
 
 - 2026-07-12: Preserve catalog entries across MCP reconnects and restarts for
   the same workspace.
-- 2026-07-12: Use `AGENTIC_ROUTER_CATALOG_NAMESPACE` as the durable v1 catalog
-  scope for stdio.
-- 2026-07-12: Fail catalog tools when the namespace is missing instead of using
+- 2026-07-12: Earlier stdio planning used a server-configured durable catalog
+  scope.
+- 2026-07-12: Fail catalog tools when the workspace is missing instead of using
   a global or ephemeral scope.
 - 2026-07-12: Keep MCP initialization as the readiness boundary for catalog
   tools.
@@ -162,5 +152,7 @@ status.
   access control.
 - 2026-07-13: Use local Streamable HTTP sessions for HTTP routing while keeping
   durable catalog scope independent from the protocol session ID.
-- 2026-07-13: Default namespace to the workspace directory name and keep
-  `AGENTIC_ROUTER_CATALOG_NAMESPACE` as a server-side override.
+- 2026-07-13: Earlier implementation defaulted workspace to the server
+  workspace directory name and kept a server-side override.
+- 2026-07-13: Replace server-derived catalog scope with required
+  client-supplied `workspace` tool input.

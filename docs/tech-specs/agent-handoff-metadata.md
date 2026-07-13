@@ -27,7 +27,7 @@ tools may edit it.
 - Keep handoff guidance deterministic and user-owned.
 - Avoid inventing unsupported agent-to-agent communication behavior.
 - Keep matching responses compact.
-- Keep handoff metadata namespace-scoped with the agent record.
+- Keep handoff metadata workspace-scoped with the agent record.
 
 ## 4. Non-Goals
 
@@ -99,7 +99,7 @@ handoff guidance.
 ## 7. Implementation Notes
 
 For v1 storage, handoff metadata can be stored as structured JSON on the agent
-record. The storage design should keep it scoped by the same catalog namespace
+record. The storage design should keep it scoped by the same workspace
 as the rest of the agent record.
 
 `introduce_agent` may accept an optional `handoff` object. Missing handoff
@@ -138,7 +138,7 @@ When this tech spec is implemented as code, verification should include:
 - Skill detail does not include handoff metadata.
 - Match results omit full handoff metadata.
 - Stored templates preserve supported placeholders.
-- Handoff metadata remains namespace-scoped with the agent record.
+- Handoff metadata remains workspace-scoped with the agent record.
 
 For this documentation change, verification is limited to reading back the
 spec, checking the docs tree, running `git diff --check`, and checking git

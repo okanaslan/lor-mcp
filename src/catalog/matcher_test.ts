@@ -3,7 +3,7 @@ import { findCatalogMatches } from "@src/catalog/matcher.ts";
 import type { CatalogEntry } from "@src/catalog/types.ts";
 
 const baseEntry = {
-  catalogNamespace: "workspace-a",
+  workspace: "Agentic-Router",
   projectName: "Agentic Router",
   specialtyTags: ["routing", "mcp"],
   verificationStatus: "verified",
@@ -34,6 +34,7 @@ Deno.test("findCatalogMatches returns separate ranked agent and skill lists", ()
   ];
 
   const result = findCatalogMatches(entries, {
+    workspace: "Agentic-Router",
     task: "Implement a backend API route",
   });
 
@@ -54,6 +55,7 @@ Deno.test("findCatalogMatches filters by project and returns no_match", () => {
       primarySpecialty: "backend api",
     },
   ], {
+    workspace: "Agentic-Router",
     task: "Implement a backend API route",
     projectName: "Other Project",
   });

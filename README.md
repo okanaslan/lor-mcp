@@ -15,8 +15,7 @@ development fallback. Product and technical planning remain documented under
 - Provide a workspace-scoped catalog of introduced Codex agents and skills.
 - Support task-based lookup for relevant agents and skills.
 - Return structured MCP tool responses that Codex agents can consume reliably.
-- Keep catalog data durable, local, and isolated by configured workspace
-  namespace.
+- Keep catalog data durable, local, and isolated by client-supplied workspace.
 
 ## Documentation
 
@@ -47,14 +46,16 @@ Equivalent Codex config:
 url = "http://127.0.0.1:8765/mcp"
 ```
 
-Server-owned defaults are used when no environment variables are set:
+Server-owned storage defaults are used when no environment variables are set:
 
-- Catalog namespace: current workspace directory name.
 - SQLite database: `.agentic-router/catalog.db`.
+
+Catalog tools require a `workspace` input supplied by the client. Use the
+client workspace folder name, such as `Agentic-Router`, unless the caller has a
+more stable workspace slug.
 
 Optional server-side environment overrides:
 
-- `AGENTIC_ROUTER_CATALOG_NAMESPACE`: stable workspace catalog namespace.
 - `AGENTIC_ROUTER_DB_PATH`: local SQLite database path.
 - `AGENTIC_ROUTER_HOST`: local HTTP host, default `127.0.0.1`.
 - `AGENTIC_ROUTER_PORT`: local HTTP port, default `8765`.

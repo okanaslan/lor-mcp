@@ -12,7 +12,8 @@ Deno.test("CatalogService introduces agents without registry pre-registration", 
     now: () => "2026-07-12T00:00:00.000Z",
   });
 
-  const created = await service.introduceAgent("workspace-a", {
+  const created = await service.introduceAgent({
+    workspace: "Agentic-Router",
     codexSessionId: "agent-1",
     projectName: "Agentic Router",
     displayName: "Backend Agent",
@@ -27,7 +28,8 @@ Deno.test("CatalogService introduces agents without registry pre-registration", 
     },
   });
 
-  const detail = await service.getEntryDetail("workspace-a", {
+  const detail = await service.getEntryDetail({
+    workspace: "Agentic-Router",
     entryType: "agent",
     entryKey: "agent-1",
   });
@@ -51,7 +53,8 @@ Deno.test("CatalogService introduces skills without skill root pre-registration"
     now: () => "2026-07-12T00:00:00.000Z",
   });
 
-  const created = await service.introduceSkill("workspace-a", {
+  const created = await service.introduceSkill({
+    workspace: "Agentic-Router",
     skillName: "missing-skill",
     projectName: "Agentic Router",
     displayName: "Missing Skill",
@@ -59,7 +62,7 @@ Deno.test("CatalogService introduces skills without skill root pre-registration"
     specialtyTags: ["api"],
   });
 
-  const entries = await service.listEntries("workspace-a", {});
+  const entries = await service.listEntries({ workspace: "Agentic-Router" });
   assertEquals(created.verificationStatus, "verified");
   assertEquals(created.verificationSource, "mcp_introduction");
   assertEquals(entries.map((entry) => entry.entryKey), ["missing-skill"]);

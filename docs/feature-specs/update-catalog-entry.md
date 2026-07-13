@@ -3,13 +3,13 @@
 ## 1. Summary
 
 Draft. This feature lets a user update editable metadata for an introduced
-agent or skill in the active workspace catalog namespace.
+agent or skill in the requested workspace.
 
 ## 2. Goals
 
 - Allow correction of catalog metadata after introduction.
 - Preserve stable entry identity while editing display and routing fields.
-- Keep updates isolated to the active workspace catalog namespace.
+- Keep updates isolated to the requested workspace.
 
 ## 3. Non-Goals
 
@@ -61,7 +61,7 @@ Conceptual `CatalogEntryUpdate` fields:
 
 ## 8. Security and Permissions
 
-- Updates must only affect entries in the active workspace catalog namespace.
+- Updates must only affect entries in the requested workspace.
 - Not-found responses must not reveal whether the same identifier exists in
   another session.
 

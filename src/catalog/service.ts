@@ -12,6 +12,7 @@ import {
 import {
   validateIntroduceAgent,
   validateIntroduceSkill,
+  validateWorkspace,
 } from "@src/catalog/validation.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
 import { AgenticRouterError } from "@src/errors.ts";
@@ -31,12 +32,11 @@ export class CatalogService {
   }
 
   async introduceAgent(
-    namespace: string,
     input: IntroduceAgentInput,
   ): Promise<CatalogEntry> {
     const validated = validateIntroduceAgent(input);
     const now = this.#now();
-    return await this.#repository.createAgent(namespace, {
+    return await this.#repository.createAgent(validated.workspace, {
       ...validated,
       verification: introductionVerification(now),
       now,
@@ -44,12 +44,11 @@ export class CatalogService {
   }
 
   async introduceSkill(
-    namespace: string,
     input: IntroduceSkillInput,
   ): Promise<CatalogEntry> {
     const validated = validateIntroduceSkill(input);
     const now = this.#now();
-    return await this.#repository.createSkill(namespace, {
+    return await this.#repository.createSkill(validated.workspace, {
       ...validated,
       verification: introductionVerification(now),
       now,
@@ -57,31 +56,39 @@ export class CatalogService {
   }
 
   async listEntries(
-    namespace: string,
     filter: ListEntriesFilter,
   ): Promise<CatalogEntry[]> {
-    return await this.#repository.listEntries(namespace, filter);
+    const workspace = validateWorkspace(filter.workspace);
+    return await this.#repository.listEntries(workspace, {
+      ...filter,
+      workspace,
+    });
   }
 
   async getEntryDetail(
-    namespace: string,
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined> {
-    return await this.#repository.getEntry(namespace, lookup);
+    const workspace = validateWorkspace(lookup.workspace);
+    return await this.#repository.getEntry(workspace, {
+      ...lookup,
+      workspace,
+    });
   }
 
   async findMatchingEntries(
-    namespace: string,
     request: MatchRequest,
   ): Promise<MatchResult> {
+    const workspace = validateWorkspace(request.workspace);
     if (!request.task?.trim()) {
       throw new AgenticRouterError("validation_error", "task is required.", {
         field: "task",
       });
     }
 
-    const entries = await this.#repository.listEntries(namespace, {});
-    return findCatalogMatches(entries, request);
+    const entries = await this.#repository.listEntries(workspace, {
+      workspace,
+    });
+    return findCatalogMatches(entries, { ...request, workspace });
   }
 }
 

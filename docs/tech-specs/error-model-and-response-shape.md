@@ -6,7 +6,7 @@ Draft. This tech spec defines the v1 MCP response envelope, error model,
 `isError` behavior, and SDK `outputSchema` usage for Agentic Router tools.
 
 The goal is to keep every tool response predictable for Codex agents while
-keeping error output safe, concise, and namespace-isolated.
+keeping error output safe, concise, and workspace-isolated.
 
 ## 2. Context
 
@@ -82,7 +82,7 @@ Error responses must not expose:
 
 - Absolute filesystem paths.
 - Environment variable values.
-- Catalog namespace values.
+- Catalog workspace values.
 - Hidden catalog entries.
 - Cross-session information.
 - Stack traces.
@@ -134,8 +134,8 @@ Expected failure mapping:
 - Zod or input issues map to `validation_error`.
 - Uninitialized MCP lifecycle or invalid request context maps to
   `session_error`.
-- Missing namespace or database path maps to `setup_error`.
-- Duplicate namespace-local catalog references map to `duplicate_entry`.
+- Missing workspace or database path maps to `setup_error`.
+- Duplicate workspace-local catalog references map to `duplicate_entry`.
 - Missing requested catalog detail entries map to `not_found`.
 - SQLite read or write failures map to `storage_error`.
 - Unexpected uncaught failures map to `internal_error` with a sanitized message.
@@ -162,7 +162,7 @@ When this tech spec is implemented as code, verification should include:
 - `status: error` responses set `isError: true`.
 - Each expected failure maps to the correct stable error code.
 - Error details never include filesystem paths, environment values, stack
-  traces, SQL, namespace values, hidden entries, or cross-session data.
+  traces, SQL, workspace values, hidden entries, or cross-session data.
 - Unexpected exceptions become sanitized `internal_error` responses.
 - Text `content` summarizes the structured result without replacing it.
 

@@ -13,7 +13,7 @@ testable without LLMs, embeddings, or a fuzzy-search dependency.
 
 The v1 MCP tool surface exposes `find_matching_catalog_entry`. Durable storage
 uses separate agent and skill tables, and all matching must remain scoped to
-the active catalog namespace.
+the requested workspace.
 
 The current Find Matching Catalog Entry feature spec describes returning a
 single best catalog entry. The intended v1 behavior is broader: return ranked
@@ -25,7 +25,7 @@ feature spec should be aligned in a later pass.
 - Provide predictable local matching without external AI services.
 - Support routing to agents and skill discovery in one request.
 - Return enough matching signals for future recommendation explanation.
-- Keep matching scoped to the active catalog namespace.
+- Keep matching scoped to the requested workspace.
 - Keep the algorithm deterministic and easy to unit test.
 
 ## 4. Non-Goals
@@ -33,7 +33,7 @@ feature spec should be aligned in a later pass.
 - Add embedding search.
 - Add LLM-based ranking.
 - Add learning from usage history.
-- Match across catalog namespaces.
+- Match across workspaces.
 - Define the final recommendation explanation contract.
 - Add a fuzzy-search dependency.
 
@@ -124,7 +124,7 @@ skills.
 ## 7. Implementation Notes
 
 Matching should live in catalog domain code, not in MCP tool handlers or SQLite
-query code. Storage should return namespace-scoped candidate records, then the
+query code. Storage should return workspace-scoped candidate records, then the
 matcher should score them in memory for v1.
 
 Score values should be deterministic numeric values. The exact constants can be
@@ -161,7 +161,7 @@ When this tech spec is implemented as code, verification should include:
 - No matching entries returns `status: no_match`.
 - Multiple matching skills are returned as a ranked list.
 - Multiple top agents are marked ambiguous instead of silently picking one.
-- Results never include entries outside the active namespace.
+- Results never include entries outside the requested workspace.
 - Candidate metadata includes score, matched fields, and matched signals.
 
 For this documentation change, verification is limited to reading back the

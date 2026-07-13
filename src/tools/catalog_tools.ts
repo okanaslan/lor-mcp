@@ -40,10 +40,7 @@ export function registerCatalogTools(
     },
     (input: IntroduceAgentToolInput) =>
       withRuntime(runtimeFactory, async (runtime) => {
-        const entry = await runtime.service.introduceAgent(
-          runtime.catalogNamespace,
-          input,
-        );
+        const entry = await runtime.service.introduceAgent(input);
         return okResult(entry, `Introduced agent ${entry.displayName}.`);
       }),
   );
@@ -57,10 +54,7 @@ export function registerCatalogTools(
     },
     (input: IntroduceSkillToolInput) =>
       withRuntime(runtimeFactory, async (runtime) => {
-        const entry = await runtime.service.introduceSkill(
-          runtime.catalogNamespace,
-          input,
-        );
+        const entry = await runtime.service.introduceSkill(input);
         return okResult(entry, `Introduced skill ${entry.displayName}.`);
       }),
   );
@@ -74,10 +68,7 @@ export function registerCatalogTools(
     },
     (input: ListCatalogEntriesToolInput) =>
       withRuntime(runtimeFactory, async (runtime) => {
-        const entries = await runtime.service.listEntries(
-          runtime.catalogNamespace,
-          input,
-        );
+        const entries = await runtime.service.listEntries(input);
         return okResult(
           { entries },
           `Found ${entries.length} catalog entries.`,
@@ -94,10 +85,7 @@ export function registerCatalogTools(
     },
     (input: GetCatalogEntryDetailToolInput) =>
       withRuntime(runtimeFactory, async (runtime) => {
-        const entry = await runtime.service.getEntryDetail(
-          runtime.catalogNamespace,
-          input,
-        );
+        const entry = await runtime.service.getEntryDetail(input);
         if (!entry) {
           throw new AgenticRouterError(
             "not_found",
@@ -118,10 +106,7 @@ export function registerCatalogTools(
     },
     (input: FindMatchingCatalogEntryToolInput) =>
       withRuntime(runtimeFactory, async (runtime) => {
-        const result = await runtime.service.findMatchingEntries(
-          runtime.catalogNamespace,
-          input,
-        );
+        const result = await runtime.service.findMatchingEntries(input);
         if (result.status === "no_match") {
           return statusResult("no_match", result.data, "No matching entries.");
         }

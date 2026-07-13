@@ -10,7 +10,10 @@ export const handoffSchema = z.object({
   constraints: z.array(z.string().trim().min(1)),
 });
 
+export const workspaceSchema = z.string().trim().min(1);
+
 export const introduceAgentInputSchema = z.object({
+  workspace: workspaceSchema,
   codexSessionId: z.string().trim().min(1),
   projectName: z.string().trim().min(1),
   displayName: z.string().trim().min(1),
@@ -20,6 +23,7 @@ export const introduceAgentInputSchema = z.object({
 });
 
 export const introduceSkillInputSchema = z.object({
+  workspace: workspaceSchema,
   skillName: z.string().trim().min(1),
   projectName: z.string().trim().min(1),
   displayName: z.string().trim().min(1),
@@ -28,16 +32,19 @@ export const introduceSkillInputSchema = z.object({
 });
 
 export const listCatalogEntriesInputSchema = z.object({
+  workspace: workspaceSchema,
   entryType: entryTypeSchema.optional(),
   projectName: z.string().trim().min(1).optional(),
 });
 
 export const getCatalogEntryDetailInputSchema = z.object({
+  workspace: workspaceSchema,
   entryType: entryTypeSchema,
   entryKey: z.string().trim().min(1),
 });
 
 export const findMatchingCatalogEntryInputSchema = z.object({
+  workspace: workspaceSchema,
   task: z.string().trim().min(1),
   projectName: z.string().trim().min(1).optional(),
   preferredType: entryTypeSchema.optional(),

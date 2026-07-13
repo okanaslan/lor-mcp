@@ -21,7 +21,7 @@ agent to remove it from Agentic Router.
 2. The user asks the current Codex agent to remove the entry.
 3. The current agent calls Agentic Router MCP with the entry type and
    identifier.
-4. Agentic Router removes the entry from the active workspace catalog namespace.
+4. Agentic Router removes the entry from the requested workspace.
 5. The removed entry no longer appears in list, detail, or matching results.
 6. The current agent confirms removal to the user.
 
@@ -38,6 +38,5 @@ underlying Codex agent or skill.
 
 ## 7. Open Questions
 
-- Should removal be soft-delete or permanent for the active workspace catalog
-  namespace?
+- Should removal be soft-delete or permanent for the requested workspace?
 - Should users be able to undo removal?

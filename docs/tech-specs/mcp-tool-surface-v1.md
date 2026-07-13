@@ -7,15 +7,15 @@ The v1 surface supports introducing agents and skills, inspecting the catalog,
 and finding a matching catalog entry for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
-Streamable HTTP and stdio transports, namespace-scoped sessions, and
+Streamable HTTP and stdio transports, client-supplied workspace scope, and
 SQLite-backed catalog storage.
 
 ## 2. Context
 
 Agentic Router v1 runs as a Deno TypeScript MCP server over local Streamable
-HTTP, with stdio retained as a fallback. Catalog scope comes from the resolved
-workspace namespace, and durable storage uses SQLite through the resolved local
-database path.
+HTTP, with stdio retained as a fallback. Catalog scope comes from the
+client-supplied `workspace` tool input, and durable storage uses SQLite through
+the resolved local database path.
 
 The MCP TypeScript SDK supports registering tools with `registerTool`, Zod
 `inputSchema` validation, `structuredContent`, text `content`, and `isError`
@@ -32,7 +32,8 @@ verification, or explanation tools.
 - Keep v1 tool names stable and predictable.
 - Define a stable structured response envelope.
 - Keep MCP handlers thin over session and catalog domain modules.
-- Avoid exposing namespace or storage details in normal tool inputs.
+- Require callers to provide workspace scope explicitly.
+- Avoid exposing storage details in normal tool inputs.
 - Keep later tool expansions compatible with the v1 response style.
 
 ## 4. Non-Goals
@@ -56,18 +57,20 @@ V1 should register five MCP tools with snake_case names:
 - `find_matching_catalog_entry`
 
 Each tool should be registered with the MCP SDK `registerTool` API and a Zod
-`inputSchema`. Tool handlers should resolve the active initialized session and
-catalog namespace through the session module, then call catalog domain or
-repository functions.
+`inputSchema`. Tool handlers should validate the client-supplied `workspace`
+input, then call catalog domain or repository functions.
 
-Tool inputs must not include `catalogNamespace`, `connectionId`,
-`mcpSessionId`, or `AGENTIC_ROUTER_DB_PATH`. Those values are server
-configuration and session context, not caller-controlled tool arguments.
+Tool inputs must include `workspace`. The value should be the client workspace
+folder name or another stable client-chosen workspace slug.
+
+Tool inputs must not include `connectionId`, `mcpSessionId`, or
+`AGENTIC_ROUTER_DB_PATH`. Those values are server configuration and protocol
+context, not caller-controlled tool arguments.
 
 All v1 tools must require:
 
 - Completed MCP initialization.
-- Resolved catalog namespace.
+- Client-supplied `workspace`.
 - Available local SQLite database path.
 - Available catalog storage.
 
@@ -112,6 +115,7 @@ without changing the tool surface.
 
 `introduce_agent` input:
 
+- `workspace`
 - `codexSessionId`
 - `projectName`
 - `displayName`
@@ -123,6 +127,7 @@ It may return validation, session/setup, duplicate, or storage errors.
 
 `introduce_skill` input:
 
+- `workspace`
 - `skillName`
 - `projectName`
 - `displayName`
@@ -134,6 +139,7 @@ It may return validation, session/setup, duplicate, or storage errors.
 
 `list_catalog_entries` input:
 
+- `workspace`
 - optional `entryType`
 - optional `projectName`
 
@@ -142,6 +148,7 @@ may return validation, session/setup, or storage errors.
 
 `get_catalog_entry_detail` input:
 
+- `workspace`
 - `entryType`
 - `entryKey`
 
@@ -151,6 +158,7 @@ errors.
 
 `find_matching_catalog_entry` input:
 
+- `workspace`
 - `task`
 - optional `projectName`
 - optional `preferredType`
@@ -187,12 +195,10 @@ When this tech spec is implemented as code, verification should include:
 - Each v1 tool is registered with the expected snake_case name.
 - Zod rejects missing or invalid required inputs.
 - Tools fail before MCP initialization completes.
-- Tools use the resolved catalog namespace when namespace env config is
-  missing.
 - Tools use default local database storage when database path env config is
   missing.
-- Introduce tools enforce namespace-local duplicate rules.
-- List, detail, and match only return entries from the active namespace.
+- Introduce tools enforce workspace-local duplicate rules.
+- List, detail, and match only return entries for the requested workspace.
 - Match returns `no_match` and `conflict` as structured non-error outcomes.
 - Error responses use stable `status: error` envelopes and expected codes.
 
@@ -222,3 +228,5 @@ status.
   explanation tools out of v1.
 - 2026-07-13: Support the same v1 tool surface over local Streamable HTTP and
   stdio.
+- 2026-07-13: Make `workspace` a required client-supplied tool input instead
+  of deriving catalog scope from server config.

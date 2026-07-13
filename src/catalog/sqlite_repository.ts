@@ -13,7 +13,7 @@ import type {
 import { AgenticRouterError } from "@src/errors.ts";
 
 interface AgentRow {
-  catalogNamespace: string;
+  workspace: string;
   codexSessionId: string;
   projectName: string;
   displayName: string;
@@ -29,7 +29,7 @@ interface AgentRow {
 }
 
 interface SkillRow {
-  catalogNamespace: string;
+  workspace: string;
   skillName: string;
   projectName: string;
   displayName: string;
@@ -56,18 +56,15 @@ export class SqliteCatalogRepository implements CatalogRepository {
       this.#db.exec("PRAGMA journal_mode = WAL");
       this.#db.exec("PRAGMA synchronous = NORMAL");
       this.#db.exec(SCHEMA_SQL);
-      this.#db.exec(
-        "INSERT OR IGNORE INTO schema_migrations(version, appliedAt) VALUES (?, ?)",
-        1,
-        new Date().toISOString(),
-      );
+      migrateLegacyNamespaceColumns(this.#db);
+      recordSchemaVersion(this.#db, 2);
     } catch (error) {
       throw mapStorageError(error);
     }
   }
 
   async createAgent(
-    namespace: string,
+    workspace: string,
     input: IntroduceAgentInput & {
       verification: VerificationMetadata;
       now: string;
@@ -75,22 +72,22 @@ export class SqliteCatalogRepository implements CatalogRepository {
   ): Promise<AgentCatalogEntry> {
     const db = this.requireDb();
     const insert = db.transaction(() => {
-      if (this.agentExists(namespace, input.codexSessionId)) {
+      if (this.agentExists(workspace, input.codexSessionId)) {
         throw new AgenticRouterError(
           "duplicate_entry",
-          "Agent already exists in this catalog namespace.",
+          "Agent already exists in this workspace.",
           { entryType: "agent" },
         );
       }
 
       db.exec(
         `INSERT INTO introduced_agents (
-          catalogNamespace, codexSessionId, projectName, displayName,
+          workspace, codexSessionId, projectName, displayName,
           primarySpecialty, specialtyTags, handoff, verificationStatus,
           verificationSource, verifiedAt, verificationMessage, createdAt,
           updatedAt
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        namespace,
+        workspace,
         input.codexSessionId,
         input.projectName,
         input.displayName,
@@ -108,7 +105,8 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
     try {
       insert();
-      const created = await this.getEntry(namespace, {
+      const created = await this.getEntry(workspace, {
+        workspace,
         entryType: "agent",
         entryKey: input.codexSessionId,
       });
@@ -119,7 +117,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
   }
 
   async createSkill(
-    namespace: string,
+    workspace: string,
     input: IntroduceSkillInput & {
       verification: VerificationMetadata;
       now: string;
@@ -127,22 +125,22 @@ export class SqliteCatalogRepository implements CatalogRepository {
   ): Promise<SkillCatalogEntry> {
     const db = this.requireDb();
     const insert = db.transaction(() => {
-      if (this.skillExists(namespace, input.skillName)) {
+      if (this.skillExists(workspace, input.skillName)) {
         throw new AgenticRouterError(
           "duplicate_entry",
-          "Skill already exists in this catalog namespace.",
+          "Skill already exists in this workspace.",
           { entryType: "skill" },
         );
       }
 
       db.exec(
         `INSERT INTO introduced_skills (
-          catalogNamespace, skillName, projectName, displayName,
+          workspace, skillName, projectName, displayName,
           primarySpecialty, specialtyTags, verificationStatus,
           verificationSource, verifiedAt, verificationMessage, createdAt,
           updatedAt
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        namespace,
+        workspace,
         input.skillName,
         input.projectName,
         input.displayName,
@@ -159,7 +157,8 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
     try {
       insert();
-      const created = await this.getEntry(namespace, {
+      const created = await this.getEntry(workspace, {
+        workspace,
         entryType: "skill",
         entryKey: input.skillName,
       });
@@ -170,15 +169,15 @@ export class SqliteCatalogRepository implements CatalogRepository {
   }
 
   listEntries(
-    namespace: string,
+    workspace: string,
     filter: ListEntriesFilter,
   ): Promise<CatalogEntry[]> {
     const entries: CatalogEntry[] = [];
     if (!filter.entryType || filter.entryType === "agent") {
-      entries.push(...this.listAgents(namespace, filter.projectName));
+      entries.push(...this.listAgents(workspace, filter.projectName));
     }
     if (!filter.entryType || filter.entryType === "skill") {
-      entries.push(...this.listSkills(namespace, filter.projectName));
+      entries.push(...this.listSkills(workspace, filter.projectName));
     }
     return Promise.resolve(
       entries.sort((a, b) =>
@@ -189,21 +188,21 @@ export class SqliteCatalogRepository implements CatalogRepository {
   }
 
   getEntry(
-    namespace: string,
+    workspace: string,
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined> {
     if (lookup.entryType === "agent") {
       const row = this.requireDb().prepare<AgentRow>(
         `SELECT * FROM introduced_agents
-         WHERE catalogNamespace = ? AND codexSessionId = ?`,
-      ).get(namespace, lookup.entryKey);
+         WHERE workspace = ? AND codexSessionId = ?`,
+      ).get(workspace, lookup.entryKey);
       return Promise.resolve(row ? mapAgentRow(row) : undefined);
     }
 
     const row = this.requireDb().prepare<SkillRow>(
       `SELECT * FROM introduced_skills
-       WHERE catalogNamespace = ? AND skillName = ?`,
-    ).get(namespace, lookup.entryKey);
+       WHERE workspace = ? AND skillName = ?`,
+    ).get(workspace, lookup.entryKey);
     return Promise.resolve(row ? mapSkillRow(row) : undefined);
   }
 
@@ -213,50 +212,50 @@ export class SqliteCatalogRepository implements CatalogRepository {
   }
 
   private listAgents(
-    namespace: string,
+    workspace: string,
     projectName?: string,
   ): AgentCatalogEntry[] {
     const db = this.requireDb();
     const sql = projectName
       ? `SELECT * FROM introduced_agents
-         WHERE catalogNamespace = ? AND projectName = ?`
-      : `SELECT * FROM introduced_agents WHERE catalogNamespace = ?`;
+         WHERE workspace = ? AND projectName = ?`
+      : `SELECT * FROM introduced_agents WHERE workspace = ?`;
     const rows = projectName
-      ? db.prepare<AgentRow>(sql).all(namespace, projectName)
-      : db.prepare<AgentRow>(sql).all(namespace);
+      ? db.prepare<AgentRow>(sql).all(workspace, projectName)
+      : db.prepare<AgentRow>(sql).all(workspace);
     return rows.map(mapAgentRow);
   }
 
   private listSkills(
-    namespace: string,
+    workspace: string,
     projectName?: string,
   ): SkillCatalogEntry[] {
     const db = this.requireDb();
     const sql = projectName
       ? `SELECT * FROM introduced_skills
-         WHERE catalogNamespace = ? AND projectName = ?`
-      : `SELECT * FROM introduced_skills WHERE catalogNamespace = ?`;
+         WHERE workspace = ? AND projectName = ?`
+      : `SELECT * FROM introduced_skills WHERE workspace = ?`;
     const rows = projectName
-      ? db.prepare<SkillRow>(sql).all(namespace, projectName)
-      : db.prepare<SkillRow>(sql).all(namespace);
+      ? db.prepare<SkillRow>(sql).all(workspace, projectName)
+      : db.prepare<SkillRow>(sql).all(workspace);
     return rows.map(mapSkillRow);
   }
 
-  private agentExists(namespace: string, codexSessionId: string): boolean {
+  private agentExists(workspace: string, codexSessionId: string): boolean {
     return Boolean(
       this.requireDb().prepare<{ count: number }>(
         `SELECT COUNT(*) AS count FROM introduced_agents
-         WHERE catalogNamespace = ? AND codexSessionId = ?`,
-      ).get(namespace, codexSessionId)?.count,
+         WHERE workspace = ? AND codexSessionId = ?`,
+      ).get(workspace, codexSessionId)?.count,
     );
   }
 
-  private skillExists(namespace: string, skillName: string): boolean {
+  private skillExists(workspace: string, skillName: string): boolean {
     return Boolean(
       this.requireDb().prepare<{ count: number }>(
         `SELECT COUNT(*) AS count FROM introduced_skills
-         WHERE catalogNamespace = ? AND skillName = ?`,
-      ).get(namespace, skillName)?.count,
+         WHERE workspace = ? AND skillName = ?`,
+      ).get(workspace, skillName)?.count,
     );
   }
 
@@ -273,7 +272,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
 function mapAgentRow(row: AgentRow): AgentCatalogEntry {
   return {
-    catalogNamespace: row.catalogNamespace,
+    workspace: row.workspace,
     entryType: "agent",
     entryKey: row.codexSessionId,
     codexSessionId: row.codexSessionId,
@@ -293,7 +292,7 @@ function mapAgentRow(row: AgentRow): AgentCatalogEntry {
 
 function mapSkillRow(row: SkillRow): SkillCatalogEntry {
   return {
-    catalogNamespace: row.catalogNamespace,
+    workspace: row.workspace,
     entryType: "skill",
     entryKey: row.skillName,
     skillName: row.skillName,
@@ -326,6 +325,35 @@ function parseVerificationStatus(
   return "unknown";
 }
 
+interface TableColumn {
+  name: string;
+}
+
+function migrateLegacyNamespaceColumns(db: Database): void {
+  renameLegacyNamespaceColumn(db, "introduced_agents");
+  renameLegacyNamespaceColumn(db, "introduced_skills");
+}
+
+function renameLegacyNamespaceColumn(db: Database, tableName: string): void {
+  const columns = db.prepare<TableColumn>(`PRAGMA table_info(${tableName})`)
+    .all();
+  const columnNames = new Set(columns.map((column) => column.name));
+  if (columnNames.has("workspace") || !columnNames.has("catalogNamespace")) {
+    return;
+  }
+  db.exec(
+    `ALTER TABLE ${tableName} RENAME COLUMN catalogNamespace TO workspace`,
+  );
+}
+
+function recordSchemaVersion(db: Database, version: number): void {
+  db.exec(
+    "INSERT OR IGNORE INTO schema_migrations(version, appliedAt) VALUES (?, ?)",
+    version,
+    new Date().toISOString(),
+  );
+}
+
 function mapStorageError(error: unknown): AgenticRouterError {
   if (error instanceof AgenticRouterError) {
     return error;
@@ -340,7 +368,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 
 CREATE TABLE IF NOT EXISTS introduced_agents (
-  catalogNamespace TEXT NOT NULL,
+  workspace TEXT NOT NULL,
   codexSessionId TEXT NOT NULL,
   projectName TEXT NOT NULL,
   displayName TEXT NOT NULL,
@@ -353,11 +381,11 @@ CREATE TABLE IF NOT EXISTS introduced_agents (
   verificationMessage TEXT,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
-  PRIMARY KEY (catalogNamespace, codexSessionId)
+  PRIMARY KEY (workspace, codexSessionId)
 );
 
 CREATE TABLE IF NOT EXISTS introduced_skills (
-  catalogNamespace TEXT NOT NULL,
+  workspace TEXT NOT NULL,
   skillName TEXT NOT NULL,
   projectName TEXT NOT NULL,
   displayName TEXT NOT NULL,
@@ -369,6 +397,6 @@ CREATE TABLE IF NOT EXISTS introduced_skills (
   verificationMessage TEXT,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
-  PRIMARY KEY (catalogNamespace, skillName)
+  PRIMARY KEY (workspace, skillName)
 );
 `;
