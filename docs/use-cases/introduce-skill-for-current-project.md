@@ -22,13 +22,13 @@ project, display, and specialty metadata.
 3. The user provides the skill name and project-focused metadata.
 4. The current Codex agent calls Agentic Router MCP to introduce the skill.
 5. Agentic Router validates the required metadata.
-6. Agentic Router stores the skill in the active initialized MCP session.
+6. Agentic Router stores the skill in the active workspace catalog namespace.
 7. The current Codex agent reports that the skill is available for future
    recommendations.
 
 ## 5. Expected Outcome
 
-The existing Codex skill is available in the active session catalog and can be
+The existing Codex skill is available in the workspace catalog and can be
 matched, inspected, or recommended by later Agentic Router workflows.
 
 ## 6. Related Feature Specs
@@ -41,4 +41,5 @@ matched, inspected, or recommended by later Agentic Router workflows.
 
 - Should the user provide all skill metadata manually, or can Agentic Router
   infer any fields from skill files?
-- Should Agentic Router verify the skill name before accepting the skill?
+- Should a future catalog health workflow report whether the skill name still
+  appears usable?

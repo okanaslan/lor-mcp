@@ -2,12 +2,12 @@
 
 ## 1. Summary
 
-Draft. This feature lets a user list introduced agents and skills available in
-the active initialized MCP session.
+Implemented for v1. This feature lets a user list introduced agents and skills
+available in the active workspace catalog namespace.
 
 ## 2. Goals
 
-- Show what agents and skills have been introduced in the current session.
+- Show what agents and skills have been introduced in the workspace catalog.
 - Support simple filtering by entry type and project.
 - Provide a compact view suitable for catalog inspection.
 
@@ -15,21 +15,21 @@ the active initialized MCP session.
 
 - Find the best entry for a task.
 - Return full detail for every entry.
-- List entries from other initialized MCP sessions.
+- List entries from other workspace catalog namespaces.
 - Modify or remove catalog entries.
 
 ## 4. Functional Requirements
 
-- The server must list catalog entries scoped to the active initialized MCP
-  session.
+- The server must list catalog entries scoped to the active workspace catalog
+  namespace.
 - The list must include both introduced agents and introduced skills by default.
 - The caller may filter by entry type.
 - The caller may filter by project name.
 - Each list item must include the entry type, identifier, display name, project
   name, primary specialty, and specialty tags.
 - The server must return an empty list when no entries exist in the active
-  session.
-- The server must not include entries from another initialized MCP session.
+  workspace catalog namespace.
+- The server must not include entries from another workspace catalog namespace.
 
 ## 5. User Stories / Use Cases
 
@@ -41,7 +41,8 @@ which agents and skills are currently available before asking for routing.
 Conceptual `CatalogListItem` fields:
 
 - `entryType`: identifies `agent` or `skill`.
-- `entryKey`: identifies the catalog entry within the session.
+- `entryKey`: identifies the catalog entry within the workspace catalog
+  namespace.
 - `displayName`: provides the human-readable catalog name.
 - `projectName`: names the focused project.
 - `primarySpecialty`: names the primary capability.
@@ -49,15 +50,14 @@ Conceptual `CatalogListItem` fields:
 
 ## 7. Error Handling
 
-- Missing or invalid initialized MCP session context must return a session
-  error.
+- Missing or invalid MCP readiness context must return a session error.
 - Invalid filters must return a validation error.
 - Storage failures must return a storage error.
 
 ## 8. Security and Permissions
 
-- Listing must only return entries from the active initialized MCP session.
-- Empty responses must not reveal whether other sessions have entries.
+- Listing must only return entries from the active workspace catalog namespace.
+- Empty responses must not reveal whether other namespaces have entries.
 
 ## 9. Open Questions
 
@@ -69,3 +69,5 @@ Conceptual `CatalogListItem` fields:
 
 - 2026-07-11: List both agents and skills by default.
 - 2026-07-11: Keep full entry detail in a separate feature spec.
+- 2026-07-13: Implement list lookup against the resolved workspace catalog
+  namespace.

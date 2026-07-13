@@ -70,3 +70,65 @@ Deno.test("SqliteCatalogRepository enforces namespace-local duplicates", async (
 
   repo.close();
 });
+
+Deno.test("SqliteCatalogRepository round-trips stored verification status", async () => {
+  const dir = await Deno.makeTempDir();
+  const repo = new SqliteCatalogRepository(join(dir, "catalog.db"));
+  await repo.initialize();
+
+  const unverified: VerificationMetadata = {
+    verificationStatus: "unverified",
+    verificationSource: "health_check",
+    verifiedAt: "2026-07-12T01:00:00.000Z",
+    verificationMessage: "Agent session was not found during health check.",
+  };
+  const unknown: VerificationMetadata = {
+    verificationStatus: "unknown",
+    verificationSource: "health_check",
+    verifiedAt: "2026-07-12T02:00:00.000Z",
+    verificationMessage: "Skill health source was unavailable.",
+  };
+
+  await repo.createAgent("workspace-a", {
+    codexSessionId: "agent-1",
+    projectName: "Agentic Router",
+    displayName: "Backend Agent",
+    primarySpecialty: "backend api",
+    specialtyTags: ["api"],
+    verification: unverified,
+    now: "2026-07-12T01:00:00.000Z",
+  });
+  await repo.createSkill("workspace-a", {
+    skillName: "backend-skill",
+    projectName: "Agentic Router",
+    displayName: "Backend Skill",
+    primarySpecialty: "backend api",
+    specialtyTags: ["api"],
+    verification: unknown,
+    now: "2026-07-12T02:00:00.000Z",
+  });
+
+  const agent = await repo.getEntry("workspace-a", {
+    entryType: "agent",
+    entryKey: "agent-1",
+  });
+  const skill = await repo.getEntry("workspace-a", {
+    entryType: "skill",
+    entryKey: "backend-skill",
+  });
+
+  assertEquals(agent?.verificationStatus, "unverified");
+  assertEquals(agent?.verificationSource, "health_check");
+  assertEquals(
+    agent?.verificationMessage,
+    "Agent session was not found during health check.",
+  );
+  assertEquals(skill?.verificationStatus, "unknown");
+  assertEquals(skill?.verificationSource, "health_check");
+  assertEquals(
+    skill?.verificationMessage,
+    "Skill health source was unavailable.",
+  );
+
+  repo.close();
+});

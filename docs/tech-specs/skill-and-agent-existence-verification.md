@@ -14,9 +14,9 @@ and should not need filesystem access to the server's local state in order to
 introduce a catalog entry.
 
 Earlier drafts required `introduce_agent` and `introduce_skill` to prove the
-target already existed in server-local registry files or skill roots. That
-creates a circular setup problem: users must manually pre-register the same
-thing they are trying to introduce.
+target already existed in server-local evidence sources. That creates a
+circular setup problem: users must manually configure the same thing they are
+trying to introduce.
 
 ## 3. Goals
 
@@ -24,7 +24,7 @@ thing they are trying to introduce.
 - Let `introduce_skill` register a supplied skill name directly.
 - Keep introduction deterministic, local, and durable.
 - Preserve verification metadata fields for future health workflows.
-- Avoid requiring users to edit server-local registry files.
+- Avoid requiring users to edit server-local evidence files.
 
 ## 4. Non-Goals
 
@@ -38,8 +38,8 @@ thing they are trying to introduce.
 ## 5. Proposed Design
 
 V1 introduction tools should validate request shape and store the submitted
-metadata. They should not read an agent registry file, scan skill roots, or
-reject entries because server-local evidence is missing.
+metadata. They should not scan server-local evidence sources or reject entries
+because that evidence is missing.
 
 Accepted agent and skill records should keep the existing verification metadata
 shape for compatibility:
@@ -59,13 +59,13 @@ server-local files.
 
 ## 6. Alternatives Considered
 
-Blocking introduction on an agent registry file was considered. It was rejected
-because normal users and agents should not need access to server-local files
-before they can introduce a new agent.
+Blocking agent introduction on a server-local evidence file was considered. It
+was rejected because normal users and agents should not need access to
+server-local files before they can introduce a new agent.
 
-Blocking skill introduction on configured skill roots was considered. It was
-rejected for the same reason: introduction should capture routing metadata,
-while later health checks can report missing local assets.
+Blocking skill introduction on configured local evidence directories was
+considered. It was rejected for the same reason: introduction should capture
+routing metadata, while later health checks can report missing local assets.
 
 Accepting entries with `verificationStatus: unverified` was considered. It was
 not chosen for v1 because the current matching flow only routes accepted
@@ -77,10 +77,8 @@ entries, and introduction itself is the user's explicit registration action.
 the existing validation functions, attach `mcp_introduction` verification
 metadata, and write through the repository.
 
-The runtime config should not require:
-
-- `AGENTIC_ROUTER_AGENT_REGISTRY_PATH`
-- `AGENTIC_ROUTER_SKILL_ROOTS`
+The runtime config should not require server-local pre-registration sources for
+agent or skill introduction.
 
 The local `.agentic-router/` directory remains the default SQLite catalog data
 directory, not an introduction pre-registration directory.
@@ -98,15 +96,15 @@ directory, not an introduction pre-registration directory.
 
 When this tech spec is implemented as code, verification should include:
 
-- `introduce_agent` accepts a valid request without an agent registry file.
+- `introduce_agent` accepts a valid request without a server-local
+  pre-registration file.
 - `introduce_skill` accepts a valid request without a matching skill folder.
 - Introduced agents and skills are stored with
-  `verificationSource:
-  mcp_introduction`.
+  `verificationSource: mcp_introduction`.
 - Missing required fields still return validation errors.
 - Duplicate checks remain namespace-local.
 - Matching can recommend introduced entries.
-- Runtime startup does not require agent registry or skill root env vars.
+- Runtime startup does not require pre-registration environment variables.
 
 ## 10. Open Questions
 

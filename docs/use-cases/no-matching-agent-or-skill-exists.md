@@ -18,7 +18,8 @@ related agent or skill. The active catalog does not contain a relevant entry.
 
 1. The current Codex agent receives a task from the Codex user.
 2. The current agent asks Agentic Router MCP to find a matching catalog entry.
-3. Agentic Router searches introduced agents and skills in the active session.
+3. Agentic Router searches introduced agents and skills in the active workspace
+   catalog namespace.
 4. Agentic Router returns a no-match result.
 5. The current agent does not invent unavailable agents or skills.
 6. The current agent continues the task using its own capabilities.
@@ -39,4 +40,5 @@ or skill, and the user can decide whether to introduce a new catalog entry later
 
 - Should Agentic Router suggest metadata for a future agent or skill when no
   match exists?
-- Should no-match results include near misses from the active session?
+- Should no-match results include near misses from the active workspace catalog
+  namespace?

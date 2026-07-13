@@ -282,7 +282,7 @@ function mapAgentRow(row: AgentRow): AgentCatalogEntry {
     primarySpecialty: row.primarySpecialty,
     specialtyTags: parseTags(row.specialtyTags),
     handoff: row.handoff ? JSON.parse(row.handoff) : undefined,
-    verificationStatus: "verified",
+    verificationStatus: parseVerificationStatus(row.verificationStatus),
     verificationSource: row.verificationSource,
     verifiedAt: row.verifiedAt,
     verificationMessage: row.verificationMessage ?? undefined,
@@ -301,7 +301,7 @@ function mapSkillRow(row: SkillRow): SkillCatalogEntry {
     displayName: row.displayName,
     primarySpecialty: row.primarySpecialty,
     specialtyTags: parseTags(row.specialtyTags),
-    verificationStatus: "verified",
+    verificationStatus: parseVerificationStatus(row.verificationStatus),
     verificationSource: row.verificationSource,
     verifiedAt: row.verifiedAt,
     verificationMessage: row.verificationMessage ?? undefined,
@@ -315,6 +315,15 @@ function parseTags(value: string): string[] {
   return Array.isArray(parsed)
     ? parsed.filter((tag) => typeof tag === "string")
     : [];
+}
+
+function parseVerificationStatus(
+  value: string,
+): VerificationMetadata["verificationStatus"] {
+  if (value === "verified" || value === "unverified" || value === "unknown") {
+    return value;
+  }
+  return "unknown";
 }
 
 function mapStorageError(error: unknown): AgenticRouterError {

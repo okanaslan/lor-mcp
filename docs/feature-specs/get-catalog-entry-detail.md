@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Draft. This feature lets a user fetch the full metadata for one introduced
-agent or skill from the active initialized MCP session.
+Implemented for v1. This feature lets a user fetch the full metadata for one
+introduced agent or skill from the active workspace catalog namespace.
 
 ## 2. Goals
 
@@ -15,19 +15,19 @@ agent or skill from the active initialized MCP session.
 
 - Search for entries by task.
 - Update catalog entry metadata.
-- Return entries from other initialized MCP sessions.
+- Return entries from other workspace catalog namespaces.
 - Verify whether an external agent or skill still exists.
 
 ## 4. Functional Requirements
 
 - The server must accept an entry type and entry identifier.
-- The server must search only entries scoped to the active initialized MCP
-  session.
+- The server must search only entries scoped to the active workspace catalog
+  namespace.
 - The server must return the full stored metadata for the matching entry.
 - The server must return a not-found result when the entry does not exist in the
-  active session.
+  active workspace catalog namespace.
 - The server must support introduced agents and introduced skills.
-- The server must not return entries from another initialized MCP session.
+- The server must not return entries from another workspace catalog namespace.
 
 ## 5. User Stories / Use Cases
 
@@ -40,7 +40,7 @@ metadata.
 Conceptual `CatalogEntryDetail` fields:
 
 - `entryType`: identifies `agent` or `skill`.
-- `entryKey`: identifies the entry within the session.
+- `entryKey`: identifies the entry within the workspace catalog namespace.
 - `metadata`: contains the stored fields for the entry type.
 - `createdAt`: records when the entry was introduced.
 - `updatedAt`: records when the entry was last changed, if updates exist.
@@ -49,16 +49,16 @@ Conceptual `CatalogEntryDetail` fields:
 
 - Missing entry type or identifier must return a validation error.
 - Unknown entry type must return a validation error.
-- Missing or invalid initialized MCP session context must return a session
-  error.
+- Missing or invalid MCP readiness context must return a session error.
 - Missing entries must return a not-found result.
 - Storage failures must return a storage error.
 
 ## 8. Security and Permissions
 
-- Detail lookup must only inspect entries in the active initialized MCP session.
+- Detail lookup must only inspect entries in the active workspace catalog
+  namespace.
 - Not-found responses must not reveal whether the same identifier exists in
-  another session.
+  another namespace.
 
 ## 9. Open Questions
 
@@ -69,3 +69,5 @@ Conceptual `CatalogEntryDetail` fields:
 
 - 2026-07-11: Support detail lookup for agents and skills.
 - 2026-07-11: Require entry type plus identifier to avoid cross-type ambiguity.
+- 2026-07-13: Implement detail lookup against the resolved workspace catalog
+  namespace.

@@ -12,13 +12,14 @@ Codex user or Codex agent.
 ## 3. Scenario
 
 Before starting work, the actor wants to understand which agents and skills have
-already been introduced for the active initialized MCP session.
+already been introduced for the active workspace catalog namespace.
 
 ## 4. Flow
 
 1. The Codex user opens a workspace where Agentic Router MCP is configured.
 2. The user or current agent asks Agentic Router MCP to list catalog entries.
-3. Agentic Router returns introduced agents and skills for the active session.
+3. Agentic Router returns introduced agents and skills for the active workspace
+   catalog namespace.
 4. The actor reviews display names, projects, specialties, and tags.
 5. The actor decides whether to use a listed entry, ask for a match, or
    introduce another entry.

@@ -3,12 +3,12 @@
 ## 1. Summary
 
 Draft. This feature lets a user remove an introduced agent or skill from the
-catalog in the active initialized MCP session.
+active workspace catalog namespace.
 
 ## 2. Goals
 
 - Allow users to delete catalog entries they no longer want routed.
-- Keep removal scoped to the active initialized MCP session.
+- Keep removal scoped to the active workspace catalog namespace.
 - Preserve simple behavior for missing entries.
 
 ## 3. Non-Goals
@@ -54,7 +54,7 @@ Conceptual `CatalogEntryRemoval` fields:
 
 ## 8. Security and Permissions
 
-- Removal must only affect entries in the active initialized MCP session.
+- Removal must only affect entries in the active workspace catalog namespace.
 - Not-found responses must not reveal whether the same identifier exists in
   another session.
 

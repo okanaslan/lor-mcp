@@ -23,8 +23,7 @@ Implemented in the first runnable v1 slice:
   - `get_catalog_entry_detail`
   - `find_matching_catalog_entry`
 - Agent and skill introduction now acts as registration. The server no longer
-  requires agent registry or skill-root pre-verification before accepting new
-  entries.
+  requires server-local pre-verification evidence before accepting new entries.
 - Deterministic local fuzzy matching with structured match explanations and
   conflict reporting.
 - Structured MCP response envelopes with output schemas and stable error
@@ -58,7 +57,7 @@ Latest implementation verification:
 - [Update Catalog Entry](feature-specs/update-catalog-entry.md): Draft. Defines
   how users edit display and routing metadata for an introduced entry.
 - [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Draft. Defines
-  how users remove an introduced agent or skill from the active session catalog.
+  how users remove an introduced agent or skill from the workspace catalog.
 - [Skill / Agent Existence Verification](feature-specs/existence-verification.md):
   Deferred. Blocking verification was removed from v1 introduction flows.
   Future verification should be a separate health/reporting workflow.
@@ -69,9 +68,9 @@ Latest implementation verification:
   Agentic Router handles equally strong catalog matches. Basic equally scored
   agent conflict reporting exists in v1 matching.
 - [Catalog Import](feature-specs/catalog-import.md): Draft. Defines how users
-  bulk-load catalog entries into the active initialized MCP session.
+  bulk-load catalog entries into the workspace catalog.
 - [Catalog Export](feature-specs/catalog-export.md): Draft. Defines how users
-  export session catalog entries for backup or reuse.
+  export workspace catalog entries for backup or reuse.
 
 ## Next
 

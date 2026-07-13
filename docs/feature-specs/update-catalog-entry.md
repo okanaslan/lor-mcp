@@ -3,13 +3,13 @@
 ## 1. Summary
 
 Draft. This feature lets a user update editable metadata for an introduced
-agent or skill in the active initialized MCP session.
+agent or skill in the active workspace catalog namespace.
 
 ## 2. Goals
 
 - Allow correction of catalog metadata after introduction.
 - Preserve stable entry identity while editing display and routing fields.
-- Keep updates isolated to the active initialized MCP session.
+- Keep updates isolated to the active workspace catalog namespace.
 
 ## 3. Non-Goals
 
@@ -61,7 +61,7 @@ Conceptual `CatalogEntryUpdate` fields:
 
 ## 8. Security and Permissions
 
-- Updates must only affect entries in the active initialized MCP session.
+- Updates must only affect entries in the active workspace catalog namespace.
 - Not-found responses must not reveal whether the same identifier exists in
   another session.
 

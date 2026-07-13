@@ -2,8 +2,9 @@
 
 ## 1. Summary
 
-Draft. This feature lets Agentic Router evaluate a user request and return the
-best matching introduced agent or skill from the active initialized MCP session.
+Implemented for v1. This feature lets Agentic Router evaluate a user request
+and return matching introduced agents and skills from the active workspace
+catalog namespace.
 
 ## 2. Goals
 
@@ -16,22 +17,22 @@ best matching introduced agent or skill from the active initialized MCP session.
 - Introduce new agents or skills.
 - Modify catalog entries.
 - Define final ranking weights for every possible specialty.
-- Search catalog entries outside the active initialized MCP session.
+- Search catalog entries outside the active workspace catalog namespace.
 
 ## 4. Functional Requirements
 
 - The server must accept a matching request that describes the user task.
-- The server must match only catalog entries scoped to the active initialized
-  MCP session.
+- The server must match only catalog entries scoped to the active workspace
+  catalog namespace.
 - The server must consider project name, display name, primary specialty, and
   specialty tags.
 - The server may consider future metadata such as descriptions or usage notes
   when available.
-- The server must return the best matching entry when exactly one clear match
-  exists.
+- The server must return ranked matching agents and skills when relevant
+  entries exist.
 - The server must return a no-match result when no introduced entry is relevant.
 - The server must defer equal-match resolution to the Conflict Handling feature.
-- The server must not return entries from another initialized MCP session.
+- The server must not return entries from another workspace catalog namespace.
 
 ## 5. User Stories / Use Cases
 
@@ -58,16 +59,16 @@ Conceptual `CatalogMatchResult` fields:
 ## 7. Error Handling
 
 - Missing task input must return a validation error.
-- Missing or invalid initialized MCP session context must return a session
-  error.
+- Missing or invalid MCP readiness context must return a session error.
 - Storage failures must return a storage error.
 - Equal matches must return a conflict result instead of silently choosing.
 
 ## 8. Security and Permissions
 
-- Matching must only inspect catalog entries in the active initialized MCP
-  session.
-- No-match and conflict responses must not reveal entries from other sessions.
+- Matching must only inspect catalog entries in the active workspace catalog
+  namespace.
+- No-match and conflict responses must not reveal entries from other
+  namespaces.
 
 ## 9. Open Questions
 
@@ -77,6 +78,8 @@ Conceptual `CatalogMatchResult` fields:
 
 ## 10. Decision Log
 
-- 2026-07-11: Scope matching to the active initialized MCP session.
+- 2026-07-11: Scope matching to the active catalog boundary.
 - 2026-07-11: Match both introduced agents and introduced skills.
 - 2026-07-11: Keep detailed ranking policy open for later implementation.
+- 2026-07-13: Implement deterministic local fuzzy matching against the resolved
+  workspace catalog namespace.

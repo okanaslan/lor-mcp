@@ -55,7 +55,7 @@ Conceptual `CatalogExport` fields:
 
 ## 8. Security and Permissions
 
-- Export must only include entries from the active initialized MCP session.
+- Export must only include entries from the active workspace catalog namespace.
 - Export must not include secrets, credentials, or sensitive host metadata.
 - Export output must avoid leaking entries from other sessions through counts or
   errors.

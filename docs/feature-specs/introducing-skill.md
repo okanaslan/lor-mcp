@@ -2,22 +2,21 @@
 
 ## 1. Summary
 
-Draft. This feature lets a user introduce an existing Codex skill to the Agentic
-Router MCP Server by recording its skill name and routing metadata in storage
-scoped to the active initialized MCP session.
+Implemented for v1. This feature lets a user introduce an existing Codex skill
+to the Agentic Router MCP Server by recording its skill name and routing
+metadata in durable storage scoped to the workspace catalog namespace.
 
 ## 2. Goals
 
 - Allow users to introduce an existing Codex skill by skill name.
-- Store introduced skills in durable storage scoped to the active initialized
-  MCP session.
+- Store introduced skills in durable storage scoped to the workspace catalog
+  namespace.
 - Capture enough metadata to support later skill routing and catalog lookup.
 
 ## 3. Non-Goals
 
 - Introduce agents.
 - Fetch, list, or search introduced skills.
-- Choose a concrete database or storage technology.
 - Support non-Codex skills.
 - Define MCP lifecycle initialization behavior.
 
@@ -30,15 +29,16 @@ scoped to the active initialized MCP session.
 - The request must include one primary specialty.
 - The request must include specialty tags.
 - The server must reject requests missing any required field.
-- The server must associate the introduced skill with the active initialized MCP
-  session.
-- The server must reject a duplicate skill name within the same MCP session.
-- The server may allow the same skill name to be introduced in different MCP
-  sessions.
+- The server must associate the introduced skill with the resolved workspace
+  catalog namespace.
+- The server must reject a duplicate skill name within the same workspace
+  catalog namespace.
+- The server may allow the same skill name to be introduced in different
+  workspace catalog namespaces.
 - The server must persist accepted skill records in durable storage.
-- The server must scope persisted skill records by initialized MCP session.
-- The server must prevent one MCP session from accessing another session's
-  introduced skill records.
+- The server must scope persisted skill records by workspace catalog namespace.
+- The server must prevent one workspace namespace from accessing another
+  namespace's introduced skill records.
 - Fetching, listing, searching, and routing introduced skills must be handled by
   separate feature specs.
 
@@ -52,7 +52,8 @@ catalog for future routing decisions.
 
 Conceptual `IntroducedSkill` fields:
 
-- `mcpSessionKey`: identifies the initialized MCP session that owns the record.
+- `catalogNamespace`: identifies the workspace catalog namespace that owns the
+  record.
 - `skillName`: identifies the existing Codex skill.
 - `projectName`: names the project the skill is focused on.
 - `displayName`: provides a human-readable name for catalog display.
@@ -68,25 +69,23 @@ persistence implementation.
 ## 7. Error Handling
 
 - Missing required fields must return a validation error.
-- Missing or invalid initialized MCP session context must return a session
-  error.
-- Duplicate skill names within the same MCP session must return a duplicate
-  error.
+- Missing or invalid MCP readiness context must return a session error.
+- Duplicate skill names within the same workspace catalog namespace must return
+  a duplicate error.
 - Durable storage failures must return a storage error and must not report the
   skill as introduced.
 
 ## 8. Security and Permissions
 
-- Introduced skill records must be isolated by initialized MCP session.
-- A user must only be able to introduce records into the active initialized MCP
-  session.
-- A user must not be able to see, overwrite, or infer another MCP session's
-  introduced skill records through duplicate checks or error responses.
+- Introduced skill records must be isolated by workspace catalog namespace.
+- A user must only be able to introduce records into the active workspace
+  catalog namespace.
+- A user must not be able to see, overwrite, or infer another workspace
+  namespace's introduced skill records through duplicate checks or error
+  responses.
 
 ## 9. Open Questions
 
-- What is the exact request and response shape for the introduce-skill MCP
-  operation?
 - Should specialty tags be free-form strings or validated against a controlled
   taxonomy?
 - Should a future catalog health workflow verify introduced skills without
@@ -104,3 +103,7 @@ persistence implementation.
 - 2026-07-11: Keep persistent storage abstract and defer database selection.
 - 2026-07-11: Keep fetching, listing, searching, and routing skills as separate
   feature specs.
+- 2026-07-13: Use the workspace catalog namespace as the durable storage scope
+  and keep MCP session state as protocol readiness context.
+- 2026-07-13: Implement `introduce_skill` as non-blocking registration with
+  `mcp_introduction` verification metadata.
