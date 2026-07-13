@@ -1,22 +1,14 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { CatalogService } from "@src/catalog/service.ts";
 import { SqliteCatalogRepository } from "@src/catalog/sqlite_repository.ts";
 
-Deno.test("CatalogService introduces verified agents with optional handoff metadata", async () => {
+Deno.test("CatalogService introduces agents without registry pre-registration", async () => {
   const dir = await Deno.makeTempDir();
-  const registryPath = join(dir, "agents.json");
-  await Deno.writeTextFile(
-    registryPath,
-    JSON.stringify({ agents: [{ codexSessionId: "agent-1" }] }),
-  );
-
   const repo = new SqliteCatalogRepository(join(dir, "catalog.db"));
   await repo.initialize();
   const service = new CatalogService({
     repository: repo,
-    agentRegistryPath: registryPath,
-    skillRoots: [],
     now: () => "2026-07-12T00:00:00.000Z",
   });
 
@@ -41,6 +33,7 @@ Deno.test("CatalogService introduces verified agents with optional handoff metad
   });
 
   assertEquals(created.verificationStatus, "verified");
+  assertEquals(created.verificationSource, "mcp_introduction");
   if (detail?.entryType !== "agent") {
     throw new Error("Expected agent detail.");
   }
@@ -49,32 +42,27 @@ Deno.test("CatalogService introduces verified agents with optional handoff metad
   repo.close();
 });
 
-Deno.test("CatalogService blocks unverified skills before storage", async () => {
+Deno.test("CatalogService introduces skills without skill root pre-registration", async () => {
   const dir = await Deno.makeTempDir();
   const repo = new SqliteCatalogRepository(join(dir, "catalog.db"));
   await repo.initialize();
   const service = new CatalogService({
     repository: repo,
-    agentRegistryPath: join(dir, "agents.json"),
-    skillRoots: [dir],
     now: () => "2026-07-12T00:00:00.000Z",
   });
 
-  await assertRejects(
-    () =>
-      service.introduceSkill("workspace-a", {
-        skillName: "missing-skill",
-        projectName: "Agentic Router",
-        displayName: "Missing Skill",
-        primarySpecialty: "backend api",
-        specialtyTags: ["api"],
-      }),
-    Error,
-    "verification_failed",
-  );
+  const created = await service.introduceSkill("workspace-a", {
+    skillName: "missing-skill",
+    projectName: "Agentic Router",
+    displayName: "Missing Skill",
+    primarySpecialty: "backend api",
+    specialtyTags: ["api"],
+  });
 
   const entries = await service.listEntries("workspace-a", {});
-  assertEquals(entries, []);
+  assertEquals(created.verificationStatus, "verified");
+  assertEquals(created.verificationSource, "mcp_introduction");
+  assertEquals(entries.map((entry) => entry.entryKey), ["missing-skill"]);
 
   repo.close();
 });

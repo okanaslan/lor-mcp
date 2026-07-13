@@ -11,9 +11,9 @@ catalog namespace.
 
 ## 2. Context
 
-Agentic Router v1 is planned as a Deno TypeScript MCP server over stdio.
-Session identity and catalog scoping use `AGENTIC_ROUTER_CATALOG_NAMESPACE` as
-the durable workspace catalog scope.
+Agentic Router v1 is a Deno TypeScript MCP server with local Streamable HTTP as
+the primary Codex connection mode and stdio as a fallback. Session identity and
+catalog scoping use a workspace catalog namespace as the durable catalog scope.
 
 The catalog storage layer must support introducing agents and skills,
 namespace-local duplicate checks, listing, detail lookup, matching, update,
@@ -41,8 +41,9 @@ keep catalog domain logic independent from MCP transport code.
 ## 5. Proposed Design
 
 Agentic Router v1 should use SQLite as the durable local storage engine. The
-server reads `AGENTIC_ROUTER_DB_PATH` at startup or storage initialization and
-opens or creates the SQLite database at that path.
+server defaults to `.agentic-router/catalog.db` under the workspace and opens
+or creates the SQLite database at that path. `AGENTIC_ROUTER_DB_PATH` remains a
+server-side override.
 
 The Deno implementation should use the Deno-compatible `jsr:@db/sqlite` driver
 unless first scaffold verification finds a blocking Deno or FFI compatibility
@@ -57,9 +58,8 @@ The v1 schema should use separate catalog tables:
 - `introduced_agents`: stores introduced Codex agents.
 - `introduced_skills`: stores introduced Codex skills.
 
-Each table must include `catalogNamespace` from
-`AGENTIC_ROUTER_CATALOG_NAMESPACE`. All catalog reads and writes must filter by
-`catalogNamespace`.
+Each table must include `catalogNamespace` from the resolved workspace
+namespace. All catalog reads and writes must filter by `catalogNamespace`.
 
 `introduced_agents` should store:
 
@@ -123,14 +123,13 @@ SQLite APIs directly.
 All writes, updates, deletes, and import batches should use transactions. All
 parameterized queries should use prepared statements.
 
-The storage setup path should fail explicitly when `AGENTIC_ROUTER_DB_PATH` is
-missing or empty. The server must not silently create a database in an
-unconfigured default location.
+The storage setup path should create the default local data directory when
+server-owned defaults are used. If `AGENTIC_ROUTER_DB_PATH` is set explicitly
+but cannot be opened, storage setup should fail clearly.
 
-Deno run permissions must include environment access for
-`AGENTIC_ROUTER_DB_PATH` and read/write access to the configured database path.
-The first code scaffold must verify whether the selected SQLite driver requires
-additional native or FFI permissions.
+Deno run and serve permissions must include environment access for
+`AGENTIC_ROUTER_DB_PATH`, read/write access to the configured database path,
+and the native or FFI permissions required by the selected SQLite driver.
 
 Combined catalog operations such as list, match, export, and health checks will
 need to read from both `introduced_agents` and `introduced_skills` and merge the
@@ -151,7 +150,7 @@ results into a catalog-level representation.
 
 When this tech spec is implemented as code, verification should include:
 
-- Missing `AGENTIC_ROUTER_DB_PATH` fails with a setup or storage error.
+- Missing `AGENTIC_ROUTER_DB_PATH` uses `.agentic-router/catalog.db`.
 - Schema initializes on an empty SQLite database.
 - Duplicate agent Codex session IDs are rejected within one namespace.
 - Duplicate skill names are rejected within one namespace.
@@ -188,3 +187,5 @@ status.
 - 2026-07-12: Use hard delete for remove operations.
 - 2026-07-12: Bootstrap schema through an internal migration function and track
   schema version in SQLite.
+- 2026-07-13: Default SQLite storage to `.agentic-router/catalog.db` and keep
+  `AGENTIC_ROUTER_DB_PATH` as a server-side override.

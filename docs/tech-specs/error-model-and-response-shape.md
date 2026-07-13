@@ -12,15 +12,16 @@ keeping error output safe, concise, and namespace-isolated.
 
 The v1 MCP tool surface already defines structured response envelopes through
 `structuredContent`, concise text `content`, and `isError` for tool failures.
-The existence verification tech spec adds the `verification_failed` error case.
+The `verification_failed` error code is reserved for future non-blocking health
+or verification workflows.
 
 The MCP TypeScript SDK supports tool results with `structuredContent`, text
 `content`, `outputSchema`, and `isError`. Successful and expected non-error
 outcomes should be structured. Recoverable tool failures should return
 `isError: true`.
 
-This spec consolidates the shared response contract so individual tool specs
-do not define competing error shapes.
+This spec consolidates the shared response contract so individual tool specs do
+not define competing error shapes.
 
 ## 3. Goals
 
@@ -60,9 +61,9 @@ non-error outcomes include:
 - `status: no_match`
 - `status: conflict`
 
-Recoverable tool failures should return `status: error` and set
-`isError: true`. Expected domain, session, setup, validation, verification, and
-storage failures should be returned explicitly rather than thrown.
+Recoverable tool failures should return `status: error` and set `isError: true`.
+Expected domain, session, setup, validation, verification, and storage failures
+should be returned explicitly rather than thrown.
 
 The error object should contain:
 
@@ -93,16 +94,16 @@ shared envelope and error object shape.
 
 ## 6. Alternatives Considered
 
-Returning text-only tool results was considered. It was not chosen because
-Codex agents need stable structured responses for reliable routing decisions.
+Returning text-only tool results was considered. It was not chosen because Codex
+agents need stable structured responses for reliable routing decisions.
 
 Using `structuredContent` without `outputSchema` was considered. It was not
 chosen because SDK output validation can catch response drift before malformed
 tool results leave the server.
 
 Throwing expected domain errors from tool handlers was considered. It was not
-chosen because explicit returned error envelopes provide stable codes,
-sanitized details, and predictable text content.
+chosen because explicit returned error envelopes provide stable codes, sanitized
+details, and predictable text content.
 
 Treating `no_match` and `conflict` as errors was considered. It was not chosen
 because those are expected routing outcomes, not tool failures.
@@ -124,7 +125,7 @@ V1 error codes:
 - `setup_error`
 - `duplicate_entry`
 - `not_found`
-- `verification_failed`
+- `verification_failed` for future verification or health workflows.
 - `storage_error`
 - `internal_error`
 
@@ -133,19 +134,15 @@ Expected failure mapping:
 - Zod or input issues map to `validation_error`.
 - Uninitialized MCP lifecycle or invalid request context maps to
   `session_error`.
-- Missing namespace, database path, verifier config, or unreadable verifier
-  source maps to `setup_error`.
+- Missing namespace or database path maps to `setup_error`.
 - Duplicate namespace-local catalog references map to `duplicate_entry`.
 - Missing requested catalog detail entries map to `not_found`.
-- Valid verifier sources that do not contain the requested target map to
-  `verification_failed`.
 - SQLite read or write failures map to `storage_error`.
-- Unexpected uncaught failures map to `internal_error` with a sanitized
-  message.
+- Unexpected uncaught failures map to `internal_error` with a sanitized message.
 
-The SDK may still produce its own validation behavior for input schema
-failures. Where the implementation controls a tool or domain failure, it
-should normalize the response through the shared envelope.
+The SDK may still produce its own validation behavior for input schema failures.
+Where the implementation controls a tool or domain failure, it should normalize
+the response through the shared envelope.
 
 ## 8. Risks and Tradeoffs
 
@@ -169,14 +166,13 @@ When this tech spec is implemented as code, verification should include:
 - Unexpected exceptions become sanitized `internal_error` responses.
 - Text `content` summarizes the structured result without replacing it.
 
-For this documentation change, verification is limited to reading back the
-spec, checking the docs tree, running `git diff --check`, and checking git
-status.
+For this documentation change, verification is limited to reading back the spec,
+checking the docs tree, running `git diff --check`, and checking git status.
 
 ## 10. Open Questions
 
-- Should future non-v1 tools reuse the exact same status enum, or extend it
-  with tool-specific non-error statuses?
+- Should future non-v1 tools reuse the exact same status enum, or extend it with
+  tool-specific non-error statuses?
 - Should later HTTP transport specs add protocol-level error mapping separate
   from tool result envelopes?
 - Should implementation tests snapshot full envelopes or assert only stable
@@ -184,8 +180,7 @@ status.
 
 ## 11. Decision Log
 
-- 2026-07-12: Use `structuredContent` as the canonical tool response for
-  agents.
+- 2026-07-12: Use `structuredContent` as the canonical tool response for agents.
 - 2026-07-12: Include concise text `content` for human readability.
 - 2026-07-12: Register Zod `outputSchema` for every v1 tool response envelope.
 - 2026-07-12: Treat `ok`, `no_match`, and `conflict` as non-error statuses.

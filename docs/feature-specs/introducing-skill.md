@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Draft. This feature lets a user introduce an existing Codex skill to the
-Agentic Router MCP Server by recording its skill name and routing metadata in
-storage scoped to the active initialized MCP session.
+Draft. This feature lets a user introduce an existing Codex skill to the Agentic
+Router MCP Server by recording its skill name and routing metadata in storage
+scoped to the active initialized MCP session.
 
 ## 2. Goals
 
@@ -30,8 +30,8 @@ storage scoped to the active initialized MCP session.
 - The request must include one primary specialty.
 - The request must include specialty tags.
 - The server must reject requests missing any required field.
-- The server must associate the introduced skill with the active initialized
-  MCP session.
+- The server must associate the introduced skill with the active initialized MCP
+  session.
 - The server must reject a duplicate skill name within the same MCP session.
 - The server may allow the same skill name to be introduced in different MCP
   sessions.
@@ -62,8 +62,8 @@ Conceptual `IntroducedSkill` fields:
 - `updatedAt`: records when the stored record was last changed, if updates are
   added later.
 
-The feature spec does not require a specific database schema, storage engine,
-or persistence implementation.
+The feature spec does not require a specific database schema, storage engine, or
+persistence implementation.
 
 ## 7. Error Handling
 
@@ -89,10 +89,8 @@ or persistence implementation.
   operation?
 - Should specialty tags be free-form strings or validated against a controlled
   taxonomy?
-- Should the server verify that a Codex skill exists before accepting the
-  introduction?
-- If skill existence is verified, should verification use local skill inventory,
-  configured skill roots, or another source?
+- Should a future catalog health workflow verify introduced skills without
+  blocking introduction?
 
 ## 10. Decision Log
 

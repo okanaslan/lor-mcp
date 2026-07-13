@@ -7,32 +7,26 @@ import {
   type ListEntriesFilter,
   type MatchRequest,
   type MatchResult,
+  type VerificationMetadata,
 } from "@src/catalog/types.ts";
 import {
   validateIntroduceAgent,
   validateIntroduceSkill,
 } from "@src/catalog/validation.ts";
-import { verifyAgentExists, verifySkillExists } from "@src/catalog/verifier.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
 import { AgenticRouterError } from "@src/errors.ts";
 
 interface CatalogServiceOptions {
   repository: CatalogRepository;
-  agentRegistryPath: string;
-  skillRoots: string[];
   now?: () => string;
 }
 
 export class CatalogService {
   readonly #repository: CatalogRepository;
-  readonly #agentRegistryPath: string;
-  readonly #skillRoots: string[];
   readonly #now: () => string;
 
   constructor(options: CatalogServiceOptions) {
     this.#repository = options.repository;
-    this.#agentRegistryPath = options.agentRegistryPath;
-    this.#skillRoots = options.skillRoots;
     this.#now = options.now ?? (() => new Date().toISOString());
   }
 
@@ -41,15 +35,11 @@ export class CatalogService {
     input: IntroduceAgentInput,
   ): Promise<CatalogEntry> {
     const validated = validateIntroduceAgent(input);
-    const verification = await verifyAgentExists(
-      validated.codexSessionId,
-      this.#agentRegistryPath,
-      this.#now,
-    );
+    const now = this.#now();
     return await this.#repository.createAgent(namespace, {
       ...validated,
-      verification,
-      now: this.#now(),
+      verification: introductionVerification(now),
+      now,
     });
   }
 
@@ -58,15 +48,11 @@ export class CatalogService {
     input: IntroduceSkillInput,
   ): Promise<CatalogEntry> {
     const validated = validateIntroduceSkill(input);
-    const verification = await verifySkillExists(
-      validated.skillName,
-      this.#skillRoots,
-      this.#now,
-    );
+    const now = this.#now();
     return await this.#repository.createSkill(namespace, {
       ...validated,
-      verification,
-      now: this.#now(),
+      verification: introductionVerification(now),
+      now,
     });
   }
 
@@ -97,4 +83,12 @@ export class CatalogService {
     const entries = await this.#repository.listEntries(namespace, {});
     return findCatalogMatches(entries, request);
   }
+}
+
+function introductionVerification(now: string): VerificationMetadata {
+  return {
+    verificationStatus: "verified",
+    verificationSource: "mcp_introduction",
+    verifiedAt: now,
+  };
 }

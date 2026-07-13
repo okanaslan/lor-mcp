@@ -2,194 +2,125 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines blocking v1 existence checks for introduced
-Codex agents and Codex skills. Verification is internal to the existing
-catalog flows and uses configured local sources instead of adding a standalone
-MCP verification tool.
+Draft. This tech spec records the v1 decision not to block agent or skill
+introduction on local existence verification. Introduction is the registration
+step for Agentic Router.
 
 ## 2. Context
 
-Agentic Router v1 runs as a Deno TypeScript MCP server over stdio. Catalog
-scope comes from `AGENTIC_ROUTER_CATALOG_NAMESPACE`, and durable storage uses
-SQLite through `AGENTIC_ROUTER_DB_PATH`.
+Agentic Router v1 runs as a Deno TypeScript MCP server over local Streamable
+HTTP, with stdio retained as a fallback. Users and agents connect through MCP
+and should not need filesystem access to the server's local state in order to
+introduce a catalog entry.
 
-The v1 MCP tool surface includes introduction, listing, detail lookup, and
-matching tools. It intentionally excludes a standalone verification or catalog
-health tool. Existence verification should therefore run inside the catalog
-domain layer before accepted records are stored or recommended.
-
-Feature specs require introduced agents and skills to already exist. The
-technical design needs explicit local evidence sources so Agentic Router can
-reject invalid entries without querying remote Codex APIs.
+Earlier drafts required `introduce_agent` and `introduce_skill` to prove the
+target already existed in server-local registry files or skill roots. That
+creates a circular setup problem: users must manually pre-register the same
+thing they are trying to introduce.
 
 ## 3. Goals
 
-- Prevent invalid Codex agents and skills from entering the catalog.
-- Keep existence checks deterministic, local, and testable.
-- Store verification metadata with accepted catalog records.
-- Keep verification behavior namespace-safe and free from cross-session data
-  leakage.
-- Provide a reusable verifier module for future health, import, and update
-  workflows.
+- Let `introduce_agent` register a supplied Codex session ID directly.
+- Let `introduce_skill` register a supplied skill name directly.
+- Keep introduction deterministic, local, and durable.
+- Preserve verification metadata fields for future health workflows.
+- Avoid requiring users to edit server-local registry files.
 
 ## 4. Non-Goals
 
+- Prove that a Codex session is currently active.
+- Prove that a skill folder exists on disk during introduction.
 - Add a standalone verification MCP tool.
-- Add a catalog health MCP tool.
 - Install missing skills.
 - Create missing Codex agents.
-- Repair invalid Codex sessions.
 - Query remote Codex or OpenAI APIs.
-- Define a complete catalog health report.
 
 ## 5. Proposed Design
 
-V1 should use strict local verification for both introduced agents and
-introduced skills. `introduce_agent` and `introduce_skill` must verify the
-target before writing to durable storage. If verification cannot prove the
-target exists, the introduction must fail.
+V1 introduction tools should validate request shape and store the submitted
+metadata. They should not read an agent registry file, scan skill roots, or
+reject entries because server-local evidence is missing.
 
-Agent verification uses `AGENTIC_ROUTER_AGENT_REGISTRY_PATH`, which points to a
-local JSON file. The registry contains valid Codex session IDs:
+Accepted agent and skill records should keep the existing verification metadata
+shape for compatibility:
 
-```json
-{
-  "agents": [
-    {
-      "codexSessionId": "example-session-id"
-    }
-  ]
-}
-```
+- `verificationStatus`: `verified`
+- `verificationSource`: `mcp_introduction`
+- `verifiedAt`: timestamp of the accepted introduction
 
-The verifier only requires `codexSessionId`. Extra descriptive fields in the
-registry may be ignored.
+For v1, `verified` means the entry was accepted through an explicit MCP
+introduction request, not that the server independently proved external
+existence.
 
-Skill verification uses `AGENTIC_ROUTER_SKILL_ROOTS`, an OS path-delimited
-list of local skill root directories. A skill exists when at least one
-configured root contains `<skillName>/SKILL.md`. Skill folders whose names
-start with `_` are private or template folders and must not be accepted as
-introducible skills.
-
-Accepted agent and skill records should store verification metadata:
-
-- `verificationStatus`: `verified`, `unverified`, or `unknown`.
-- `verificationSource`: `agent_registry_json` or `skill_roots`.
-- `verifiedAt`: records when verification succeeded.
-- `verificationMessage`: optional concise diagnostic text.
-
-For v1, all accepted entries should be stored with
-`verificationStatus: verified`. The additional statuses exist so future health
-and import/update workflows can represent stale, unchecked, or migrated records
-without changing the record shape.
-
-`list_catalog_entries`, `get_catalog_entry_detail`, and
-`find_matching_catalog_entry` should return stored verification metadata where
-it is useful to callers. Matching must only recommend verified entries in v1.
-
-Verification errors should use the existing structured MCP response envelope.
-Missing verifier configuration or unreadable verifier sources should return
-`setup_error`. A valid verifier source that does not contain the requested
-agent or skill should return `verification_failed`.
-
-Verification must not expose absolute registry paths, skill root paths,
-entries from other namespaces, or hidden catalog data in tool errors,
-recommendation explanations, or text responses.
+Future health or verification workflows may re-check catalog entries and update
+or report verification metadata. Those workflows must be separate from
+introduction and must not make normal registration depend on editing
+server-local files.
 
 ## 6. Alternatives Considered
 
-Adding a standalone verification MCP tool was considered. It was not chosen
-because the v1 tool surface intentionally keeps verification and health checks
-out of the public MCP surface.
+Blocking introduction on an agent registry file was considered. It was rejected
+because normal users and agents should not need access to server-local files
+before they can introduce a new agent.
 
-Accepting unverified entries with `unknown` status was considered. It was not
-chosen for v1 because strict introduction keeps the catalog reliable before
-matching and handoff workflows depend on it.
+Blocking skill introduction on configured skill roots was considered. It was
+rejected for the same reason: introduction should capture routing metadata,
+while later health checks can report missing local assets.
 
-Using only the repo-vendored `.temp/skills` inventory was considered. It was
-not chosen because the running MCP server should verify the user's configured
-Codex skill roots, not only this repository's reference skill library.
-
-Querying a remote Codex or OpenAI API for agent existence was considered. It
-was not chosen because v1 is designed around deterministic local configuration
-and does not depend on remote service access.
+Accepting entries with `verificationStatus: unverified` was considered. It was
+not chosen for v1 because the current matching flow only routes accepted
+entries, and introduction itself is the user's explicit registration action.
 
 ## 7. Implementation Notes
 
-Verifier logic should live behind a small catalog or domain interface. MCP tool
-handlers should call catalog services and should not directly read registry
-files, scan skill roots, or parse verifier configuration.
+`CatalogService.introduceAgent` and `CatalogService.introduceSkill` should call
+the existing validation functions, attach `mcp_introduction` verification
+metadata, and write through the repository.
 
-The agent registry should be parsed as JSON and validated enough to reject
-malformed files as setup errors. The verifier should compare the requested
-`codexSessionId` against the registry's `agents[*].codexSessionId` values.
-
-The skill verifier should split `AGENTIC_ROUTER_SKILL_ROOTS` using the
-platform path delimiter. It should check for `SKILL.md` under each candidate
-skill folder and avoid leaking which absolute root was checked.
-
-Deno run permissions should include env access for:
+The runtime config should not require:
 
 - `AGENTIC_ROUTER_AGENT_REGISTRY_PATH`
 - `AGENTIC_ROUTER_SKILL_ROOTS`
 
-Deno read permissions should be limited to the configured agent registry file
-and configured skill root paths.
-
-Future import and update flows should reuse the same verifier before writing
-new or changed references. Future catalog health flows can reuse the verifier
-to refresh stored verification metadata and report stale records.
+The local `.agentic-router/` directory remains the default SQLite catalog data
+directory, not an introduction pre-registration directory.
 
 ## 8. Risks and Tradeoffs
 
-- The agent registry becomes a manually maintained source of truth.
-- Skill root configuration can drift from the actual Codex runtime inventory.
-- Strict verification improves catalog quality but adds setup requirements.
-- Local filesystem verification is deterministic but does not prove a target
-  agent session is currently active or reachable.
-- Returning verification metadata helps callers reason about entries but adds
-  fields that future migrations must preserve.
+- Invalid or stale agent/session IDs can be introduced.
+- Missing or misspelled skill names can be introduced.
+- The catalog becomes easier to populate, but correctness depends on user or
+  agent-provided metadata until future health checks exist.
+- Future verification must be additive and non-blocking unless the user
+  explicitly opts into strict policy.
 
 ## 9. Verification Plan
 
 When this tech spec is implemented as code, verification should include:
 
-- Missing `AGENTIC_ROUTER_AGENT_REGISTRY_PATH` blocks `introduce_agent`.
-- Unreadable or malformed agent registry returns `setup_error`.
-- Unknown Codex session ID is rejected with `verification_failed`.
-- Known Codex session ID is accepted and stored as verified.
-- Missing `AGENTIC_ROUTER_SKILL_ROOTS` blocks `introduce_skill`.
-- Skill name with a matching `SKILL.md` is accepted and stored as verified.
-- Missing skill is rejected with `verification_failed`.
-- Private or template skill folder names starting with `_` are rejected.
-- List and detail responses expose stored verification metadata without
-  leaking local filesystem paths.
-- Matching excludes unverified or unknown entries.
-- Verification failures do not reveal entries or data from other catalog
-  namespaces.
-
-For this documentation change, verification is limited to reading back the
-spec, checking the docs tree, running `git diff --check`, and checking git
-status.
+- `introduce_agent` accepts a valid request without an agent registry file.
+- `introduce_skill` accepts a valid request without a matching skill folder.
+- Introduced agents and skills are stored with
+  `verificationSource:
+  mcp_introduction`.
+- Missing required fields still return validation errors.
+- Duplicate checks remain namespace-local.
+- Matching can recommend introduced entries.
+- Runtime startup does not require agent registry or skill root env vars.
 
 ## 10. Open Questions
 
-- Should future catalog health refresh stored `verificationStatus` values
-  automatically, or only report them?
-- Should future imports fail the entire batch on one verification failure or
-  allow partial import with rejected-entry reporting?
-- Should the agent registry eventually include optional reachability or
-  handoff metadata beyond `codexSessionId`?
+- Should a future health tool mark missing entries as `unverified` or only
+  report health status without changing catalog records?
+- Should projects be able to opt into strict verification for private
+  deployments?
 
 ## 11. Decision Log
 
-- 2026-07-12: Keep verification internal and do not add a v1 verification MCP
-  tool.
-- 2026-07-12: Require `AGENTIC_ROUTER_AGENT_REGISTRY_PATH` for Codex agent
-  verification.
-- 2026-07-12: Use a local JSON agent registry with `agents[*].codexSessionId`.
-- 2026-07-12: Require `AGENTIC_ROUTER_SKILL_ROOTS` for Codex skill
-  verification.
-- 2026-07-12: Verify skills by checking for `<skillRoot>/<skillName>/SKILL.md`.
-- 2026-07-12: Reject unverified agents and skills during introduction.
-- 2026-07-12: Store verification metadata on accepted catalog records.
+- 2026-07-12: Earlier drafts required strict local existence verification for
+  agent and skill introduction.
+- 2026-07-13: Remove blocking local existence verification from both
+  `introduce_agent` and `introduce_skill`; introduction is the registration
+  step.
+- 2026-07-13: Keep verification metadata fields and use
+  `verificationSource: mcp_introduction` for accepted introductions.

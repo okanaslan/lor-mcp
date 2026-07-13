@@ -5,8 +5,10 @@ skills. It will let a configured workspace introduce known agents and skills,
 store their routing metadata, and help a current Codex agent find relevant
 catalog entries for a task.
 
-The first implementation is a Deno TypeScript MCP server over stdio. Product and
-technical planning remain documented under `docs/`.
+The first implementation is a Deno TypeScript MCP server that can run as a
+local Streamable HTTP server for Codex, with stdio kept as a compatibility and
+development fallback. Product and technical planning remain documented under
+`docs/`.
 
 ## Project Goals
 
@@ -26,15 +28,38 @@ technical planning remain documented under `docs/`.
 
 ## Runtime
 
-Required environment variables:
+Run the local HTTP MCP server:
+
+```sh
+deno task serve
+```
+
+Then connect Codex to the already-running server:
+
+```sh
+codex mcp add agentic-router --url http://127.0.0.1:8765/mcp
+```
+
+Equivalent Codex config:
+
+```toml
+[mcp_servers.agentic-router]
+url = "http://127.0.0.1:8765/mcp"
+```
+
+Server-owned defaults are used when no environment variables are set:
+
+- Catalog namespace: current workspace directory name.
+- SQLite database: `.agentic-router/catalog.db`.
+
+Optional server-side environment overrides:
 
 - `AGENTIC_ROUTER_CATALOG_NAMESPACE`: stable workspace catalog namespace.
 - `AGENTIC_ROUTER_DB_PATH`: local SQLite database path.
-- `AGENTIC_ROUTER_AGENT_REGISTRY_PATH`: JSON file with
-  `agents[*].codexSessionId` values.
-- `AGENTIC_ROUTER_SKILL_ROOTS`: OS path-delimited list of skill root folders.
+- `AGENTIC_ROUTER_HOST`: local HTTP host, default `127.0.0.1`.
+- `AGENTIC_ROUTER_PORT`: local HTTP port, default `8765`.
 
-Run locally:
+Run the stdio fallback:
 
 ```sh
 deno task run

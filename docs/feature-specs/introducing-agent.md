@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Draft. This feature lets a user introduce an existing Codex agent to the
-Agentic Router MCP Server by recording its Codex session ID and routing
-metadata in storage scoped to the active initialized MCP session.
+Draft. This feature lets a user introduce an existing Codex agent to the Agentic
+Router MCP Server by recording its Codex session ID and routing metadata in
+storage scoped to the active initialized MCP session.
 
 ## 2. Goals
 
@@ -23,8 +23,7 @@ metadata in storage scoped to the active initialized MCP session.
 
 ## 4. Functional Requirements
 
-- The server must accept an introduce-agent request for an existing Codex
-  agent.
+- The server must accept an introduce-agent request for an existing Codex agent.
 - The request must include the Codex session ID for the existing Codex agent.
 - The request must include the project name the agent is focused on.
 - The request must include a human-readable display name.
@@ -64,8 +63,8 @@ Conceptual `IntroducedAgent` fields:
 - `updatedAt`: records when the stored record was last changed, if updates are
   added later.
 
-The feature spec does not require a specific database schema, storage engine,
-or persistence implementation.
+The feature spec does not require a specific database schema, storage engine, or
+persistence implementation.
 
 ## 7. Error Handling
 
@@ -91,8 +90,8 @@ or persistence implementation.
   operation?
 - Should specialty tags be free-form strings or validated against a controlled
   taxonomy?
-- Should the server verify that a Codex session ID exists before accepting the
-  introduction?
+- Should a future catalog health workflow verify introduced Codex session IDs
+  without blocking introduction?
 
 ## 10. Decision Log
 
@@ -101,10 +100,10 @@ or persistence implementation.
 - 2026-07-10: Require display name, project name, primary specialty, and
   specialty tags.
 - 2026-07-10: Use primary specialty plus tags instead of a single specialty.
-- 2026-07-10: Reject duplicate Codex session IDs within the same initialized
-  MCP session.
+- 2026-07-10: Reject duplicate Codex session IDs within the same initialized MCP
+  session.
 - 2026-07-10: Keep persistent storage abstract and defer database selection.
-- 2026-07-10: Keep fetching, listing, and searching agents as a separate
-  feature spec.
+- 2026-07-10: Keep fetching, listing, and searching agents as a separate feature
+  spec.
 - 2026-07-10: Use the initialized MCP session as the catalog session boundary
   instead of requiring a custom session identifier in the tool input.

@@ -6,14 +6,16 @@ Draft. This tech spec defines the first usable MCP tool set for Agentic Router.
 The v1 surface supports introducing agents and skills, inspecting the catalog,
 and finding a matching catalog entry for a task.
 
-The tool surface is designed for the current Deno TypeScript runtime, stdio
-transport, namespace-scoped sessions, and SQLite-backed catalog storage.
+The tool surface is designed for the current Deno TypeScript runtime, local
+Streamable HTTP and stdio transports, namespace-scoped sessions, and
+SQLite-backed catalog storage.
 
 ## 2. Context
 
-Agentic Router v1 runs as a Deno TypeScript MCP server over stdio. Catalog
-scope comes from `AGENTIC_ROUTER_CATALOG_NAMESPACE`, and durable storage uses
-SQLite through `AGENTIC_ROUTER_DB_PATH`.
+Agentic Router v1 runs as a Deno TypeScript MCP server over local Streamable
+HTTP, with stdio retained as a fallback. Catalog scope comes from the resolved
+workspace namespace, and durable storage uses SQLite through the resolved local
+database path.
 
 The MCP TypeScript SDK supports registering tools with `registerTool`, Zod
 `inputSchema` validation, `structuredContent`, text `content`, and `isError`
@@ -40,7 +42,6 @@ verification, or explanation tools.
 - Add catalog health tools.
 - Add skill or agent existence verification tools.
 - Generate agent handoff prompts.
-- Define HTTP transport behavior.
 - Define the full matching algorithm.
 - Define the recommendation explanation contract.
 
@@ -59,15 +60,15 @@ Each tool should be registered with the MCP SDK `registerTool` API and a Zod
 catalog namespace through the session module, then call catalog domain or
 repository functions.
 
-Tool inputs must not include `catalogNamespace`, `connectionId`, or
-`AGENTIC_ROUTER_DB_PATH`. Those values are server configuration and session
-context, not caller-controlled tool arguments.
+Tool inputs must not include `catalogNamespace`, `connectionId`,
+`mcpSessionId`, or `AGENTIC_ROUTER_DB_PATH`. Those values are server
+configuration and session context, not caller-controlled tool arguments.
 
 All v1 tools must require:
 
 - Completed MCP initialization.
-- Configured `AGENTIC_ROUTER_CATALOG_NAMESPACE`.
-- Configured `AGENTIC_ROUTER_DB_PATH`.
+- Resolved catalog namespace.
+- Available local SQLite database path.
 - Available catalog storage.
 
 Tool results should include `structuredContent` for agents and concise text
@@ -186,8 +187,10 @@ When this tech spec is implemented as code, verification should include:
 - Each v1 tool is registered with the expected snake_case name.
 - Zod rejects missing or invalid required inputs.
 - Tools fail before MCP initialization completes.
-- Tools fail when catalog namespace configuration is missing.
-- Tools fail when database path configuration is missing.
+- Tools use the resolved catalog namespace when namespace env config is
+  missing.
+- Tools use default local database storage when database path env config is
+  missing.
 - Introduce tools enforce namespace-local duplicate rules.
 - List, detail, and match only return entries from the active namespace.
 - Match returns `no_match` and `conflict` as structured non-error outcomes.
@@ -217,3 +220,5 @@ status.
 - 2026-07-12: Treat `no_match` and `conflict` as non-error routing outcomes.
 - 2026-07-12: Keep update, remove, import, export, health, verification, and
   explanation tools out of v1.
+- 2026-07-13: Support the same v1 tool surface over local Streamable HTTP and
+  stdio.
