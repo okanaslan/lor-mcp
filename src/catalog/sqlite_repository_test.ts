@@ -144,6 +144,122 @@ Deno.test("SqliteCatalogRepository round-trips stored verification status", asyn
   repo.close();
 });
 
+Deno.test("SqliteCatalogRepository clears agents and skills by workspace only", async () => {
+  const dir = await Deno.makeTempDir();
+  const repo = new SqliteCatalogRepository(join(dir, "catalog.db"));
+  await repo.initialize();
+
+  await seedAgent(repo, "workspace-a", "agent-a");
+  await seedSkill(repo, "workspace-a", "skill-a");
+  await seedAgent(repo, "workspace-b", "agent-b");
+  await seedSkill(repo, "workspace-b", "skill-b");
+
+  const result = await repo.clearEntries("workspace-a", {
+    workspace: "workspace-a",
+    confirm: true,
+  });
+  const workspaceAEntries = await repo.listEntries("workspace-a", {
+    workspace: "workspace-a",
+  });
+  const workspaceBEntries = await repo.listEntries("workspace-b", {
+    workspace: "workspace-b",
+  });
+
+  assertEquals(result, {
+    workspace: "workspace-a",
+    entryType: undefined,
+    deletedAgents: 1,
+    deletedSkills: 1,
+    deletedTotal: 2,
+  });
+  assertEquals(workspaceAEntries, []);
+  assertEquals(workspaceBEntries.map((entry) => entry.entryKey), [
+    "agent-b",
+    "skill-b",
+  ]);
+
+  repo.close();
+});
+
+Deno.test("SqliteCatalogRepository clears only agents when filtered", async () => {
+  const dir = await Deno.makeTempDir();
+  const repo = new SqliteCatalogRepository(join(dir, "catalog.db"));
+  await repo.initialize();
+
+  await seedAgent(repo, "workspace-a", "agent-a");
+  await seedSkill(repo, "workspace-a", "skill-a");
+
+  const result = await repo.clearEntries("workspace-a", {
+    workspace: "workspace-a",
+    confirm: true,
+    entryType: "agent",
+  });
+  const entries = await repo.listEntries("workspace-a", {
+    workspace: "workspace-a",
+  });
+
+  assertEquals(result, {
+    workspace: "workspace-a",
+    entryType: "agent",
+    deletedAgents: 1,
+    deletedSkills: 0,
+    deletedTotal: 1,
+  });
+  assertEquals(entries.map((entry) => entry.entryKey), ["skill-a"]);
+
+  repo.close();
+});
+
+Deno.test("SqliteCatalogRepository clears only skills when filtered", async () => {
+  const dir = await Deno.makeTempDir();
+  const repo = new SqliteCatalogRepository(join(dir, "catalog.db"));
+  await repo.initialize();
+
+  await seedAgent(repo, "workspace-a", "agent-a");
+  await seedSkill(repo, "workspace-a", "skill-a");
+
+  const result = await repo.clearEntries("workspace-a", {
+    workspace: "workspace-a",
+    confirm: true,
+    entryType: "skill",
+  });
+  const entries = await repo.listEntries("workspace-a", {
+    workspace: "workspace-a",
+  });
+
+  assertEquals(result, {
+    workspace: "workspace-a",
+    entryType: "skill",
+    deletedAgents: 0,
+    deletedSkills: 1,
+    deletedTotal: 1,
+  });
+  assertEquals(entries.map((entry) => entry.entryKey), ["agent-a"]);
+
+  repo.close();
+});
+
+Deno.test("SqliteCatalogRepository returns zero counts for empty workspace clear", async () => {
+  const dir = await Deno.makeTempDir();
+  const repo = new SqliteCatalogRepository(join(dir, "catalog.db"));
+  await repo.initialize();
+
+  const result = await repo.clearEntries("workspace-a", {
+    workspace: "workspace-a",
+    confirm: true,
+  });
+
+  assertEquals(result, {
+    workspace: "workspace-a",
+    entryType: undefined,
+    deletedAgents: 0,
+    deletedSkills: 0,
+    deletedTotal: 0,
+  });
+
+  repo.close();
+});
+
 Deno.test("SqliteCatalogRepository migrates legacy catalogNamespace columns", async () => {
   const dir = await Deno.makeTempDir();
   const dbPath = join(dir, "catalog.db");
@@ -212,3 +328,37 @@ Deno.test("SqliteCatalogRepository migrates legacy catalogNamespace columns", as
 
   repo.close();
 });
+
+async function seedAgent(
+  repo: SqliteCatalogRepository,
+  workspace: string,
+  codexSessionId: string,
+): Promise<void> {
+  await repo.createAgent(workspace, {
+    workspace,
+    codexSessionId,
+    projectName: "Agentic Router",
+    displayName: `Agent ${codexSessionId}`,
+    primarySpecialty: "backend api",
+    specialtyTags: ["api"],
+    verification,
+    now: "2026-07-12T00:00:00.000Z",
+  });
+}
+
+async function seedSkill(
+  repo: SqliteCatalogRepository,
+  workspace: string,
+  skillName: string,
+): Promise<void> {
+  await repo.createSkill(workspace, {
+    workspace,
+    skillName,
+    projectName: "Agentic Router",
+    displayName: `Skill ${skillName}`,
+    primarySpecialty: "backend api",
+    specialtyTags: ["api"],
+    verification,
+    now: "2026-07-12T00:00:00.000Z",
+  });
+}

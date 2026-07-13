@@ -11,7 +11,8 @@ Implemented in the first runnable v1 slice:
 - Local Streamable HTTP server through `deno task serve`, exposed at
   `http://127.0.0.1:8765/mcp`.
 - Stdio fallback through `deno task run`.
-- URL-only Codex setup with `codex mcp add agentic-router --url
+- URL-only Codex setup with
+  `codex mcp add agentic-router --url
   http://127.0.0.1:8765/mcp`.
 - Server-owned local defaults for SQLite storage under `.agentic-router/`.
 - SQLite-backed durable catalog storage scoped by client-supplied `workspace`.
@@ -19,14 +20,14 @@ Implemented in the first runnable v1 slice:
   - `introduce_agent`
   - `introduce_skill`
   - `list_catalog_entries`
+  - `clear_workspace_catalog`
   - `get_catalog_entry_detail`
   - `find_matching_catalog_entry`
 - Agent and skill introduction now acts as registration. The server no longer
   requires server-local pre-verification evidence before accepting new entries.
 - Deterministic local fuzzy matching with structured match explanations and
   conflict reporting.
-- Structured MCP response envelopes with output schemas and stable error
-  codes.
+- Structured MCP response envelopes with output schemas and stable error codes.
 
 Latest implementation verification:
 
@@ -48,8 +49,10 @@ Latest implementation verification:
   pre-verification.
 - [Find Matching Catalog Entry](feature-specs/find-matching-catalog-entry.md):
   Implemented for v1 deterministic local fuzzy matching.
-- [List Catalog Entries](feature-specs/list-catalog-entries.md): Implemented
-  for v1 catalog inspection.
+- [List Catalog Entries](feature-specs/list-catalog-entries.md): Implemented for
+  v1 catalog inspection.
+- [Clear Workspace Catalog](feature-specs/clear-workspace-catalog.md):
+  Implemented for v1 workspace catalog reset with explicit confirmation.
 - [Get Catalog Entry Detail](feature-specs/get-catalog-entry-detail.md):
   Implemented for v1 detail lookup.
 - [Update Catalog Entry](feature-specs/update-catalog-entry.md): Draft. Defines
@@ -57,11 +60,11 @@ Latest implementation verification:
 - [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Draft. Defines
   how users remove an introduced agent or skill from the workspace catalog.
 - [Skill / Agent Existence Verification](feature-specs/existence-verification.md):
-  Deferred. Blocking verification was removed from v1 introduction flows.
-  Future verification should be a separate health/reporting workflow.
+  Deferred. Blocking verification was removed from v1 introduction flows. Future
+  verification should be a separate health/reporting workflow.
 - [Routing Recommendation Explanation](feature-specs/routing-recommendation-explanation.md):
-  Partially implemented. V1 matching returns structured explanation fields;
-  the richer explanation contract remains draft.
+  Partially implemented. V1 matching returns structured explanation fields; the
+  richer explanation contract remains draft.
 - [Conflict Handling](feature-specs/conflict-handling.md): Draft. Defines how
   Agentic Router handles equally strong catalog matches. Basic equally scored
   agent conflict reporting exists in v1 matching.
@@ -74,7 +77,7 @@ Latest implementation verification:
 
 - Keep feature specs aligned with client-supplied `workspace` scoping and the
   Streamable HTTP runtime.
-- Add update and remove tools for catalog maintenance.
+- Add update and single-entry remove tools for catalog maintenance.
 - Decide whether import/export should land before richer recommendation
   explanation.
 - Design non-blocking catalog health or verification reporting for introduced

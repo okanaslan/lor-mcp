@@ -68,6 +68,20 @@ export interface ListEntriesFilter {
   projectName?: string;
 }
 
+export interface ClearWorkspaceCatalogInput {
+  workspace: string;
+  confirm: true;
+  entryType?: EntryType;
+}
+
+export interface ClearWorkspaceCatalogResult {
+  workspace: string;
+  entryType?: EntryType;
+  deletedAgents: number;
+  deletedSkills: number;
+  deletedTotal: number;
+}
+
 export interface EntryLookup {
   workspace: string;
   entryType: EntryType;
@@ -140,6 +154,10 @@ export interface CatalogRepository {
     workspace: string,
     filter: ListEntriesFilter,
   ): Promise<CatalogEntry[]>;
+  clearEntries(
+    workspace: string,
+    input: ClearWorkspaceCatalogInput,
+  ): Promise<ClearWorkspaceCatalogResult>;
   getEntry(
     workspace: string,
     lookup: EntryLookup,

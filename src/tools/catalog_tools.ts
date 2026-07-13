@@ -1,5 +1,7 @@
 import type { McpServer } from "@mcp/server";
 import {
+  clearWorkspaceCatalogInputSchema,
+  type ClearWorkspaceCatalogToolInput,
   findMatchingCatalogEntryInputSchema,
   type FindMatchingCatalogEntryToolInput,
   getCatalogEntryDetailInputSchema,
@@ -62,7 +64,7 @@ export function registerCatalogTools(
   server.registerTool(
     "list_catalog_entries",
     {
-      description: "List introduced agents and skills in the active catalog.",
+      description: "List introduced agents and skills in a workspace catalog.",
       inputSchema: listCatalogEntriesInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -72,6 +74,24 @@ export function registerCatalogTools(
         return okResult(
           { entries },
           `Found ${entries.length} catalog entries.`,
+        );
+      }),
+  );
+
+  server.registerTool(
+    "clear_workspace_catalog",
+    {
+      description:
+        "Clear introduced agents and skills from one workspace catalog.",
+      inputSchema: clearWorkspaceCatalogInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: ClearWorkspaceCatalogToolInput) =>
+      withRuntime(runtimeFactory, async (runtime) => {
+        const result = await runtime.service.clearWorkspaceCatalog(input);
+        return okResult(
+          result,
+          `Cleared ${result.deletedTotal} catalog entries.`,
         );
       }),
   );

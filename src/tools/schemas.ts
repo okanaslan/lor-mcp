@@ -37,6 +37,12 @@ export const listCatalogEntriesInputSchema = z.object({
   projectName: z.string().trim().min(1).optional(),
 });
 
+export const clearWorkspaceCatalogInputSchema = z.object({
+  workspace: workspaceSchema,
+  confirm: z.literal(true),
+  entryType: entryTypeSchema.optional(),
+});
+
 export const getCatalogEntryDetailInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema,
@@ -55,6 +61,9 @@ export type IntroduceAgentToolInput = z.infer<typeof introduceAgentInputSchema>;
 export type IntroduceSkillToolInput = z.infer<typeof introduceSkillInputSchema>;
 export type ListCatalogEntriesToolInput = z.infer<
   typeof listCatalogEntriesInputSchema
+>;
+export type ClearWorkspaceCatalogToolInput = z.infer<
+  typeof clearWorkspaceCatalogInputSchema
 >;
 export type GetCatalogEntryDetailToolInput = z.infer<
   typeof getCatalogEntryDetailInputSchema

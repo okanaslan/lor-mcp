@@ -1,6 +1,8 @@
 import {
   type CatalogEntry,
   type CatalogRepository,
+  type ClearWorkspaceCatalogInput,
+  type ClearWorkspaceCatalogResult,
   type EntryLookup,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
@@ -61,6 +63,24 @@ export class CatalogService {
     const workspace = validateWorkspace(filter.workspace);
     return await this.#repository.listEntries(workspace, {
       ...filter,
+      workspace,
+    });
+  }
+
+  async clearWorkspaceCatalog(
+    input: ClearWorkspaceCatalogInput,
+  ): Promise<ClearWorkspaceCatalogResult> {
+    const workspace = validateWorkspace(input.workspace);
+    if (input.confirm !== true) {
+      throw new AgenticRouterError(
+        "validation_error",
+        "confirm must be true.",
+        { field: "confirm" },
+      );
+    }
+
+    return await this.#repository.clearEntries(workspace, {
+      ...input,
       workspace,
     });
   }

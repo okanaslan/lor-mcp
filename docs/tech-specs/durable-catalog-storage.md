@@ -16,9 +16,10 @@ the primary Codex connection mode and stdio as a fallback. Session identity and
 catalog scoping use a workspace as the durable catalog scope.
 
 The catalog storage layer must support introducing agents and skills,
-workspace-local duplicate checks, listing, detail lookup, matching, update,
-remove, import/export, and catalog health checks. The storage design should
-keep catalog domain logic independent from MCP transport code.
+workspace-local duplicate checks, listing, detail lookup, matching,
+workspace-scoped clearing, update, remove, import/export, and catalog health
+checks. The storage design should keep catalog domain logic independent from MCP
+transport code.
 
 ## 3. Goals
 
@@ -41,8 +42,8 @@ keep catalog domain logic independent from MCP transport code.
 ## 5. Proposed Design
 
 Agentic Router v1 should use SQLite as the durable local storage engine. The
-server defaults to `.agentic-router/catalog.db` under the workspace and opens
-or creates the SQLite database at that path. `AGENTIC_ROUTER_DB_PATH` remains a
+server defaults to `.agentic-router/catalog.db` under the workspace and opens or
+creates the SQLite database at that path. `AGENTIC_ROUTER_DB_PATH` remains a
 server-side override.
 
 The Deno implementation should use the Deno-compatible `jsr:@db/sqlite` driver
@@ -84,17 +85,17 @@ writes must filter by `workspace`.
 - `updatedAt`
 
 `specialtyTags` should be stored as JSON text for v1. This keeps the first
-schema simple while preserving the option to normalize tags later if matching
-or filtering requires it.
+schema simple while preserving the option to normalize tags later if matching or
+filtering requires it.
 
 Workspace-local unique constraints must prevent duplicates:
 
 - Agents: unique `(workspace, codexSessionId)`.
 - Skills: unique `(workspace, skillName)`.
 
-Remove operations should hard-delete records. After deletion, list, detail,
-match, update, export, and health operations must behave as though the record
-does not exist in that workspace.
+Clear and remove operations should hard-delete records. After deletion, list,
+detail, match, update, export, and health operations must behave as though the
+record does not exist in that workspace.
 
 ## 6. Alternatives Considered
 
@@ -116,9 +117,9 @@ matching, and import behavior.
 
 ## 7. Implementation Notes
 
-Storage code should live behind a repository interface under `src/catalog/`.
-MCP tool handlers should depend on catalog repository behavior rather than
-SQLite APIs directly.
+Storage code should live behind a repository interface under `src/catalog/`. MCP
+tool handlers should depend on catalog repository behavior rather than SQLite
+APIs directly.
 
 All writes, updates, deletes, and import batches should use transactions. All
 parameterized queries should use prepared statements.
@@ -128,12 +129,14 @@ server-owned defaults are used. If `AGENTIC_ROUTER_DB_PATH` is set explicitly
 but cannot be opened, storage setup should fail clearly.
 
 Deno run and serve permissions must include environment access for
-`AGENTIC_ROUTER_DB_PATH`, read/write access to the configured database path,
-and the native or FFI permissions required by the selected SQLite driver.
+`AGENTIC_ROUTER_DB_PATH`, read/write access to the configured database path, and
+the native or FFI permissions required by the selected SQLite driver.
 
 Combined catalog operations such as list, match, export, and health checks will
 need to read from both `introduced_agents` and `introduced_skills` and merge the
-results into a catalog-level representation.
+results into a catalog-level representation. Workspace clear operations should
+delete from one or both tables inside one transaction and return deleted row
+counts for the requested workspace only.
 
 ## 8. Risks and Tradeoffs
 
@@ -155,21 +158,20 @@ When this tech spec is implemented as code, verification should include:
 - Duplicate agent Codex session IDs are rejected within one workspace.
 - Duplicate skill names are rejected within one workspace.
 - The same agent or skill references are allowed across different workspaces.
-- List, detail, match, update, remove, export, and health checks never cross
-  workspace boundaries.
+- List, detail, match, clear, update, remove, export, and health checks never
+  cross workspace boundaries.
 - Hard delete removes entries from later list, detail, match, and export
   results.
+- Clearing one workspace preserves entries stored for other workspaces.
 - Import writes use transactions enough to avoid partially corrupted records on
   storage failure.
 
-For this documentation change, verification is limited to reading back the
-spec, checking the docs tree, running `git diff --check`, and checking git
-status.
+For this documentation change, verification is limited to reading back the spec,
+checking the docs tree, running `git diff --check`, and checking git status.
 
 ## 10. Open Questions
 
-- Should the migration table be named `schema_migrations` or
-  `schema_version`?
+- Should the migration table be named `schema_migrations` or `schema_version`?
 - Should timestamps be stored as ISO strings or integer epoch milliseconds?
 - Should `specialtyTags` be normalized before tag-specific filtering is
   implemented?
@@ -180,8 +182,7 @@ status.
 - 2026-07-12: Use SQLite as the v1 durable catalog storage engine.
 - 2026-07-12: Use `AGENTIC_ROUTER_DB_PATH` as the configured SQLite database
   file path.
-- 2026-07-12: Use `workspace` on every catalog table for storage
-  isolation.
+- 2026-07-12: Use `workspace` on every catalog table for storage isolation.
 - 2026-07-12: Use separate `introduced_agents` and `introduced_skills` tables.
 - 2026-07-12: Store `specialtyTags` as JSON text for v1.
 - 2026-07-12: Use hard delete for remove operations.
@@ -191,3 +192,5 @@ status.
   `AGENTIC_ROUTER_DB_PATH` as a server-side override.
 - 2026-07-13: Rename legacy storage scope to client-supplied `workspace`, with
   migration for existing local databases.
+- 2026-07-13: Add transaction-backed workspace clear behavior for agents,
+  skills, or both.

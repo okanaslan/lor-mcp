@@ -3,6 +3,8 @@ import type {
   AgentCatalogEntry,
   CatalogEntry,
   CatalogRepository,
+  ClearWorkspaceCatalogInput,
+  ClearWorkspaceCatalogResult,
   EntryLookup,
   IntroduceAgentInput,
   IntroduceSkillInput,
@@ -206,6 +208,42 @@ export class SqliteCatalogRepository implements CatalogRepository {
     return Promise.resolve(row ? mapSkillRow(row) : undefined);
   }
 
+  clearEntries(
+    workspace: string,
+    input: ClearWorkspaceCatalogInput,
+  ): Promise<ClearWorkspaceCatalogResult> {
+    const db = this.requireDb();
+    const clear = db.transaction(() => {
+      const deletedAgents = input.entryType === "skill"
+        ? 0
+        : this.countAgents(workspace);
+      const deletedSkills = input.entryType === "agent"
+        ? 0
+        : this.countSkills(workspace);
+
+      if (input.entryType !== "skill") {
+        db.exec("DELETE FROM introduced_agents WHERE workspace = ?", workspace);
+      }
+      if (input.entryType !== "agent") {
+        db.exec("DELETE FROM introduced_skills WHERE workspace = ?", workspace);
+      }
+
+      return {
+        workspace,
+        entryType: input.entryType,
+        deletedAgents,
+        deletedSkills,
+        deletedTotal: deletedAgents + deletedSkills,
+      };
+    });
+
+    try {
+      return Promise.resolve(clear());
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
   close(): void {
     this.#db?.close();
     this.#db = undefined;
@@ -250,6 +288,13 @@ export class SqliteCatalogRepository implements CatalogRepository {
     );
   }
 
+  private countAgents(workspace: string): number {
+    return this.requireDb().prepare<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM introduced_agents
+       WHERE workspace = ?`,
+    ).get(workspace)?.count ?? 0;
+  }
+
   private skillExists(workspace: string, skillName: string): boolean {
     return Boolean(
       this.requireDb().prepare<{ count: number }>(
@@ -257,6 +302,13 @@ export class SqliteCatalogRepository implements CatalogRepository {
          WHERE workspace = ? AND skillName = ?`,
       ).get(workspace, skillName)?.count,
     );
+  }
+
+  private countSkills(workspace: string): number {
+    return this.requireDb().prepare<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM introduced_skills
+       WHERE workspace = ?`,
+    ).get(workspace)?.count ?? 0;
   }
 
   private requireDb(): Database {
