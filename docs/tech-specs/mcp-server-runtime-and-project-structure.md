@@ -59,8 +59,8 @@ tool registration, session helpers, and catalog domain logic:
 - `src/server.ts`: creates and configures the MCP server instance.
 - `src/tools/`: MCP tool registration modules.
 - `src/catalog/`: catalog domain logic independent from MCP transport.
-- `src/session/`: initialized MCP session and catalog scope helpers.
-- `*_test.ts`: tests colocated beside the code they verify.
+- `test/`: root-level Deno tests mirroring the source tree.
+- `test/helpers/`: shared fixtures and setup utilities for tests.
 
 The HTTP entrypoint should start `Deno.serve` on `127.0.0.1:8765` by default and
 expose MCP at `/mcp`. It should use the MCP TypeScript SDK
@@ -104,7 +104,7 @@ The initial `deno.json` should include tasks equivalent to:
   SQLite permissions.
 - `run`: run `src/main.ts` with explicit permissions for stdio fallback.
 - `check`: type-check both runtime entrypoints, including npm package types.
-- `test`: run Deno tests.
+- `test`: run Deno tests from the root `test/` tree.
 - `lint`: run Deno lint.
 - `fmt`: check formatting or format files, depending on the task convention
   chosen during implementation.
