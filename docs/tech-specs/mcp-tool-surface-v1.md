@@ -2,9 +2,10 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines the first usable MCP tool set for Agentic Router.
-The v1 surface supports introducing agents and skills, inspecting and clearing
-the catalog, and finding a matching catalog entry for a task.
+Implemented for the current v1 runtime. This tech spec defines the first usable
+MCP tool set for Agentic Router. The v1 surface supports introducing agents and
+skills, inspecting and clearing the catalog, preparing manual agent handoff
+prompts, and finding a matching catalog entry for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -24,7 +25,7 @@ error results. V1 should use those SDK surfaces directly.
 Existing feature specs define more catalog capabilities than the first
 implementation should expose. The first tool set should cover a complete basic
 workflow without adding update, single-entry remove, import, export, health,
-existence verification, or explanation tools.
+existence verification, dispatch, or explanation tools.
 
 ## 3. Goals
 
@@ -42,19 +43,20 @@ existence verification, or explanation tools.
 - Add import or export tools.
 - Add catalog health tools.
 - Add skill or agent existence verification tools.
-- Generate agent handoff prompts.
+- Dispatch work to another Codex agent.
 - Define the full matching algorithm.
 - Define the recommendation explanation contract.
 
 ## 5. Proposed Design
 
-V1 should register six MCP tools with snake_case names:
+V1 should register seven MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
 - `list_catalog_entries`
 - `clear_workspace_catalog`
 - `get_catalog_entry_detail`
+- `prepare_agent_handoff`
 - `find_matching_catalog_entry`
 
 Each tool should be registered with the MCP SDK `registerTool` API and a Zod
@@ -169,6 +171,18 @@ Clearing an empty workspace should return zero counts.
 one entry. It may return validation, session/setup, not-found, or storage
 errors.
 
+`prepare_agent_handoff` input:
+
+- `workspace`
+- `agentEntryKey`
+- `task`
+- optional `context`
+
+`prepare_agent_handoff` output data should include the target agent summary,
+rendered prompt, whether stored handoff metadata was used, missing context
+labels, and manual delivery instructions. It may return validation, not-found,
+session/setup, or storage errors.
+
 `find_matching_catalog_entry` input:
 
 - `workspace`
@@ -214,6 +228,8 @@ When this tech spec is implemented as code, verification should include:
 - List, detail, and match only return entries for the requested workspace.
 - Clear deletes only entries for the requested workspace and requires
   `confirm: true`.
+- Prepare handoff renders prompts only for agents in the requested workspace and
+  does not dispatch work.
 - Match returns `no_match` and `conflict` as structured non-error outcomes.
 - Error responses use stable `status: error` envelopes and expected codes.
 
@@ -245,3 +261,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   deriving catalog scope from server config.
 - 2026-07-13: Add `clear_workspace_catalog` with required confirmation for
   workspace-scoped bulk catalog deletion.
+- 2026-07-15: Add `prepare_agent_handoff` for deterministic manual handoff
+  prompt preparation.

@@ -82,6 +82,35 @@ export interface ClearWorkspaceCatalogResult {
   deletedTotal: number;
 }
 
+export interface PrepareAgentHandoffInput {
+  workspace: string;
+  agentEntryKey: string;
+  task: string;
+  context?: string;
+}
+
+export interface HandoffTargetAgent {
+  entryKey: string;
+  codexSessionId: string;
+  displayName: string;
+  projectName: string;
+  primarySpecialty: string;
+  specialtyTags: readonly string[];
+}
+
+export interface PrepareAgentHandoffResult {
+  workspace: string;
+  targetAgent: HandoffTargetAgent;
+  prompt: string;
+  usedStoredHandoff: boolean;
+  handoff?: HandoffMetadata;
+  missingContext: string[];
+  delivery: {
+    mode: "manual";
+    instruction: string;
+  };
+}
+
 export interface EntryLookup {
   workspace: string;
   entryType: EntryType;

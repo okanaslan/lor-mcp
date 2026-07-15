@@ -14,13 +14,13 @@ hidden catalog entries.
 
 Catalog matching v1 returns separate ranked `agents` and `skills` lists.
 Matching already produces deterministic score, matched fields, and matched
-tokens or signals. The MCP tool surface v1 returns structured response
-envelopes through `structuredContent`.
+tokens or signals. The MCP tool surface v1 returns structured response envelopes
+through `structuredContent`.
 
-The recommendation explanation contract defines how matching evidence is
-exposed to callers. The matching algorithm owns score calculation. This
-contract owns how score evidence, confidence, and concise explanation text are
-represented in returned candidates.
+The recommendation explanation contract defines how matching evidence is exposed
+to callers. The matching algorithm owns score calculation. This contract owns
+how score evidence, confidence, and concise explanation text are represented in
+returned candidates.
 
 ## 3. Goals
 
@@ -37,13 +37,13 @@ represented in returned candidates.
 - Explain rejected candidates.
 - Store explanation history or analytics.
 - Add a separate recommendation explanation MCP tool in v1.
-- Generate agent handoff prompts.
+- Prepare agent handoff prompts; that belongs to `prepare_agent_handoff`.
 - Define the full matching algorithm.
 
 ## 5. Proposed Design
 
-Each returned agent or skill candidate from `find_matching_catalog_entry`
-should include an `explanation` object.
+Each returned agent or skill candidate from `find_matching_catalog_entry` should
+include an `explanation` object.
 
 The explanation object should include:
 
@@ -60,9 +60,9 @@ The v1 confidence labels are:
 - `high`
 
 Low-confidence candidates should be filtered out instead of returned with a
-warning. Therefore, returned candidate explanations should normally use
-`medium` or `high`. The `low` label is reserved for future fallback behavior or
-internal threshold decisions if that behavior is added later.
+warning. Therefore, returned candidate explanations should normally use `medium`
+or `high`. The `low` label is reserved for future fallback behavior or internal
+threshold decisions if that behavior is added later.
 
 Explanation summaries should be generated from deterministic templates using
 only visible candidate data and matched signals. Summary text must not mention:
@@ -73,8 +73,8 @@ only visible candidate data and matched signals. Summary text must not mention:
 - Private storage or session identifiers.
 - Internal DB paths or configuration values.
 
-`no_match` responses should not include candidate explanations because there
-are no returned candidates. Ambiguous top agents should each include their own
+`no_match` responses should not include candidate explanations because there are
+no returned candidates. Ambiguous top agents should each include their own
 explanation, and the match result should mark the agent list as ambiguous.
 Multiple returned skills should each include their own explanation.
 
@@ -100,13 +100,13 @@ chosen because v1 should keep returned recommendations actionable and use
 
 ## 7. Implementation Notes
 
-The explanation builder should be a deterministic function over a returned
-match candidate and its matching metadata. It should not query storage, inspect
-other candidates, or call external services.
+The explanation builder should be a deterministic function over a returned match
+candidate and its matching metadata. It should not query storage, inspect other
+candidates, or call external services.
 
 Template text should stay short. A useful summary can mention the strongest
-matched field, such as primary specialty or specialty tags, and the task or
-hint token that caused the match.
+matched field, such as primary specialty or specialty tags, and the task or hint
+token that caused the match.
 
 `matchedFields` should use stable field names such as:
 
@@ -148,9 +148,8 @@ When this tech spec is implemented as code, verification should include:
 - Cross-workspace entries never appear in summaries, fields, signals, or
   candidate explanation metadata.
 
-For this documentation change, verification is limited to reading back the
-spec, checking the docs tree, running `git diff --check`, and checking git
-status.
+For this documentation change, verification is limited to reading back the spec,
+checking the docs tree, running `git diff --check`, and checking git status.
 
 ## 10. Open Questions
 

@@ -12,6 +12,8 @@ import {
   type IntroduceSkillToolInput,
   listCatalogEntriesInputSchema,
   type ListCatalogEntriesToolInput,
+  prepareAgentHandoffInputSchema,
+  type PrepareAgentHandoffToolInput,
   toolOutputSchema,
 } from "@src/tools/schemas.ts";
 import {
@@ -114,6 +116,24 @@ export function registerCatalogTools(
           );
         }
         return okResult(entry, `Found ${entry.displayName}.`);
+      }),
+  );
+
+  server.registerTool(
+    "prepare_agent_handoff",
+    {
+      description:
+        "Prepare a manual handoff prompt for an introduced Codex agent.",
+      inputSchema: prepareAgentHandoffInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: PrepareAgentHandoffToolInput) =>
+      withRuntime(runtimeFactory, async (runtime) => {
+        const result = await runtime.service.prepareAgentHandoff(input);
+        return okResult(
+          result,
+          `Prepared handoff prompt for ${result.targetAgent.displayName}.`,
+        );
       }),
   );
 

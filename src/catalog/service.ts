@@ -1,4 +1,5 @@
 import {
+  type AgentCatalogEntry,
   type CatalogEntry,
   type CatalogRepository,
   type ClearWorkspaceCatalogInput,
@@ -9,11 +10,14 @@ import {
   type ListEntriesFilter,
   type MatchRequest,
   type MatchResult,
+  type PrepareAgentHandoffInput,
+  type PrepareAgentHandoffResult,
   type VerificationMetadata,
 } from "@src/catalog/types.ts";
 import {
   validateIntroduceAgent,
   validateIntroduceSkill,
+  validatePrepareAgentHandoff,
   validateWorkspace,
 } from "@src/catalog/validation.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
@@ -95,6 +99,56 @@ export class CatalogService {
     });
   }
 
+  async prepareAgentHandoff(
+    input: PrepareAgentHandoffInput,
+  ): Promise<PrepareAgentHandoffResult> {
+    const validated = validatePrepareAgentHandoff(input);
+    const entry = await this.#repository.getEntry(validated.workspace, {
+      workspace: validated.workspace,
+      entryType: "agent",
+      entryKey: validated.agentEntryKey,
+    });
+    if (!entry) {
+      throw new AgenticRouterError(
+        "not_found",
+        "Target agent was not found.",
+        { entryType: "agent" },
+      );
+    }
+    if (entry.entryType !== "agent") {
+      throw new AgenticRouterError(
+        "not_found",
+        "Target agent was not found.",
+        { entryType: "agent" },
+      );
+    }
+
+    const prompt = entry.handoff
+      ? renderHandoffTemplate(entry, validated)
+      : renderGenericHandoffPrompt(entry, validated);
+
+    return {
+      workspace: validated.workspace,
+      targetAgent: {
+        entryKey: entry.entryKey,
+        codexSessionId: entry.codexSessionId,
+        displayName: entry.displayName,
+        projectName: entry.projectName,
+        primarySpecialty: entry.primarySpecialty,
+        specialtyTags: entry.specialtyTags,
+      },
+      prompt,
+      usedStoredHandoff: Boolean(entry.handoff),
+      handoff: entry.handoff,
+      missingContext: entry.handoff ? [...entry.handoff.requiredContext] : [],
+      delivery: {
+        mode: "manual",
+        instruction:
+          "Send this prompt through the available Codex workflow; Agentic Router does not dispatch it.",
+      },
+    };
+  }
+
   async findMatchingEntries(
     request: MatchRequest,
   ): Promise<MatchResult> {
@@ -118,4 +172,49 @@ function introductionVerification(now: string): VerificationMetadata {
     verificationSource: "mcp_introduction",
     verifiedAt: now,
   };
+}
+
+function renderHandoffTemplate(
+  entry: AgentCatalogEntry,
+  input: PrepareAgentHandoffInput,
+): string {
+  const replacements: Record<string, string> = {
+    task: input.task,
+    context: input.context ?? "",
+    projectName: entry.projectName,
+    agentDisplayName: entry.displayName,
+    primarySpecialty: entry.primarySpecialty,
+    specialtyTags: entry.specialtyTags.join(", "),
+  };
+  let prompt = entry.handoff?.handoffPromptTemplate ?? "";
+  for (const [key, value] of Object.entries(replacements)) {
+    prompt = prompt.replaceAll(`{${key}}`, value);
+  }
+  return prompt;
+}
+
+function renderGenericHandoffPrompt(
+  entry: AgentCatalogEntry,
+  input: PrepareAgentHandoffInput,
+): string {
+  const sections = [
+    `You are ${entry.displayName}, a Codex agent for ${entry.projectName}.`,
+    `Primary specialty: ${entry.primarySpecialty}.`,
+    `Specialty tags: ${entry.specialtyTags.join(", ")}.`,
+    "",
+    "Task:",
+    input.task,
+  ];
+
+  if (input.context) {
+    sections.push("", "Context:", input.context);
+  }
+
+  sections.push(
+    "",
+    "Expected output:",
+    "Return a concise result that the requesting agent can use to continue the original task.",
+  );
+
+  return sections.join("\n");
 }

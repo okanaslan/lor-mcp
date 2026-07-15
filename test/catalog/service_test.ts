@@ -124,3 +124,167 @@ Deno.test("CatalogService clears entries from list detail and match results", as
     repo.close();
   }
 });
+
+Deno.test("CatalogService prepares handoff from stored template", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "Agentic-Router",
+      codexSessionId: "agent-1",
+      projectName: "Agentic Router",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api", "mcp"],
+      handoff: {
+        whenToUse: "Backend API changes",
+        handoffPromptTemplate:
+          "Agent {agentDisplayName} for {projectName}: handle {task}. Context: {context}. Tags: {specialtyTags}. Keep {unknown}.",
+        requiredContext: ["diff", "acceptance criteria"],
+        expectedOutput: "Patch summary",
+        constraints: ["Stay scoped"],
+      },
+    });
+
+    const result = await service.prepareAgentHandoff({
+      workspace: "Agentic-Router",
+      agentEntryKey: "agent-1",
+      task: "Add a route",
+      context: "Use existing patterns",
+    });
+
+    assertEquals(result.usedStoredHandoff, true);
+    assertEquals(result.targetAgent, {
+      entryKey: "agent-1",
+      codexSessionId: "agent-1",
+      displayName: "Backend Agent",
+      projectName: "Agentic Router",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api", "mcp"],
+    });
+    assertEquals(
+      result.prompt,
+      "Agent Backend Agent for Agentic Router: handle Add a route. Context: Use existing patterns. Tags: api, mcp. Keep {unknown}.",
+    );
+    assertEquals(result.missingContext, ["diff", "acceptance criteria"]);
+    assertEquals(result.delivery.mode, "manual");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService prepares generic handoff without stored metadata", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "Agentic-Router",
+      codexSessionId: "agent-1",
+      projectName: "Agentic Router",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const result = await service.prepareAgentHandoff({
+      workspace: "Agentic-Router",
+      agentEntryKey: "agent-1",
+      task: "Review storage code",
+      context: "Focus on SQLite behavior",
+    });
+
+    assertEquals(result.usedStoredHandoff, false);
+    assertEquals(result.handoff, undefined);
+    assertEquals(result.missingContext, []);
+    assertEquals(
+      result.prompt,
+      [
+        "You are Backend Agent, a Codex agent for Agentic Router.",
+        "Primary specialty: backend api.",
+        "Specialty tags: api.",
+        "",
+        "Task:",
+        "Review storage code",
+        "",
+        "Context:",
+        "Focus on SQLite behavior",
+        "",
+        "Expected output:",
+        "Return a concise result that the requesting agent can use to continue the original task.",
+      ].join("\n"),
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService validates prepare handoff inputs", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.prepareAgentHandoff({
+          workspace: "Agentic-Router",
+          agentEntryKey: " ",
+          task: "Review code",
+        }),
+      Error,
+      "agentEntryKey is required",
+    );
+    await assertRejects(
+      () =>
+        service.prepareAgentHandoff({
+          workspace: "Agentic-Router",
+          agentEntryKey: "agent-1",
+          task: " ",
+        }),
+      Error,
+      "task is required",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns not_found for missing handoff target", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.prepareAgentHandoff({
+          workspace: "Agentic-Router",
+          agentEntryKey: "missing-agent",
+          task: "Review code",
+        }),
+      Error,
+      "not_found",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService prepare handoff does not cross workspaces", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "workspace-a",
+      codexSessionId: "agent-1",
+      projectName: "Agentic Router",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    await assertRejects(
+      () =>
+        service.prepareAgentHandoff({
+          workspace: "workspace-b",
+          agentEntryKey: "agent-1",
+          task: "Review code",
+        }),
+      Error,
+      "not_found",
+    );
+  } finally {
+    repo.close();
+  }
+});

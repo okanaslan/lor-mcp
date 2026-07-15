@@ -2,6 +2,7 @@ import {
   type HandoffMetadata,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
+  type PrepareAgentHandoffInput,
 } from "@src/catalog/types.ts";
 import { AgenticRouterError } from "@src/errors.ts";
 
@@ -34,6 +35,18 @@ export function validateIntroduceSkill(
 
 export function validateWorkspace(workspace: string): string {
   return requireString(workspace, "workspace");
+}
+
+export function validatePrepareAgentHandoff(
+  input: PrepareAgentHandoffInput,
+): PrepareAgentHandoffInput {
+  const context = input.context?.trim();
+  return {
+    workspace: requireString(input.workspace, "workspace"),
+    agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
+    task: requireString(input.task, "task"),
+    context: context || undefined,
+  };
 }
 
 function requireString(value: string, field: string): string {
