@@ -56,6 +56,15 @@ export const prepareAgentHandoffInputSchema = z.object({
   context: z.string().trim().min(1).optional(),
 });
 
+export const generateAgentPromptInputSchema = z.object({
+  workspace: workspaceSchema,
+  role: z.string().trim().min(1),
+  projectName: z.string().trim().min(1).optional(),
+  task: z.string().trim().min(1).optional(),
+  context: z.string().trim().min(1).optional(),
+  constraints: z.string().trim().min(1).optional(),
+});
+
 export const findMatchingCatalogEntryInputSchema = z.object({
   workspace: workspaceSchema,
   task: z.string().trim().min(1),
@@ -77,6 +86,9 @@ export type GetCatalogEntryDetailToolInput = z.infer<
 >;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema
+>;
+export type GenerateAgentPromptToolInput = z.infer<
+  typeof generateAgentPromptInputSchema
 >;
 export type FindMatchingCatalogEntryToolInput = z.infer<
   typeof findMatchingCatalogEntryInputSchema

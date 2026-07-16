@@ -59,6 +59,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "clear_workspace_catalog",
       "get_catalog_entry_detail",
       "prepare_agent_handoff",
+      "generate_agent_prompt",
       "find_matching_catalog_entry",
     ],
   );
@@ -117,6 +118,42 @@ Deno.test("HTTP MCP handler calls prepare_agent_handoff", async () => {
   } finally {
     repo.close();
   }
+});
+
+Deno.test("HTTP MCP handler calls generate_agent_prompt", async () => {
+  const handler = createHttpMcpHandler();
+  const sessionId = await initializeSession(handler);
+  const response = await postMcp(handler, sessionId, {
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: {
+      name: "generate_agent_prompt",
+      arguments: {
+        workspace: "Agentic-Router",
+        role: "backend",
+        projectName: "Agentic Router",
+        task: "Add a route",
+        context: "Follow existing tool registration patterns",
+        constraints: "Do not write to SQLite",
+      },
+    },
+  });
+  const body = await response.json();
+
+  assertEquals(response.status, 200);
+  assertEquals(body.result.structuredContent.status, "ok");
+  assertEquals(body.result.structuredContent.data.workspace, "Agentic-Router");
+  assertEquals(body.result.structuredContent.data.role, "backend");
+  assertEquals(
+    body.result.structuredContent.data.suggestedAgentMetadata.projectName,
+    "Agentic Router",
+  );
+  assertEquals(
+    body.result.structuredContent.data.delivery.mode,
+    "manual",
+  );
+  assertExists(body.result.structuredContent.data.prompt);
 });
 
 Deno.test("HTTP MCP handler rejects unknown session ids and deletes known sessions", async () => {

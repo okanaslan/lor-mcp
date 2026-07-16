@@ -1,9 +1,12 @@
 import type { McpServer } from "@mcp/server";
+import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 import {
   clearWorkspaceCatalogInputSchema,
   type ClearWorkspaceCatalogToolInput,
   findMatchingCatalogEntryInputSchema,
   type FindMatchingCatalogEntryToolInput,
+  generateAgentPromptInputSchema,
+  type GenerateAgentPromptToolInput,
   getCatalogEntryDetailInputSchema,
   type GetCatalogEntryDetailToolInput,
   introduceAgentInputSchema,
@@ -138,6 +141,23 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
+    "generate_agent_prompt",
+    {
+      description: "Generate a manual starter prompt for an empty Codex chat.",
+      inputSchema: generateAgentPromptInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: GenerateAgentPromptToolInput) =>
+      withToolErrors(() => {
+        const result = generateAgentPrompt(input);
+        return okResult(
+          result,
+          `Generated ${result.displayName} starter prompt.`,
+        );
+      }),
+  );
+
+  server.registerTool(
     "find_matching_catalog_entry",
     {
       description: "Find matching introduced agents and skills for a task.",
@@ -160,6 +180,19 @@ export function registerCatalogTools(
         return okResult(result.data, "Found matching catalog entries.");
       }),
   );
+}
+
+function withToolErrors(handler: () => ToolResult): ToolResult {
+  try {
+    return handler();
+  } catch (error) {
+    const appError = toAgenticRouterError(error);
+    return errorResult(
+      appError.code,
+      stripErrorPrefix(appError.message, appError.code),
+      appError.details,
+    );
+  }
 }
 
 async function withRuntime(

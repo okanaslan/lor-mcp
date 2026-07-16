@@ -5,7 +5,8 @@
 Implemented for the current v1 runtime. This tech spec defines the first usable
 MCP tool set for Agentic Router. The v1 surface supports introducing agents and
 skills, inspecting and clearing the catalog, preparing manual agent handoff
-prompts, and finding a matching catalog entry for a task.
+prompts, generating empty-chat starter prompts, and finding a matching catalog
+entry for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -49,7 +50,7 @@ existence verification, dispatch, or explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register seven MCP tools with snake_case names:
+V1 should register eight MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -57,6 +58,7 @@ V1 should register seven MCP tools with snake_case names:
 - `clear_workspace_catalog`
 - `get_catalog_entry_detail`
 - `prepare_agent_handoff`
+- `generate_agent_prompt`
 - `find_matching_catalog_entry`
 
 Each tool should be registered with the MCP SDK `registerTool` API and a Zod
@@ -183,6 +185,21 @@ rendered prompt, whether stored handoff metadata was used, missing context
 labels, and manual delivery instructions. It may return validation, not-found,
 session/setup, or storage errors.
 
+`generate_agent_prompt` input:
+
+- `workspace`
+- `role`
+- optional `projectName`
+- optional `task`
+- optional `context`
+- optional `constraints`
+
+`generate_agent_prompt` output data should include the requested workspace,
+selected role, ready-to-paste prompt, suggested display name, suggested
+`introduce_agent` metadata without `codexSessionId`, and manual delivery
+instructions. It may return validation or session/setup errors. It must not
+write to catalog storage.
+
 `find_matching_catalog_entry` input:
 
 - `workspace`
@@ -230,6 +247,8 @@ When this tech spec is implemented as code, verification should include:
   `confirm: true`.
 - Prepare handoff renders prompts only for agents in the requested workspace and
   does not dispatch work.
+- Generate prompt returns deterministic starter prompts for supported roles and
+  does not write to catalog storage.
 - Match returns `no_match` and `conflict` as structured non-error outcomes.
 - Error responses use stable `status: error` envelopes and expected codes.
 
@@ -263,3 +282,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   workspace-scoped bulk catalog deletion.
 - 2026-07-15: Add `prepare_agent_handoff` for deterministic manual handoff
   prompt preparation.
+- 2026-07-16: Add `generate_agent_prompt` for deterministic empty-chat starter
+  prompt generation.

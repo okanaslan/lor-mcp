@@ -23,6 +23,7 @@ Implemented in the first runnable v1 slice:
   - `clear_workspace_catalog`
   - `get_catalog_entry_detail`
   - `prepare_agent_handoff`
+  - `generate_agent_prompt`
   - `find_matching_catalog_entry`
 - Agent and skill introduction now acts as registration. The server no longer
   requires server-local pre-verification evidence before accepting new entries.
@@ -58,6 +59,9 @@ Latest implementation verification:
   Implemented for v1 detail lookup.
 - [Prepare Agent Handoff](feature-specs/prepare-agent-handoff.md): Implemented
   for v1 prompt preparation without dispatching to Codex.
+- [Generate Agent Prompt](feature-specs/generate-agent-prompt.md): Implemented
+  for v1 deterministic starter prompts for empty Codex chats and suggested
+  metadata for later agent registration.
 - [Update Catalog Entry](feature-specs/update-catalog-entry.md): Draft. Defines
   how users edit display and routing metadata for an introduced entry.
 - [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Draft. Defines
