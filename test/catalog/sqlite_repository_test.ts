@@ -143,6 +143,93 @@ Deno.test("SqliteCatalogRepository clears agents and skills by workspace only", 
   }
 });
 
+Deno.test("SqliteCatalogRepository updates entries by workspace only", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedAgent(repo, "workspace-a", "agent-1", {
+      displayName: "Backend Agent",
+    });
+    await seedAgent(repo, "workspace-b", "agent-1", {
+      displayName: "Other Agent",
+    });
+
+    const updated = await repo.updateEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "agent",
+      entryKey: "agent-1",
+      displayName: "Updated Backend Agent",
+      primarySpecialty: "deno backend",
+      specialtyTags: ["deno", "mcp"],
+      now: "2026-07-12T01:00:00.000Z",
+    });
+    const otherWorkspace = await repo.getEntry("workspace-b", {
+      workspace: "workspace-b",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+
+    assertEquals(updated?.displayName, "Updated Backend Agent");
+    assertEquals(updated?.primarySpecialty, "deno backend");
+    assertEquals(updated?.specialtyTags, ["deno", "mcp"]);
+    assertEquals(updated?.createdAt, FIXED_NOW);
+    assertEquals(updated?.updatedAt, "2026-07-12T01:00:00.000Z");
+    assertEquals(otherWorkspace?.displayName, "Other Agent");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository removes entries by workspace only", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedSkill(repo, "workspace-a", "backend-skill");
+    await seedSkill(repo, "workspace-b", "backend-skill");
+
+    const removed = await repo.removeEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+    const workspaceAEntries = await repo.listEntries("workspace-a", {
+      workspace: "workspace-a",
+    });
+    const workspaceBEntries = await repo.listEntries("workspace-b", {
+      workspace: "workspace-b",
+    });
+
+    assertEquals(removed, true);
+    assertEquals(workspaceAEntries, []);
+    assertEquals(workspaceBEntries.map((entry) => entry.entryKey), [
+      "backend-skill",
+    ]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository reports missing update and remove targets", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    const updated = await repo.updateEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "agent",
+      entryKey: "missing-agent",
+      displayName: "Missing Agent",
+      now: "2026-07-12T01:00:00.000Z",
+    });
+    const removed = await repo.removeEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "agent",
+      entryKey: "missing-agent",
+    });
+
+    assertEquals(updated, undefined);
+    assertEquals(removed, false);
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("SqliteCatalogRepository clears only agents when filtered", async () => {
   const repo = await createInitializedRepository();
   try {

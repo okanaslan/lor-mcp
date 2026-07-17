@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Draft. This feature lets a user update editable metadata for an introduced
-agent or skill in the requested workspace.
+Implemented for v1. This feature lets a user update editable metadata for an
+introduced agent or skill in the requested workspace.
 
 ## 2. Goals
 
@@ -29,8 +29,8 @@ agent or skill in the requested workspace.
 - The server must reject updates that remove required metadata.
 - The server must update the entry timestamp when a change is accepted.
 - The server must return the updated entry metadata.
-- The server must return a not-found result when the target entry does not
-  exist in the active session.
+- The server must return a not-found result when the target entry does not exist
+  in the active session.
 
 ## 5. User Stories / Use Cases
 
@@ -67,11 +67,11 @@ Conceptual `CatalogEntryUpdate` fields:
 
 ## 9. Open Questions
 
-- Should updates support partial field patching or require complete replacement
-  of editable metadata?
 - Should update history be retained?
 
 ## 10. Decision Log
 
 - 2026-07-11: Stable entry references are not editable.
 - 2026-07-11: Editable fields are limited to display and routing metadata.
+- 2026-07-17: V1 supports partial field patching and rejects empty update
+  patches.

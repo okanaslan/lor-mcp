@@ -2,6 +2,7 @@ import type { Database } from "@db/sqlite";
 import type {
   AgentCatalogEntry,
   CatalogEntry,
+  CatalogEntryUpdate,
   CatalogRepository,
   ClearWorkspaceCatalogInput,
   ClearWorkspaceCatalogResult,
@@ -193,19 +194,114 @@ export class SqliteCatalogRepository implements CatalogRepository {
     workspace: string,
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined> {
+    return Promise.resolve(this.getEntrySync(workspace, lookup));
+  }
+
+  updateEntry(
+    workspace: string,
+    input: CatalogEntryUpdate & { now: string },
+  ): Promise<CatalogEntry | undefined> {
+    const db = this.requireDb();
+    const update = db.transaction(() => {
+      const existing = this.getEntrySync(workspace, input);
+      if (!existing) {
+        return undefined;
+      }
+
+      if (input.entryType === "agent") {
+        db.exec(
+          `UPDATE introduced_agents
+           SET projectName = ?, displayName = ?, primarySpecialty = ?,
+             specialtyTags = ?, updatedAt = ?
+           WHERE workspace = ? AND codexSessionId = ?`,
+          input.projectName ?? existing.projectName,
+          input.displayName ?? existing.displayName,
+          input.primarySpecialty ?? existing.primarySpecialty,
+          JSON.stringify(input.specialtyTags ?? existing.specialtyTags),
+          input.now,
+          workspace,
+          input.entryKey,
+        );
+      } else {
+        db.exec(
+          `UPDATE introduced_skills
+           SET projectName = ?, displayName = ?, primarySpecialty = ?,
+             specialtyTags = ?, updatedAt = ?
+           WHERE workspace = ? AND skillName = ?`,
+          input.projectName ?? existing.projectName,
+          input.displayName ?? existing.displayName,
+          input.primarySpecialty ?? existing.primarySpecialty,
+          JSON.stringify(input.specialtyTags ?? existing.specialtyTags),
+          input.now,
+          workspace,
+          input.entryKey,
+        );
+      }
+
+      return this.getEntrySync(workspace, input);
+    });
+
+    try {
+      return Promise.resolve(update());
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
+  removeEntry(
+    workspace: string,
+    lookup: EntryLookup,
+  ): Promise<boolean> {
+    const db = this.requireDb();
+    const remove = db.transaction(() => {
+      const existing = this.getEntrySync(workspace, lookup);
+      if (!existing) {
+        return false;
+      }
+
+      if (lookup.entryType === "agent") {
+        db.exec(
+          `DELETE FROM introduced_agents
+           WHERE workspace = ? AND codexSessionId = ?`,
+          workspace,
+          lookup.entryKey,
+        );
+      } else {
+        db.exec(
+          `DELETE FROM introduced_skills
+           WHERE workspace = ? AND skillName = ?`,
+          workspace,
+          lookup.entryKey,
+        );
+      }
+
+      return true;
+    });
+
+    try {
+      return Promise.resolve(remove());
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
+  private getEntrySync(
+    workspace: string,
+    lookup: EntryLookup,
+  ): CatalogEntry | undefined {
     if (lookup.entryType === "agent") {
       const row = this.requireDb().prepare<AgentRow>(
         `SELECT * FROM introduced_agents
          WHERE workspace = ? AND codexSessionId = ?`,
       ).get(workspace, lookup.entryKey);
-      return Promise.resolve(row ? mapAgentRow(row) : undefined);
+      return row ? mapAgentRow(row) : undefined;
     }
 
     const row = this.requireDb().prepare<SkillRow>(
       `SELECT * FROM introduced_skills
        WHERE workspace = ? AND skillName = ?`,
     ).get(workspace, lookup.entryKey);
-    return Promise.resolve(row ? mapSkillRow(row) : undefined);
+    return row ? mapSkillRow(row) : undefined;
   }
 
   clearEntries(

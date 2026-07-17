@@ -1,7 +1,7 @@
 # Roadmap
 
-This roadmap tracks major feature specs and implementation status for the
-Local Orchestration Router (LOR) MCP Server.
+This roadmap tracks major feature specs and implementation status for the Local
+Orchestration Router (LOR) MCP Server.
 
 ## Current Implementation
 
@@ -22,6 +22,8 @@ Implemented in the first runnable v1 slice:
   - `list_catalog_entries`
   - `clear_workspace_catalog`
   - `get_catalog_entry_detail`
+  - `update_catalog_entry`
+  - `remove_catalog_entry`
   - `prepare_agent_handoff`
   - `generate_agent_prompt`
   - `find_matching_catalog_entry`
@@ -62,10 +64,10 @@ Latest implementation verification:
 - [Generate Agent Prompt](feature-specs/generate-agent-prompt.md): Implemented
   for v1 deterministic starter prompts for empty Codex chats and suggested
   metadata for later agent registration.
-- [Update Catalog Entry](feature-specs/update-catalog-entry.md): Draft. Defines
-  how users edit display and routing metadata for an introduced entry.
-- [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Draft. Defines
-  how users remove an introduced agent or skill from the workspace catalog.
+- [Update Catalog Entry](feature-specs/update-catalog-entry.md): Implemented for
+  v1 partial metadata updates.
+- [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Implemented for
+  v1 single-entry hard delete.
 - [Skill / Agent Existence Verification](feature-specs/existence-verification.md):
   Deferred. Blocking verification was removed from v1 introduction flows. Future
   verification should be a separate health/reporting workflow.
@@ -84,7 +86,6 @@ Latest implementation verification:
 
 - Keep feature specs aligned with client-supplied `workspace` scoping and the
   Streamable HTTP runtime.
-- Add update and single-entry remove tools for catalog maintenance.
 - Decide whether import/export should land before richer recommendation
   explanation.
 - Design non-blocking catalog health or verification reporting for introduced

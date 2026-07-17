@@ -82,6 +82,17 @@ export interface ClearWorkspaceCatalogResult {
   deletedTotal: number;
 }
 
+export interface CatalogEntryUpdate extends EntryLookup {
+  projectName?: string;
+  displayName?: string;
+  primarySpecialty?: string;
+  specialtyTags?: readonly string[];
+}
+
+export interface RemoveCatalogEntryResult extends EntryLookup {
+  removed: true;
+}
+
 export interface PrepareAgentHandoffInput {
   workspace: string;
   agentEntryKey: string;
@@ -187,6 +198,14 @@ export interface CatalogRepository {
     workspace: string,
     input: ClearWorkspaceCatalogInput,
   ): Promise<ClearWorkspaceCatalogResult>;
+  updateEntry(
+    workspace: string,
+    input: CatalogEntryUpdate & { now: string },
+  ): Promise<CatalogEntry | undefined>;
+  removeEntry(
+    workspace: string,
+    lookup: EntryLookup,
+  ): Promise<boolean>;
   getEntry(
     workspace: string,
     lookup: EntryLookup,

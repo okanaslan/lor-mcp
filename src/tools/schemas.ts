@@ -49,6 +49,32 @@ export const getCatalogEntryDetailInputSchema = z.object({
   entryKey: z.string().trim().min(1),
 });
 
+export const updateCatalogEntryInputSchema = z.object({
+  workspace: workspaceSchema,
+  entryType: entryTypeSchema,
+  entryKey: z.string().trim().min(1),
+  projectName: z.string().trim().min(1).optional(),
+  displayName: z.string().trim().min(1).optional(),
+  primarySpecialty: z.string().trim().min(1).optional(),
+  specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
+}).refine(
+  (input) =>
+    input.projectName !== undefined ||
+    input.displayName !== undefined ||
+    input.primarySpecialty !== undefined ||
+    input.specialtyTags !== undefined,
+  {
+    message: "At least one editable field is required.",
+    path: ["update"],
+  },
+);
+
+export const removeCatalogEntryInputSchema = z.object({
+  workspace: workspaceSchema,
+  entryType: entryTypeSchema,
+  entryKey: z.string().trim().min(1),
+});
+
 export const prepareAgentHandoffInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -83,6 +109,12 @@ export type ClearWorkspaceCatalogToolInput = z.infer<
 >;
 export type GetCatalogEntryDetailToolInput = z.infer<
   typeof getCatalogEntryDetailInputSchema
+>;
+export type UpdateCatalogEntryToolInput = z.infer<
+  typeof updateCatalogEntryInputSchema
+>;
+export type RemoveCatalogEntryToolInput = z.infer<
+  typeof removeCatalogEntryInputSchema
 >;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema

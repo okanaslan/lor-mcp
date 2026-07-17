@@ -1,5 +1,8 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { createCatalogService } from "@test/helpers/catalog_fixtures.ts";
+import {
+  createCatalogService,
+  FIXED_NOW,
+} from "@test/helpers/catalog_fixtures.ts";
 
 Deno.test("CatalogService introduces agents without registry pre-registration", async () => {
   const { repo, service } = await createCatalogService();
@@ -120,6 +123,135 @@ Deno.test("CatalogService clears entries from list detail and match results", as
     assertEquals(entries, []);
     assertEquals(detail, undefined);
     assertEquals(match.status, "no_match");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService updates editable catalog metadata", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const updated = await service.updateCatalogEntry({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-1",
+      projectName: "LOR",
+      displayName: "Deno Backend Agent",
+      primarySpecialty: "deno backend",
+      specialtyTags: ["deno", "mcp", "deno"],
+    });
+
+    assertEquals(updated.entryType, "agent");
+    assertEquals(updated.entryKey, "agent-1");
+    assertEquals(updated.projectName, "LOR");
+    assertEquals(updated.displayName, "Deno Backend Agent");
+    assertEquals(updated.primarySpecialty, "deno backend");
+    assertEquals(updated.specialtyTags, ["deno", "mcp"]);
+    assertEquals(updated.updatedAt, FIXED_NOW);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService rejects empty catalog metadata updates", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.updateCatalogEntry({
+          workspace: "LOR-MCP",
+          entryType: "agent",
+          entryKey: "agent-1",
+        }),
+      Error,
+      "At least one editable field is required",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns not_found for missing catalog update target", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.updateCatalogEntry({
+          workspace: "LOR-MCP",
+          entryType: "skill",
+          entryKey: "missing-skill",
+          displayName: "Missing Skill",
+        }),
+      Error,
+      "not_found",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService removes catalog entries from detail and match results", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const result = await service.removeCatalogEntry({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+    const detail = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+    const match = await service.findMatchingEntries({
+      workspace: "LOR-MCP",
+      task: "backend api change",
+    });
+
+    assertEquals(result, {
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      entryKey: "backend-skill",
+      removed: true,
+    });
+    assertEquals(detail, undefined);
+    assertEquals(match.status, "no_match");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns not_found for missing catalog remove target", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.removeCatalogEntry({
+          workspace: "LOR-MCP",
+          entryType: "agent",
+          entryKey: "missing-agent",
+        }),
+      Error,
+      "not_found",
+    );
   } finally {
     repo.close();
   }

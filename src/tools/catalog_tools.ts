@@ -17,7 +17,11 @@ import {
   type ListCatalogEntriesToolInput,
   prepareAgentHandoffInputSchema,
   type PrepareAgentHandoffToolInput,
+  removeCatalogEntryInputSchema,
+  type RemoveCatalogEntryToolInput,
   toolOutputSchema,
+  updateCatalogEntryInputSchema,
+  type UpdateCatalogEntryToolInput,
 } from "@src/tools/schemas.ts";
 import {
   errorResult,
@@ -119,6 +123,37 @@ export function registerCatalogTools(
           );
         }
         return okResult(entry, `Found ${entry.displayName}.`);
+      }),
+  );
+
+  server.registerTool(
+    "update_catalog_entry",
+    {
+      description: "Update editable metadata for one introduced catalog entry.",
+      inputSchema: updateCatalogEntryInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: UpdateCatalogEntryToolInput) =>
+      withRuntime(runtimeFactory, async (runtime) => {
+        const entry = await runtime.service.updateCatalogEntry(input);
+        return okResult(entry, `Updated ${entry.displayName}.`);
+      }),
+  );
+
+  server.registerTool(
+    "remove_catalog_entry",
+    {
+      description: "Remove one introduced catalog entry from a workspace.",
+      inputSchema: removeCatalogEntryInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: RemoveCatalogEntryToolInput) =>
+      withRuntime(runtimeFactory, async (runtime) => {
+        const result = await runtime.service.removeCatalogEntry(input);
+        return okResult(
+          result,
+          `Removed ${result.entryType} ${result.entryKey}.`,
+        );
       }),
   );
 

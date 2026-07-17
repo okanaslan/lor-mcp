@@ -3,6 +3,8 @@ import {
   clearWorkspaceCatalogInputSchema,
   generateAgentPromptInputSchema,
   prepareAgentHandoffInputSchema,
+  removeCatalogEntryInputSchema,
+  updateCatalogEntryInputSchema,
 } from "@src/tools/schemas.ts";
 
 Deno.test("clearWorkspaceCatalogInputSchema requires confirm true", () => {
@@ -55,6 +57,60 @@ Deno.test("prepareAgentHandoffInputSchema requires workspace agent and task", ()
     prepareAgentHandoffInputSchema.safeParse({
       workspace: "LOR-MCP",
       agentEntryKey: "agent-1",
+    }).success,
+    false,
+  );
+});
+
+Deno.test("updateCatalogEntryInputSchema requires an editable field", () => {
+  assertEquals(
+    updateCatalogEntryInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-1",
+      displayName: "Backend Agent",
+    }).success,
+    true,
+  );
+  assertEquals(
+    updateCatalogEntryInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-1",
+    }).success,
+    false,
+  );
+  assertEquals(
+    updateCatalogEntryInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-1",
+      specialtyTags: [],
+    }).success,
+    false,
+  );
+});
+
+Deno.test("removeCatalogEntryInputSchema requires workspace type and key", () => {
+  assertEquals(
+    removeCatalogEntryInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    }).success,
+    true,
+  );
+  assertEquals(
+    removeCatalogEntryInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryKey: "backend-skill",
+    }).success,
+    false,
+  );
+  assertEquals(
+    removeCatalogEntryInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "skill",
     }).success,
     false,
   );

@@ -1,4 +1,6 @@
 import {
+  type CatalogEntryUpdate,
+  type EntryLookup,
   type HandoffMetadata,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
@@ -37,6 +39,50 @@ export function validateWorkspace(workspace: string): string {
   return requireString(workspace, "workspace");
 }
 
+export function validateCatalogEntryUpdate(
+  input: CatalogEntryUpdate,
+): CatalogEntryUpdate {
+  const update: CatalogEntryUpdate = {
+    workspace: requireString(input.workspace, "workspace"),
+    entryType: requireEntryType(input.entryType),
+    entryKey: requireString(input.entryKey, "entryKey"),
+  };
+
+  if (input.projectName !== undefined) {
+    update.projectName = requireString(input.projectName, "projectName");
+  }
+  if (input.displayName !== undefined) {
+    update.displayName = requireString(input.displayName, "displayName");
+  }
+  if (input.primarySpecialty !== undefined) {
+    update.primarySpecialty = requireString(
+      input.primarySpecialty,
+      "primarySpecialty",
+    );
+  }
+  if (input.specialtyTags !== undefined) {
+    update.specialtyTags = requireTags(input.specialtyTags);
+  }
+
+  if (!hasEditableUpdate(update)) {
+    throw new LorError(
+      "validation_error",
+      "At least one editable field is required.",
+      { field: "update" },
+    );
+  }
+
+  return update;
+}
+
+export function validateEntryLookup(input: EntryLookup): EntryLookup {
+  return {
+    workspace: requireString(input.workspace, "workspace"),
+    entryType: requireEntryType(input.entryType),
+    entryKey: requireString(input.entryKey, "entryKey"),
+  };
+}
+
 export function validatePrepareAgentHandoff(
   input: PrepareAgentHandoffInput,
 ): PrepareAgentHandoffInput {
@@ -57,6 +103,26 @@ function requireString(value: string, field: string): string {
     });
   }
   return trimmed;
+}
+
+function hasEditableUpdate(input: CatalogEntryUpdate): boolean {
+  return input.projectName !== undefined ||
+    input.displayName !== undefined ||
+    input.primarySpecialty !== undefined ||
+    input.specialtyTags !== undefined;
+}
+
+function requireEntryType(value: unknown): "agent" | "skill" {
+  if (value !== "agent" && value !== "skill") {
+    throw new LorError(
+      "validation_error",
+      "entryType must be agent or skill.",
+      {
+        field: "entryType",
+      },
+    );
+  }
+  return value;
 }
 
 function requireTags(tags: readonly string[]): string[] {

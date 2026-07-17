@@ -3,10 +3,10 @@
 ## 1. Summary
 
 Implemented for the current v1 runtime. This tech spec defines the first usable
-MCP tool set for Local Orchestration Router (LOR). The v1 surface supports introducing agents and
-skills, inspecting and clearing the catalog, preparing manual agent handoff
-prompts, generating empty-chat starter prompts, and finding a matching catalog
-entry for a task.
+MCP tool set for Local Orchestration Router (LOR). The v1 surface supports
+introducing agents and skills, inspecting, updating, removing, and clearing the
+catalog, preparing manual agent handoff prompts, generating empty-chat starter
+prompts, and finding a matching catalog entry for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -14,10 +14,10 @@ SQLite-backed catalog storage.
 
 ## 2. Context
 
-Local Orchestration Router (LOR) v1 runs as a Deno TypeScript MCP server over local Streamable
-HTTP, with stdio retained as a fallback. Catalog scope comes from the
-client-supplied `workspace` tool input, and durable storage uses SQLite through
-the resolved local database path.
+Local Orchestration Router (LOR) v1 runs as a Deno TypeScript MCP server over
+local Streamable HTTP, with stdio retained as a fallback. Catalog scope comes
+from the client-supplied `workspace` tool input, and durable storage uses SQLite
+through the resolved local database path.
 
 The MCP TypeScript SDK supports registering tools with `registerTool`, Zod
 `inputSchema` validation, `structuredContent`, text `content`, and `isError` for
@@ -25,8 +25,8 @@ error results. V1 should use those SDK surfaces directly.
 
 Existing feature specs define more catalog capabilities than the first
 implementation should expose. The first tool set should cover a complete basic
-workflow without adding update, single-entry remove, import, export, health,
-existence verification, dispatch, or explanation tools.
+workflow without adding import, export, health, existence verification,
+dispatch, or standalone explanation tools.
 
 ## 3. Goals
 
@@ -40,7 +40,6 @@ existence verification, dispatch, or explanation tools.
 
 ## 4. Non-Goals
 
-- Add update or single-entry remove tools.
 - Add import or export tools.
 - Add catalog health tools.
 - Add skill or agent existence verification tools.
@@ -50,13 +49,15 @@ existence verification, dispatch, or explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register eight MCP tools with snake_case names:
+V1 should register ten MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
 - `list_catalog_entries`
 - `clear_workspace_catalog`
 - `get_catalog_entry_detail`
+- `update_catalog_entry`
+- `remove_catalog_entry`
 - `prepare_agent_handoff`
 - `generate_agent_prompt`
 - `find_matching_catalog_entry`
@@ -68,9 +69,9 @@ input, then call catalog domain or repository functions.
 Tool inputs must include `workspace`. The value should be the client workspace
 folder name or another stable client-chosen workspace slug.
 
-Tool inputs must not include `connectionId`, `mcpSessionId`, or
-`LOR_DB_PATH`. Those values are server configuration and protocol
-context, not caller-controlled tool arguments.
+Tool inputs must not include `connectionId`, `mcpSessionId`, or `LOR_DB_PATH`.
+Those values are server configuration and protocol context, not
+caller-controlled tool arguments.
 
 All v1 tools must require:
 
@@ -101,9 +102,9 @@ failures and should not set `isError: true`.
 
 ## 6. Alternatives Considered
 
-Including update and single-entry remove in v1 was considered. They were not
-chosen because the first usable routing workflow only needs introduction,
-inspection, bulk workspace reset, and matching.
+Excluding update and single-entry remove from v1 was considered. They were added
+after the first runnable slice because catalog maintenance needs precise
+single-entry correction and removal, not only bulk workspace clearing.
 
 Including import, export, health, verification, and explanation tools in v1 was
 considered. It was not chosen because those tools depend on additional specs and
@@ -173,6 +174,31 @@ Clearing an empty workspace should return zero counts.
 one entry. It may return validation, session/setup, not-found, or storage
 errors.
 
+`update_catalog_entry` input:
+
+- `workspace`
+- `entryType`
+- `entryKey`
+- optional `projectName`
+- optional `displayName`
+- optional `primarySpecialty`
+- optional `specialtyTags`
+
+`update_catalog_entry` output data should include the updated entry metadata. It
+may return validation, session/setup, not-found, or storage errors. It must
+reject empty update patches and must not allow changing the stable entry key.
+
+`remove_catalog_entry` input:
+
+- `workspace`
+- `entryType`
+- `entryKey`
+
+`remove_catalog_entry` output data should include the removed entry type, key,
+workspace, and removal confirmation. It may return validation, session/setup,
+not-found, or storage errors. Removing an entry must not affect the underlying
+Codex agent session or skill file.
+
 `prepare_agent_handoff` input:
 
 - `workspace`
@@ -223,8 +249,8 @@ Stable error codes for v1 should include:
 
 ## 8. Risks and Tradeoffs
 
-- Keeping v1 focused means update and single-entry remove workflows need a later
-  tool surface expansion.
+- Adding single-entry maintenance tools makes v1 more complete but increases the
+  catalog mutation surface that must stay workspace-scoped.
 - Structured envelopes add small implementation overhead but make agent
   consumption more reliable.
 - Leaving exact field-level constraints to implementation gives flexibility but
@@ -245,6 +271,9 @@ When this tech spec is implemented as code, verification should include:
 - List, detail, and match only return entries for the requested workspace.
 - Clear deletes only entries for the requested workspace and requires
   `confirm: true`.
+- Update changes only editable metadata for entries in the requested workspace
+  and rejects empty patches.
+- Remove hard-deletes only entries in the requested workspace.
 - Prepare handoff renders prompts only for agents in the requested workspace and
   does not dispatch work.
 - Generate prompt returns deterministic starter prompts for supported roles and
@@ -273,7 +302,7 @@ checking the docs tree, running `git diff --check`, and checking git status.
 - 2026-07-12: Return structured response envelopes through `structuredContent`.
 - 2026-07-12: Treat `no_match` and `conflict` as non-error routing outcomes.
 - 2026-07-12: Keep update, remove, import, export, health, verification, and
-  explanation tools out of v1.
+  explanation tools out of the first runnable slice.
 - 2026-07-13: Support the same v1 tool surface over local Streamable HTTP and
   stdio.
 - 2026-07-13: Make `workspace` a required client-supplied tool input instead of
@@ -284,3 +313,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   prompt preparation.
 - 2026-07-16: Add `generate_agent_prompt` for deterministic empty-chat starter
   prompt generation.
+- 2026-07-17: Add `update_catalog_entry` and `remove_catalog_entry` for
+  workspace-scoped single-entry catalog maintenance.

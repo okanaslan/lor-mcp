@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Draft. This feature lets a user remove an introduced agent or skill from the
-requested workspace.
+Implemented for v1. This feature lets a user remove an introduced agent or skill
+from the requested workspace.
 
 ## 2. Goals
 
@@ -61,7 +61,6 @@ Conceptual `CatalogEntryRemoval` fields:
 
 ## 9. Open Questions
 
-- Should remove be idempotent and return success for already-missing entries?
 - Should removed entries be soft-deleted for audit or undo?
 
 ## 10. Decision Log
@@ -69,3 +68,4 @@ Conceptual `CatalogEntryRemoval` fields:
 - 2026-07-11: Removing a catalog entry does not delete the underlying Codex
   agent or skill.
 - 2026-07-11: Restore behavior is out of scope.
+- 2026-07-17: V1 remove is not idempotent; missing entries return `not_found`.

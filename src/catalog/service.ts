@@ -1,6 +1,7 @@
 import {
   type AgentCatalogEntry,
   type CatalogEntry,
+  type CatalogEntryUpdate,
   type CatalogRepository,
   type ClearWorkspaceCatalogInput,
   type ClearWorkspaceCatalogResult,
@@ -12,9 +13,12 @@ import {
   type MatchResult,
   type PrepareAgentHandoffInput,
   type PrepareAgentHandoffResult,
+  type RemoveCatalogEntryResult,
   type VerificationMetadata,
 } from "@src/catalog/types.ts";
 import {
+  validateCatalogEntryUpdate,
+  validateEntryLookup,
   validateIntroduceAgent,
   validateIntroduceSkill,
   validatePrepareAgentHandoff,
@@ -92,11 +96,48 @@ export class CatalogService {
   async getEntryDetail(
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined> {
-    const workspace = validateWorkspace(lookup.workspace);
+    const validated = validateEntryLookup(lookup);
+    const workspace = validateWorkspace(validated.workspace);
     return await this.#repository.getEntry(workspace, {
-      ...lookup,
+      ...validated,
       workspace,
     });
+  }
+
+  async updateCatalogEntry(
+    input: CatalogEntryUpdate,
+  ): Promise<CatalogEntry> {
+    const validated = validateCatalogEntryUpdate(input);
+    const updated = await this.#repository.updateEntry(validated.workspace, {
+      ...validated,
+      now: this.#now(),
+    });
+    if (!updated) {
+      throw new LorError(
+        "not_found",
+        "Catalog entry was not found.",
+        { entryType: validated.entryType },
+      );
+    }
+    return updated;
+  }
+
+  async removeCatalogEntry(
+    lookup: EntryLookup,
+  ): Promise<RemoveCatalogEntryResult> {
+    const validated = validateEntryLookup(lookup);
+    const removed = await this.#repository.removeEntry(
+      validated.workspace,
+      validated,
+    );
+    if (!removed) {
+      throw new LorError(
+        "not_found",
+        "Catalog entry was not found.",
+        { entryType: validated.entryType },
+      );
+    }
+    return { ...validated, removed: true };
   }
 
   async prepareAgentHandoff(
