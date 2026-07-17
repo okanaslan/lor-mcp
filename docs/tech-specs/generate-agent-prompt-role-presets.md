@@ -114,8 +114,9 @@ feature needs deterministic, testable output.
 Persisting generated prompts was considered. It was not chosen because v1 only
 needs ready-to-paste output and suggested metadata.
 
-Creating Codex chats directly was considered. It was not chosen because Agentic
-Router should not depend on hidden or undocumented Codex app internals.
+Creating Codex chats directly was considered. It was not chosen because Local
+Orchestration Router (LOR) should not depend on hidden or undocumented Codex app
+internals.
 
 Deriving presets from the catalog was considered. It was not chosen because
 empty-chat prompt generation should not expose catalog contents or require

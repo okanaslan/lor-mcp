@@ -3,8 +3,8 @@
 ## 1. Summary
 
 Implemented for v1. This feature lets a user introduce an existing Codex agent
-to the Local Orchestration Router (LOR) MCP Server by recording its Codex session ID and routing
-metadata in durable storage scoped to the workspace.
+to the Local Orchestration Router (LOR) MCP Server by recording its Codex
+session ID and routing metadata in durable storage scoped to the workspace.
 
 ## 2. Goals
 
@@ -23,8 +23,8 @@ metadata in durable storage scoped to the workspace.
 
 - The server must accept an introduce-agent request for an existing Codex agent.
 - The request must include the Codex session ID for the existing Codex agent.
-- The request must include the client workspace folder name or stable
-  workspace slug.
+- The request must include the client workspace folder name or stable workspace
+  slug.
 - The request must include the project name the agent is focused on.
 - The request must include a human-readable display name.
 - The request must include one primary specialty.
@@ -37,16 +37,16 @@ metadata in durable storage scoped to the workspace.
   workspaces.
 - The server must persist accepted agent records in durable storage.
 - The server must scope persisted agent records by workspace.
-- The server must prevent one workspace from accessing another
-  workspace's introduced agent records.
+- The server must prevent one workspace from accessing another workspace's
+  introduced agent records.
 - Fetching, listing, and searching introduced agents must be handled by a
   separate feature spec.
 
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that a user has an
-existing Codex agent session and wants to make it available to the Agentic
-Router catalog for future routing decisions.
+existing Codex agent session and wants to make it available to the LOR catalog
+for future routing decisions.
 
 ## 6. Data Model
 
@@ -102,7 +102,7 @@ persistence implementation.
   spec.
 - 2026-07-10: Use the initialized MCP session as the catalog session boundary
   instead of requiring a custom session identifier in the tool input.
-- 2026-07-13: Use the client-supplied workspace as the durable storage scope
-  and keep MCP session state as protocol readiness context.
+- 2026-07-13: Use the client-supplied workspace as the durable storage scope and
+  keep MCP session state as protocol readiness context.
 - 2026-07-13: Implement `introduce_agent` as non-blocking registration with
   `mcp_introduction` verification metadata.

@@ -2,9 +2,10 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines the v1 runtime and project structure for Agentic
-Router as a Deno TypeScript MCP server that runs over local Streamable HTTP,
-with stdio retained as a compatibility and development fallback.
+Draft. This tech spec defines the v1 runtime and project structure for Local
+Orchestration Router (LOR) as a Deno TypeScript MCP server that runs over local
+Streamable HTTP, with stdio retained as a compatibility and development
+fallback.
 
 The goal is to establish the implementation shape without deciding
 authentication, deployment automation, or catalog expansion beyond the v1 tool
@@ -12,9 +13,10 @@ set.
 
 ## 2. Context
 
-The repository is currently documentation-only for Local Orchestration Router (LOR). Feature specs
-already define the intended MCP initialization behavior and catalog features for
-introducing, listing, matching, updating, and removing agents and skills.
+The repository is currently documentation-only for Local Orchestration Router
+(LOR). Feature specs already define the intended MCP initialization behavior and
+catalog features for introducing, listing, matching, updating, and removing
+agents and skills.
 
 The first implementation needs a clear runtime boundary so later technical specs
 can focus on storage, session identity, matching, and tool contracts. The chosen
@@ -46,9 +48,10 @@ the current MCP TypeScript server package through Deno npm compatibility.
 
 ## 5. Proposed Design
 
-Local Orchestration Router (LOR) should be implemented as a Deno-first TypeScript project with a
-single `deno.json` configuration file. `deno.json` owns tasks, import aliases,
-compiler options, lint settings, and format settings.
+Local Orchestration Router (LOR) should be implemented as a Deno-first
+TypeScript project with a single `deno.json` configuration file. `deno.json`
+owns tasks, import aliases, compiler options, lint settings, and format
+settings.
 
 The initial source layout should separate runtime startup, MCP server assembly,
 tool registration, session helpers, and catalog domain logic:
@@ -74,8 +77,8 @@ Server configuration should have local storage and transport defaults so Codex
 client configuration only needs the HTTP URL. Environment variables remain
 server-side overrides for storage, host, and port. Catalog workspace scope must
 come from the client-supplied `workspace` tool input, and introduction tools
-register supplied agent or skill metadata directly without requiring
-server-side pre-registration files.
+register supplied agent or skill metadata directly without requiring server-side
+pre-registration files.
 
 MCP tools should use Zod schemas for input validation. Tool modules should adapt
 MCP requests into catalog/session domain calls and return MCP-compatible
@@ -172,5 +175,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   mode and keep stdio as a fallback.
 - 2026-07-13: Use server-owned local transport and storage defaults so Codex
   client configuration only needs the MCP URL.
-- 2026-07-13: Keep catalog workspace scope in client-supplied tool input
-  instead of server configuration.
+- 2026-07-13: Keep catalog workspace scope in client-supplied tool input instead
+  of server configuration.
