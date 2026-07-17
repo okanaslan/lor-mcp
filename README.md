@@ -1,9 +1,9 @@
-# Agentic Router MCP Server
+# Local Orchestration Router (LOR) MCP Server
 
-Agentic Router is a local MCP server that acts as a catalog for Codex agents and
-skills. It will let a configured workspace introduce known agents and skills,
-store their routing metadata, and help a current Codex agent find relevant
-catalog entries for a task.
+Local Orchestration Router (LOR) is a local MCP server that acts as a catalog
+for Codex agents and skills. It will let a configured workspace introduce known
+agents and skills, store their routing metadata, and help a current Codex agent
+find relevant catalog entries for a task.
 
 The first implementation is a Deno TypeScript MCP server that can run as a
 local Streamable HTTP server for Codex, with stdio kept as a compatibility and
@@ -36,29 +36,29 @@ deno task serve
 Then connect Codex to the already-running server:
 
 ```sh
-codex mcp add agentic-router --url http://127.0.0.1:8765/mcp
+codex mcp add lor-mcp --url http://127.0.0.1:8765/mcp
 ```
 
 Equivalent Codex config:
 
 ```toml
-[mcp_servers.agentic-router]
+[mcp_servers.lor-mcp]
 url = "http://127.0.0.1:8765/mcp"
 ```
 
 Server-owned storage defaults are used when no environment variables are set:
 
-- SQLite database: `.agentic-router/catalog.db`.
+- SQLite database: `.lor-mcp/catalog.db`.
 
 Catalog tools require a `workspace` input supplied by the client. Use the
-client workspace folder name, such as `Agentic-Router`, unless the caller has a
+client workspace folder name, such as `LOR-MCP`, unless the caller has a
 more stable workspace slug.
 
 Optional server-side environment overrides:
 
-- `AGENTIC_ROUTER_DB_PATH`: local SQLite database path.
-- `AGENTIC_ROUTER_HOST`: local HTTP host, default `127.0.0.1`.
-- `AGENTIC_ROUTER_PORT`: local HTTP port, default `8765`.
+- `LOR_DB_PATH`: local SQLite database path.
+- `LOR_HOST`: local HTTP host, default `127.0.0.1`.
+- `LOR_PORT`: local HTTP port, default `8765`.
 
 Run the stdio fallback:
 

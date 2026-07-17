@@ -45,7 +45,7 @@ export async function seedAgent(
   await repo.createAgent(workspace, {
     workspace,
     codexSessionId,
-    projectName: overrides.projectName ?? "Agentic Router",
+    projectName: overrides.projectName ?? "Local Orchestration Router (LOR)",
     displayName: overrides.displayName ?? `Agent ${codexSessionId}`,
     primarySpecialty: overrides.primarySpecialty ?? "backend api",
     specialtyTags: overrides.specialtyTags ?? ["api"],
@@ -64,7 +64,7 @@ export async function seedSkill(
   await repo.createSkill(workspace, {
     workspace,
     skillName,
-    projectName: overrides.projectName ?? "Agentic Router",
+    projectName: overrides.projectName ?? "Local Orchestration Router (LOR)",
     displayName: overrides.displayName ?? `Skill ${skillName}`,
     primarySpecialty: overrides.primarySpecialty ?? "backend api",
     specialtyTags: overrides.specialtyTags ?? ["api"],

@@ -3,7 +3,7 @@
 ## 1. Summary
 
 Implemented for v1. This feature lets a user introduce an existing Codex agent
-to the Agentic Router MCP Server by recording its Codex session ID and routing
+to the Local Orchestration Router (LOR) MCP Server by recording its Codex session ID and routing
 metadata in durable storage scoped to the workspace.
 
 ## 2. Goals

@@ -21,7 +21,7 @@ import {
   validateWorkspace,
 } from "@src/catalog/validation.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
-import { AgenticRouterError } from "@src/errors.ts";
+import { LorError } from "@src/errors.ts";
 
 interface CatalogServiceOptions {
   repository: CatalogRepository;
@@ -76,7 +76,7 @@ export class CatalogService {
   ): Promise<ClearWorkspaceCatalogResult> {
     const workspace = validateWorkspace(input.workspace);
     if (input.confirm !== true) {
-      throw new AgenticRouterError(
+      throw new LorError(
         "validation_error",
         "confirm must be true.",
         { field: "confirm" },
@@ -109,14 +109,14 @@ export class CatalogService {
       entryKey: validated.agentEntryKey,
     });
     if (!entry) {
-      throw new AgenticRouterError(
+      throw new LorError(
         "not_found",
         "Target agent was not found.",
         { entryType: "agent" },
       );
     }
     if (entry.entryType !== "agent") {
-      throw new AgenticRouterError(
+      throw new LorError(
         "not_found",
         "Target agent was not found.",
         { entryType: "agent" },
@@ -144,7 +144,7 @@ export class CatalogService {
       delivery: {
         mode: "manual",
         instruction:
-          "Send this prompt through the available Codex workflow; Agentic Router does not dispatch it.",
+          "Send this prompt through the available Codex workflow; Local Orchestration Router (LOR) does not dispatch it.",
       },
     };
   }
@@ -154,7 +154,7 @@ export class CatalogService {
   ): Promise<MatchResult> {
     const workspace = validateWorkspace(request.workspace);
     if (!request.task?.trim()) {
-      throw new AgenticRouterError("validation_error", "task is required.", {
+      throw new LorError("validation_error", "task is required.", {
         field: "task",
       });
     }

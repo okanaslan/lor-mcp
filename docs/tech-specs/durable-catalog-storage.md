@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines v1 durable storage for Agentic Router catalog
+Draft. This tech spec defines v1 durable storage for Local Orchestration Router (LOR) catalog
 records using SQLite in a configured local database file.
 
 The storage layer must persist introduced agents and skills across MCP
@@ -11,7 +11,7 @@ client-supplied workspace.
 
 ## 2. Context
 
-Agentic Router v1 is a Deno TypeScript MCP server with local Streamable HTTP as
+Local Orchestration Router (LOR) v1 is a Deno TypeScript MCP server with local Streamable HTTP as
 the primary Codex connection mode and stdio as a fallback. Session identity and
 catalog scoping use a workspace as the durable catalog scope.
 
@@ -41,9 +41,9 @@ transport code.
 
 ## 5. Proposed Design
 
-Agentic Router v1 should use SQLite as the durable local storage engine. The
-server defaults to `.agentic-router/catalog.db` under the workspace and opens or
-creates the SQLite database at that path. `AGENTIC_ROUTER_DB_PATH` remains a
+Local Orchestration Router (LOR) v1 should use SQLite as the durable local storage engine. The
+server defaults to `.lor-mcp/catalog.db` under the workspace and opens or
+creates the SQLite database at that path. `LOR_DB_PATH` remains a
 server-side override.
 
 The Deno implementation should use the Deno-compatible `jsr:@db/sqlite` driver
@@ -125,11 +125,11 @@ All writes, updates, deletes, and import batches should use transactions. All
 parameterized queries should use prepared statements.
 
 The storage setup path should create the default local data directory when
-server-owned defaults are used. If `AGENTIC_ROUTER_DB_PATH` is set explicitly
+server-owned defaults are used. If `LOR_DB_PATH` is set explicitly
 but cannot be opened, storage setup should fail clearly.
 
 Deno run and serve permissions must include environment access for
-`AGENTIC_ROUTER_DB_PATH`, read/write access to the configured database path, and
+`LOR_DB_PATH`, read/write access to the configured database path, and
 the native or FFI permissions required by the selected SQLite driver.
 
 Combined catalog operations such as list, match, export, and health checks will
@@ -153,7 +153,7 @@ counts for the requested workspace only.
 
 When this tech spec is implemented as code, verification should include:
 
-- Missing `AGENTIC_ROUTER_DB_PATH` uses `.agentic-router/catalog.db`.
+- Missing `LOR_DB_PATH` uses `.lor-mcp/catalog.db`.
 - Schema initializes on an empty SQLite database.
 - Duplicate agent Codex session IDs are rejected within one workspace.
 - Duplicate skill names are rejected within one workspace.
@@ -180,7 +180,7 @@ checking the docs tree, running `git diff --check`, and checking git status.
 ## 11. Decision Log
 
 - 2026-07-12: Use SQLite as the v1 durable catalog storage engine.
-- 2026-07-12: Use `AGENTIC_ROUTER_DB_PATH` as the configured SQLite database
+- 2026-07-12: Use `LOR_DB_PATH` as the configured SQLite database
   file path.
 - 2026-07-12: Use `workspace` on every catalog table for storage isolation.
 - 2026-07-12: Use separate `introduced_agents` and `introduced_skills` tables.
@@ -188,8 +188,8 @@ checking the docs tree, running `git diff --check`, and checking git status.
 - 2026-07-12: Use hard delete for remove operations.
 - 2026-07-12: Bootstrap schema through an internal migration function and track
   schema version in SQLite.
-- 2026-07-13: Default SQLite storage to `.agentic-router/catalog.db` and keep
-  `AGENTIC_ROUTER_DB_PATH` as a server-side override.
+- 2026-07-13: Default SQLite storage to `.lor-mcp/catalog.db` and keep
+  `LOR_DB_PATH` as a server-side override.
 - 2026-07-13: Rename legacy storage scope to client-supplied `workspace`, with
   migration for existing local databases.
 - 2026-07-13: Add transaction-backed workspace clear behavior for agents,

@@ -26,7 +26,7 @@ import {
   type ToolResult,
 } from "@src/tools/response.ts";
 import { createDefaultRuntime, type ToolRuntime } from "@src/tools/runtime.ts";
-import { AgenticRouterError, toAgenticRouterError } from "@src/errors.ts";
+import { LorError, toLorError } from "@src/errors.ts";
 
 export interface CatalogToolOptions {
   runtimeFactory?: () => Promise<ToolRuntime>;
@@ -112,7 +112,7 @@ export function registerCatalogTools(
       withRuntime(runtimeFactory, async (runtime) => {
         const entry = await runtime.service.getEntryDetail(input);
         if (!entry) {
-          throw new AgenticRouterError(
+          throw new LorError(
             "not_found",
             "Catalog entry was not found.",
             { entryType: input.entryType },
@@ -186,7 +186,7 @@ function withToolErrors(handler: () => ToolResult): ToolResult {
   try {
     return handler();
   } catch (error) {
-    const appError = toAgenticRouterError(error);
+    const appError = toLorError(error);
     return errorResult(
       appError.code,
       stripErrorPrefix(appError.message, appError.code),
@@ -204,7 +204,7 @@ async function withRuntime(
     runtime = await runtimeFactory();
     return await handler(runtime);
   } catch (error) {
-    const appError = toAgenticRouterError(error);
+    const appError = toLorError(error);
     return errorResult(
       appError.code,
       stripErrorPrefix(appError.message, appError.code),

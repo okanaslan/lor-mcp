@@ -6,13 +6,13 @@ Implemented for v1 metadata storage. This tech spec defines optional stored
 metadata for introduced Codex agents so a current Codex agent can prepare a
 safe, task-specific handoff prompt after matching or inspecting an agent.
 
-Agentic Router stores handoff guidance in the catalog and can render a
+Local Orchestration Router (LOR) stores handoff guidance in the catalog and can render a
 ready-to-send prompt through `prepare_agent_handoff`, but it does not send work
 to another agent.
 
 ## 2. Context
 
-The handoff use cases require "contact or prompt guidance" after Agentic Router
+The handoff use cases require "contact or prompt guidance" after Local Orchestration Router (LOR)
 recommends an introduced Codex agent. Current agent specs store a Codex session
 ID and routing metadata, but they do not define what guidance a caller should
 use to prepare a handoff.
@@ -52,7 +52,7 @@ The `handoff` metadata object should contain:
 - `expectedOutput`: description of the output expected from the target agent.
 - `constraints`: limits, warnings, or project rules relevant to the handoff.
 
-The metadata is stored manually. Agentic Router does not generate these fields
+The metadata is stored manually. Local Orchestration Router (LOR) does not generate these fields
 from task text or model output in v1.
 
 `handoffPromptTemplate` supports these basic placeholders:
@@ -78,12 +78,12 @@ reachable or still active.
 
 ## 6. Alternatives Considered
 
-Generating handoff guidance in Agentic Router was considered. It was not chosen
+Generating handoff guidance in Local Orchestration Router (LOR) was considered. It was not chosen
 for v1 because it would add prompt-generation policy and make handoff wording
 less user-owned.
 
 Adding a dedicated dispatch MCP tool was considered. It was not chosen because
-Codex owns subagent orchestration and Agentic Router should not depend on
+Codex owns subagent orchestration and Local Orchestration Router (LOR) should not depend on
 unsupported communication internals.
 
 Making handoff metadata required for all agents was considered. It was not
@@ -161,7 +161,7 @@ checking the docs tree, running `git diff --check`, and checking git status.
 
 - 2026-07-12: Apply handoff metadata to introduced agents only.
 - 2026-07-12: Store handoff metadata manually instead of generating it in
-  Agentic Router.
+  Local Orchestration Router (LOR).
 - 2026-07-12: Make handoff metadata optional.
 - 2026-07-12: Return full handoff metadata through agent detail, not matching
   results.

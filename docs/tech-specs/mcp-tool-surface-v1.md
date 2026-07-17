@@ -3,7 +3,7 @@
 ## 1. Summary
 
 Implemented for the current v1 runtime. This tech spec defines the first usable
-MCP tool set for Agentic Router. The v1 surface supports introducing agents and
+MCP tool set for Local Orchestration Router (LOR). The v1 surface supports introducing agents and
 skills, inspecting and clearing the catalog, preparing manual agent handoff
 prompts, generating empty-chat starter prompts, and finding a matching catalog
 entry for a task.
@@ -14,7 +14,7 @@ SQLite-backed catalog storage.
 
 ## 2. Context
 
-Agentic Router v1 runs as a Deno TypeScript MCP server over local Streamable
+Local Orchestration Router (LOR) v1 runs as a Deno TypeScript MCP server over local Streamable
 HTTP, with stdio retained as a fallback. Catalog scope comes from the
 client-supplied `workspace` tool input, and durable storage uses SQLite through
 the resolved local database path.
@@ -69,7 +69,7 @@ Tool inputs must include `workspace`. The value should be the client workspace
 folder name or another stable client-chosen workspace slug.
 
 Tool inputs must not include `connectionId`, `mcpSessionId`, or
-`AGENTIC_ROUTER_DB_PATH`. Those values are server configuration and protocol
+`LOR_DB_PATH`. Those values are server configuration and protocol
 context, not caller-controlled tool arguments.
 
 All v1 tools must require:

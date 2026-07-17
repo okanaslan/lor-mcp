@@ -13,15 +13,15 @@ Codex user.
 
 The user notices that an introduced agent or skill is stale, unavailable, or no
 longer appropriate for the current project. The user asks the current Codex
-agent to remove it from Agentic Router.
+agent to remove it from Local Orchestration Router (LOR).
 
 ## 4. Flow
 
 1. The Codex user identifies a stale catalog entry.
 2. The user asks the current Codex agent to remove the entry.
-3. The current agent calls Agentic Router MCP with the entry type and
+3. The current agent calls LOR MCP with the entry type and
    identifier.
-4. Agentic Router removes the entry from the requested workspace.
+4. Local Orchestration Router (LOR) removes the entry from the requested workspace.
 5. The removed entry no longer appears in list, detail, or matching results.
 6. The current agent confirms removal to the user.
 

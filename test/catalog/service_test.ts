@@ -5,9 +5,9 @@ Deno.test("CatalogService introduces agents without registry pre-registration", 
   const { repo, service } = await createCatalogService();
   try {
     const created = await service.introduceAgent({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       codexSessionId: "agent-1",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
       specialtyTags: ["api"],
@@ -21,7 +21,7 @@ Deno.test("CatalogService introduces agents without registry pre-registration", 
     });
 
     const detail = await service.getEntryDetail({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       entryType: "agent",
       entryKey: "agent-1",
     });
@@ -41,15 +41,15 @@ Deno.test("CatalogService introduces skills without skill root pre-registration"
   const { repo, service } = await createCatalogService();
   try {
     const created = await service.introduceSkill({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       skillName: "missing-skill",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       displayName: "Missing Skill",
       primarySpecialty: "backend api",
       specialtyTags: ["api"],
     });
 
-    const entries = await service.listEntries({ workspace: "Agentic-Router" });
+    const entries = await service.listEntries({ workspace: "LOR-MCP" });
     assertEquals(created.verificationStatus, "verified");
     assertEquals(created.verificationSource, "mcp_introduction");
     assertEquals(entries.map((entry) => entry.entryKey), ["missing-skill"]);
@@ -64,7 +64,7 @@ Deno.test("CatalogService requires confirmation before clearing workspace catalo
     await assertRejects(
       () =>
         service.clearWorkspaceCatalog({
-          workspace: "Agentic-Router",
+          workspace: "LOR-MCP",
           confirm: false as true,
         }),
       Error,
@@ -79,39 +79,39 @@ Deno.test("CatalogService clears entries from list detail and match results", as
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       codexSessionId: "agent-1",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
       specialtyTags: ["api"],
     });
     await service.introduceSkill({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       skillName: "backend-skill",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
       primarySpecialty: "backend api",
       specialtyTags: ["api"],
     });
 
     const result = await service.clearWorkspaceCatalog({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       confirm: true,
     });
-    const entries = await service.listEntries({ workspace: "Agentic-Router" });
+    const entries = await service.listEntries({ workspace: "LOR-MCP" });
     const detail = await service.getEntryDetail({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       entryType: "agent",
       entryKey: "agent-1",
     });
     const match = await service.findMatchingEntries({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       task: "backend api change",
     });
 
     assertEquals(result, {
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       entryType: undefined,
       deletedAgents: 1,
       deletedSkills: 1,
@@ -129,9 +129,9 @@ Deno.test("CatalogService prepares handoff from stored template", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       codexSessionId: "agent-1",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
       specialtyTags: ["api", "mcp"],
@@ -146,7 +146,7 @@ Deno.test("CatalogService prepares handoff from stored template", async () => {
     });
 
     const result = await service.prepareAgentHandoff({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       agentEntryKey: "agent-1",
       task: "Add a route",
       context: "Use existing patterns",
@@ -157,13 +157,13 @@ Deno.test("CatalogService prepares handoff from stored template", async () => {
       entryKey: "agent-1",
       codexSessionId: "agent-1",
       displayName: "Backend Agent",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       primarySpecialty: "backend api",
       specialtyTags: ["api", "mcp"],
     });
     assertEquals(
       result.prompt,
-      "Agent Backend Agent for Agentic Router: handle Add a route. Context: Use existing patterns. Tags: api, mcp. Keep {unknown}.",
+      "Agent Backend Agent for Local Orchestration Router (LOR): handle Add a route. Context: Use existing patterns. Tags: api, mcp. Keep {unknown}.",
     );
     assertEquals(result.missingContext, ["diff", "acceptance criteria"]);
     assertEquals(result.delivery.mode, "manual");
@@ -176,16 +176,16 @@ Deno.test("CatalogService prepares generic handoff without stored metadata", asy
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       codexSessionId: "agent-1",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
       specialtyTags: ["api"],
     });
 
     const result = await service.prepareAgentHandoff({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       agentEntryKey: "agent-1",
       task: "Review storage code",
       context: "Focus on SQLite behavior",
@@ -197,7 +197,7 @@ Deno.test("CatalogService prepares generic handoff without stored metadata", asy
     assertEquals(
       result.prompt,
       [
-        "You are Backend Agent, a Codex agent for Agentic Router.",
+        "You are Backend Agent, a Codex agent for Local Orchestration Router (LOR).",
         "Primary specialty: backend api.",
         "Specialty tags: api.",
         "",
@@ -222,7 +222,7 @@ Deno.test("CatalogService validates prepare handoff inputs", async () => {
     await assertRejects(
       () =>
         service.prepareAgentHandoff({
-          workspace: "Agentic-Router",
+          workspace: "LOR-MCP",
           agentEntryKey: " ",
           task: "Review code",
         }),
@@ -232,7 +232,7 @@ Deno.test("CatalogService validates prepare handoff inputs", async () => {
     await assertRejects(
       () =>
         service.prepareAgentHandoff({
-          workspace: "Agentic-Router",
+          workspace: "LOR-MCP",
           agentEntryKey: "agent-1",
           task: " ",
         }),
@@ -250,7 +250,7 @@ Deno.test("CatalogService returns not_found for missing handoff target", async (
     await assertRejects(
       () =>
         service.prepareAgentHandoff({
-          workspace: "Agentic-Router",
+          workspace: "LOR-MCP",
           agentEntryKey: "missing-agent",
           task: "Review code",
         }),
@@ -268,7 +268,7 @@ Deno.test("CatalogService prepare handoff does not cross workspaces", async () =
     await service.introduceAgent({
       workspace: "workspace-a",
       codexSessionId: "agent-1",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
       specialtyTags: ["api"],

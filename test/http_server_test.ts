@@ -69,9 +69,9 @@ Deno.test("HTTP MCP handler calls prepare_agent_handoff", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       codexSessionId: "agent-1",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
       specialtyTags: ["api"],
@@ -99,7 +99,7 @@ Deno.test("HTTP MCP handler calls prepare_agent_handoff", async () => {
       params: {
         name: "prepare_agent_handoff",
         arguments: {
-          workspace: "Agentic-Router",
+          workspace: "LOR-MCP",
           agentEntryKey: "agent-1",
           task: "Add endpoint",
           context: "Follow service patterns",
@@ -130,9 +130,9 @@ Deno.test("HTTP MCP handler calls generate_agent_prompt", async () => {
     params: {
       name: "generate_agent_prompt",
       arguments: {
-        workspace: "Agentic-Router",
+        workspace: "LOR-MCP",
         role: "backend",
-        projectName: "Agentic Router",
+        projectName: "Local Orchestration Router (LOR)",
         task: "Add a route",
         context: "Follow existing tool registration patterns",
         constraints: "Do not write to SQLite",
@@ -143,11 +143,11 @@ Deno.test("HTTP MCP handler calls generate_agent_prompt", async () => {
 
   assertEquals(response.status, 200);
   assertEquals(body.result.structuredContent.status, "ok");
-  assertEquals(body.result.structuredContent.data.workspace, "Agentic-Router");
+  assertEquals(body.result.structuredContent.data.workspace, "LOR-MCP");
   assertEquals(body.result.structuredContent.data.role, "backend");
   assertEquals(
     body.result.structuredContent.data.suggestedAgentMetadata.projectName,
-    "Agentic Router",
+    "Local Orchestration Router (LOR)",
   );
   assertEquals(
     body.result.structuredContent.data.delivery.mode,

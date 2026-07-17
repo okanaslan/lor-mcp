@@ -3,7 +3,7 @@
 ## 1. Summary
 
 Draft. This tech spec defines the v1 recommendation explanation contract for
-Agentic Router.
+Local Orchestration Router (LOR).
 
 Recommendation explanations are deterministic inline objects attached to
 returned match candidates from `find_matching_catalog_entry`. They expose why a

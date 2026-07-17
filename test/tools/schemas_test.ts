@@ -8,20 +8,20 @@ import {
 Deno.test("clearWorkspaceCatalogInputSchema requires confirm true", () => {
   assertEquals(
     clearWorkspaceCatalogInputSchema.safeParse({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       confirm: true,
     }).success,
     true,
   );
   assertEquals(
     clearWorkspaceCatalogInputSchema.safeParse({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
     }).success,
     false,
   );
   assertEquals(
     clearWorkspaceCatalogInputSchema.safeParse({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       confirm: false,
     }).success,
     false,
@@ -31,7 +31,7 @@ Deno.test("clearWorkspaceCatalogInputSchema requires confirm true", () => {
 Deno.test("prepareAgentHandoffInputSchema requires workspace agent and task", () => {
   assertEquals(
     prepareAgentHandoffInputSchema.safeParse({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       agentEntryKey: "agent-1",
       task: "Review code",
     }).success,
@@ -46,14 +46,14 @@ Deno.test("prepareAgentHandoffInputSchema requires workspace agent and task", ()
   );
   assertEquals(
     prepareAgentHandoffInputSchema.safeParse({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       task: "Review code",
     }).success,
     false,
   );
   assertEquals(
     prepareAgentHandoffInputSchema.safeParse({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       agentEntryKey: "agent-1",
     }).success,
     false,
@@ -63,9 +63,9 @@ Deno.test("prepareAgentHandoffInputSchema requires workspace agent and task", ()
 Deno.test("generateAgentPromptInputSchema requires workspace and role", () => {
   assertEquals(
     generateAgentPromptInputSchema.safeParse({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       role: "backend",
-      projectName: "Agentic Router",
+      projectName: "Local Orchestration Router (LOR)",
       task: "Add a tool",
       context: "Use existing patterns",
       constraints: "Stay scoped",
@@ -80,7 +80,7 @@ Deno.test("generateAgentPromptInputSchema requires workspace and role", () => {
   );
   assertEquals(
     generateAgentPromptInputSchema.safeParse({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
     }).success,
     false,
   );

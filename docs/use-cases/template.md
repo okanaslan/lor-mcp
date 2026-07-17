@@ -8,7 +8,7 @@ is trying to accomplish and why it matters.
 ## 2. Actor
 
 Name who or what initiates the use case, such as a user, MCP host, MCP client,
-or Agentic Router itself.
+or Local Orchestration Router (LOR) itself.
 
 ## 3. Scenario
 

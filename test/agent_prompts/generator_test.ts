@@ -3,22 +3,22 @@ import {
   agentPromptRoles,
   generateAgentPrompt,
 } from "@src/agent_prompts/generator.ts";
-import { AgenticRouterError } from "@src/errors.ts";
+import { LorError } from "@src/errors.ts";
 
 for (const role of agentPromptRoles) {
   Deno.test(`generateAgentPrompt renders ${role} preset`, () => {
     const result = generateAgentPrompt({
-      workspace: "Agentic-Router",
+      workspace: "LOR-MCP",
       role,
     });
 
-    assertEquals(result.workspace, "Agentic-Router");
+    assertEquals(result.workspace, "LOR-MCP");
     assertEquals(result.role, role);
     assert(result.prompt.length > 0);
     assert(result.displayName.length > 0);
     assertEquals(
       result.suggestedAgentMetadata.projectName,
-      "Agentic-Router",
+      "LOR-MCP",
     );
     assertEquals(
       result.suggestedAgentMetadata.displayName,
@@ -50,9 +50,9 @@ for (const role of agentPromptRoles) {
 
 Deno.test("generateAgentPrompt renders optional project task context and constraints", () => {
   const result = generateAgentPrompt({
-    workspace: "Agentic-Router",
+    workspace: "LOR-MCP",
     role: "backend",
-    projectName: "Agentic Router",
+    projectName: "Local Orchestration Router (LOR)",
     task: "Add a tool",
     context: "Follow existing MCP handler patterns",
     constraints: "Do not add storage writes",
@@ -60,9 +60,9 @@ Deno.test("generateAgentPrompt renders optional project task context and constra
 
   assertEquals(
     result.suggestedAgentMetadata.projectName,
-    "Agentic Router",
+    "Local Orchestration Router (LOR)",
   );
-  assert(result.prompt.includes("for Agentic Router"));
+  assert(result.prompt.includes("for Local Orchestration Router (LOR)"));
   assert(result.prompt.includes("Initial task:\nAdd a tool"));
   assert(
     result.prompt.includes(
@@ -76,19 +76,19 @@ Deno.test("generateAgentPrompt renders optional project task context and constra
 
 Deno.test("generateAgentPrompt trims input values", () => {
   const result = generateAgentPrompt({
-    workspace: " Agentic-Router ",
+    workspace: " LOR-MCP ",
     role: " backend ",
-    projectName: " Agentic Router ",
+    projectName: " Local Orchestration Router (LOR) ",
     task: " Add a tool ",
     context: " Follow existing patterns ",
     constraints: " Stay scoped ",
   });
 
-  assertEquals(result.workspace, "Agentic-Router");
+  assertEquals(result.workspace, "LOR-MCP");
   assertEquals(result.role, "backend");
   assertEquals(
     result.suggestedAgentMetadata.projectName,
-    "Agentic Router",
+    "Local Orchestration Router (LOR)",
   );
   assert(result.prompt.includes("Initial task:\nAdd a tool"));
   assert(result.prompt.includes("Context:\nFollow existing patterns"));
@@ -98,21 +98,21 @@ Deno.test("generateAgentPrompt trims input values", () => {
 Deno.test("generateAgentPrompt validates required fields and supported roles", () => {
   const missingWorkspace = assertThrows(
     () => generateAgentPrompt({ workspace: " ", role: "backend" }),
-    AgenticRouterError,
+    LorError,
     "workspace is required",
   );
   assertEquals(missingWorkspace.code, "validation_error");
 
   const missingRole = assertThrows(
-    () => generateAgentPrompt({ workspace: "Agentic-Router", role: " " }),
-    AgenticRouterError,
+    () => generateAgentPrompt({ workspace: "LOR-MCP", role: " " }),
+    LorError,
     "role is required",
   );
   assertEquals(missingRole.code, "validation_error");
 
   const unknownRole = assertThrows(
-    () => generateAgentPrompt({ workspace: "Agentic-Router", role: "sales" }),
-    AgenticRouterError,
+    () => generateAgentPrompt({ workspace: "LOR-MCP", role: "sales" }),
+    LorError,
     "role must be one of the supported role presets",
   );
   assertEquals(unknownRole.code, "validation_error");

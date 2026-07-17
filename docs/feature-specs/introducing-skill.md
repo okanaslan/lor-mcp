@@ -3,7 +3,7 @@
 ## 1. Summary
 
 Implemented for v1. This feature lets a user introduce an existing Codex skill
-to the Agentic Router MCP Server by recording its skill name and routing
+to the Local Orchestration Router (LOR) MCP Server by recording its skill name and routing
 metadata in durable storage scoped to the workspace.
 
 ## 2. Goals
@@ -45,7 +45,7 @@ metadata in durable storage scoped to the workspace.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that a user has an
-existing Codex skill and wants to make it available to the Agentic Router
+existing Codex skill and wants to make it available to the Local Orchestration Router (LOR)
 catalog for future routing decisions.
 
 ## 6. Data Model

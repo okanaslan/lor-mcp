@@ -13,16 +13,16 @@ Codex user.
 
 The user notices that a catalog entry has the wrong project name, display name,
 primary specialty, or specialty tags. The user asks the current Codex agent to
-update the entry through Agentic Router MCP.
+update the entry through LOR MCP.
 
 ## 4. Flow
 
 1. The Codex user identifies an introduced agent or skill with incorrect
    metadata.
 2. The user provides the corrected metadata.
-3. The current Codex agent calls Agentic Router MCP to update the catalog entry.
-4. Agentic Router validates the update.
-5. Agentic Router updates only editable metadata in the requested workspace
+3. The current Codex agent calls LOR MCP to update the catalog entry.
+4. Local Orchestration Router (LOR) validates the update.
+5. Local Orchestration Router (LOR) updates only editable metadata in the requested workspace
    workspace.
 6. The current Codex agent reports the updated catalog entry to the user.
 

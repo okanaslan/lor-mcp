@@ -2,25 +2,25 @@ import { assertEquals, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import { loadConfig, loadServeConfig } from "@src/config.ts";
 
-Deno.test("loadConfig trims explicit database path environment setting", () => {
+Deno.test("loadConfig trims explicit LOR database path setting", () => {
   const config = loadConfig({
-    AGENTIC_ROUTER_DB_PATH: " /tmp/router.db ",
+    LOR_DB_PATH: " /tmp/router.db ",
   });
 
   assertEquals(config.dbPath, "/tmp/router.db");
 });
 
 Deno.test("loadConfig uses server-owned storage defaults without env settings", () => {
-  const cwd = "/workspaces/Agentic-Router";
+  const cwd = "/workspaces/LOR-MCP";
   const config = loadConfig({}, { cwd });
 
-  assertEquals(config.dbPath, join(cwd, ".agentic-router", "catalog.db"));
+  assertEquals(config.dbPath, join(cwd, ".lor-mcp", "catalog.db"));
 });
 
 Deno.test("loadConfig lets explicit database path override default", () => {
-  const cwd = "/workspaces/Agentic-Router";
+  const cwd = "/workspaces/LOR-MCP";
   const config = loadConfig({
-    AGENTIC_ROUTER_DB_PATH: "/tmp/custom/catalog.db",
+    LOR_DB_PATH: "/tmp/custom/catalog.db",
   }, { cwd });
 
   assertEquals(config.dbPath, "/tmp/custom/catalog.db");
@@ -36,8 +36,8 @@ Deno.test("loadServeConfig uses local HTTP defaults", () => {
 Deno.test("loadServeConfig lets env override host and port", () => {
   assertEquals(
     loadServeConfig({
-      AGENTIC_ROUTER_HOST: "localhost",
-      AGENTIC_ROUTER_PORT: "9000",
+      LOR_HOST: "localhost",
+      LOR_PORT: "9000",
     }),
     {
       host: "localhost",
@@ -48,8 +48,8 @@ Deno.test("loadServeConfig lets env override host and port", () => {
 
 Deno.test("loadServeConfig rejects invalid ports", () => {
   assertThrows(
-    () => loadServeConfig({ AGENTIC_ROUTER_PORT: "not-a-port" }),
+    () => loadServeConfig({ LOR_PORT: "not-a-port" }),
     Error,
-    "AGENTIC_ROUTER_PORT",
+    "LOR_PORT",
   );
 });

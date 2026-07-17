@@ -1,11 +1,11 @@
-import { AgenticRouterError } from "@src/errors.ts";
+import { LorError } from "@src/errors.ts";
 import { dirname, join } from "@std/path";
 
-export interface AgenticRouterConfig {
+export interface LorConfig {
   dbPath: string;
 }
 
-export interface AgenticRouterServeConfig {
+export interface LorServeConfig {
   host: string;
   port: number;
 }
@@ -19,10 +19,10 @@ export interface LoadConfigOptions {
 export function loadConfig(
   env: Env = readDenoEnv(),
   options: LoadConfigOptions = {},
-): AgenticRouterConfig {
+): LorConfig {
   const cwd = options.cwd ?? Deno.cwd();
-  const dataDir = join(cwd, ".agentic-router");
-  const dbPath = optionalEnv(env, "AGENTIC_ROUTER_DB_PATH") ??
+  const dataDir = join(cwd, ".lor-mcp");
+  const dbPath = optionalEnv(env, "LOR_DB_PATH") ??
     join(dataDir, "catalog.db");
 
   return {
@@ -32,16 +32,16 @@ export function loadConfig(
 
 export function loadServeConfig(
   env: Env = readDenoEnv(),
-): AgenticRouterServeConfig {
-  const host = optionalEnv(env, "AGENTIC_ROUTER_HOST") ?? "127.0.0.1";
-  const portValue = optionalEnv(env, "AGENTIC_ROUTER_PORT");
+): LorServeConfig {
+  const host = optionalEnv(env, "LOR_HOST") ?? "127.0.0.1";
+  const portValue = optionalEnv(env, "LOR_PORT");
   const port = portValue === undefined ? 8765 : Number(portValue);
 
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new AgenticRouterError(
+    throw new LorError(
       "setup_error",
-      "AGENTIC_ROUTER_PORT must be an integer between 1 and 65535.",
-      { field: "AGENTIC_ROUTER_PORT" },
+      "LOR_PORT must be an integer between 1 and 65535.",
+      { field: "LOR_PORT" },
     );
   }
 
@@ -49,16 +49,16 @@ export function loadServeConfig(
 }
 
 export async function prepareConfigStorage(
-  config: AgenticRouterConfig,
+  config: LorConfig,
 ): Promise<void> {
   await Deno.mkdir(dirname(config.dbPath), { recursive: true });
 }
 
 function readDenoEnv(): Env {
   return {
-    AGENTIC_ROUTER_DB_PATH: Deno.env.get("AGENTIC_ROUTER_DB_PATH"),
-    AGENTIC_ROUTER_HOST: Deno.env.get("AGENTIC_ROUTER_HOST"),
-    AGENTIC_ROUTER_PORT: Deno.env.get("AGENTIC_ROUTER_PORT"),
+    LOR_DB_PATH: Deno.env.get("LOR_DB_PATH"),
+    LOR_HOST: Deno.env.get("LOR_HOST"),
+    LOR_PORT: Deno.env.get("LOR_PORT"),
   };
 }
 

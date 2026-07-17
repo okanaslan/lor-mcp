@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Deferred. This feature defines how Agentic Router may report whether an
+Deferred. This feature defines how Local Orchestration Router (LOR) may report whether an
 introduced Codex agent or Codex skill appears usable after it has already been
 registered in the workspace catalog.
 
@@ -37,7 +37,7 @@ registered in the workspace catalog.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that a user introduces a
-skill or agent and Agentic Router later reports whether it still appears
+skill or agent and Local Orchestration Router (LOR) later reports whether it still appears
 usable before recommending it.
 
 ## 6. Data Model

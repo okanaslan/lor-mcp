@@ -41,7 +41,7 @@ from one requested workspace.
 
 ## 5. User Stories / Use Cases
 
-A user is experimenting with Agentic Router and wants to reset the current
+A user is experimenting with Local Orchestration Router (LOR) and wants to reset the current
 workspace catalog. They ask an agent to call `clear_workspace_catalog` with the
 current workspace and explicit confirmation, then re-register the desired agents
 and skills.

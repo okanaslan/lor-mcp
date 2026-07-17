@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets Agentic Router evaluate a user request
+Implemented for v1. This feature lets Local Orchestration Router (LOR) evaluate a user request
 and return matching introduced agents and skills from the requested workspace.
 
 ## 2. Goals
@@ -37,7 +37,7 @@ and return matching introduced agents and skills from the requested workspace.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that a user asks which
-introduced agent or skill should handle a task, and Agentic Router chooses the
+introduced agent or skill should handle a task, and Local Orchestration Router (LOR) chooses the
 best matching catalog entry.
 
 ## 6. Data Model

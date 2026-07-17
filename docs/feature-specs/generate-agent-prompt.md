@@ -15,7 +15,7 @@ session ID exists.
 - Support a broad initial set of deterministic built-in role presets.
 - Return suggested `introduce_agent` metadata for later catalog registration.
 - Keep prompt generation workspace-aware without persisting generated prompts.
-- Make manual delivery explicit so callers do not assume Agentic Router created
+- Make manual delivery explicit so callers do not assume Local Orchestration Router (LOR) created
   or contacted another agent.
 
 ## 3. Non-Goals
@@ -87,7 +87,7 @@ Conceptual output fields:
 - `displayName`: suggested agent display name.
 - `suggestedAgentMetadata`: suggested metadata for later `introduce_agent`
   registration.
-- `delivery`: manual delivery instructions that state Agentic Router does not
+- `delivery`: manual delivery instructions that state Local Orchestration Router (LOR) does not
   create or message Codex chats.
 
 Suggested agent metadata should include:
@@ -135,4 +135,4 @@ Suggested agent metadata should include:
 - 2026-07-15: Return suggested `introduce_agent` metadata instead of registering
   an agent before a Codex session ID exists.
 - 2026-07-15: Use deterministic built-in role presets for v1.
-- 2026-07-15: Keep delivery manual and out of Agentic Router.
+- 2026-07-15: Keep delivery manual and out of Local Orchestration Router (LOR).

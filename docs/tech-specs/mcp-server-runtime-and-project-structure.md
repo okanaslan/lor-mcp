@@ -12,7 +12,7 @@ set.
 
 ## 2. Context
 
-The repository is currently documentation-only for Agentic Router. Feature specs
+The repository is currently documentation-only for Local Orchestration Router (LOR). Feature specs
 already define the intended MCP initialization behavior and catalog features for
 introducing, listing, matching, updating, and removing agents and skills.
 
@@ -46,7 +46,7 @@ the current MCP TypeScript server package through Deno npm compatibility.
 
 ## 5. Proposed Design
 
-Agentic Router should be implemented as a Deno-first TypeScript project with a
+Local Orchestration Router (LOR) should be implemented as a Deno-first TypeScript project with a
 single `deno.json` configuration file. `deno.json` owns tasks, import aliases,
 compiler options, lint settings, and format settings.
 

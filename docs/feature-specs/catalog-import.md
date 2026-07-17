@@ -32,7 +32,7 @@ initialized MCP session from an approved import source.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that a user has a local
-set of known skills or agents and wants to load them into Agentic Router without
+set of known skills or agents and wants to load them into Local Orchestration Router (LOR) without
 introducing each one manually.
 
 ## 6. Data Model

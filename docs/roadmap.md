@@ -1,7 +1,7 @@
 # Roadmap
 
 This roadmap tracks major feature specs and implementation status for the
-Agentic Router MCP Server.
+Local Orchestration Router (LOR) MCP Server.
 
 ## Current Implementation
 
@@ -12,9 +12,9 @@ Implemented in the first runnable v1 slice:
   `http://127.0.0.1:8765/mcp`.
 - Stdio fallback through `deno task run`.
 - URL-only Codex setup with
-  `codex mcp add agentic-router --url
+  `codex mcp add lor-mcp --url
   http://127.0.0.1:8765/mcp`.
-- Server-owned local defaults for SQLite storage under `.agentic-router/`.
+- Server-owned local defaults for SQLite storage under `.lor-mcp/`.
 - SQLite-backed durable catalog storage scoped by client-supplied `workspace`.
 - V1 MCP tools:
   - `introduce_agent`
@@ -73,8 +73,8 @@ Latest implementation verification:
   Partially implemented. V1 matching returns structured explanation fields; the
   richer explanation contract remains draft.
 - [Conflict Handling](feature-specs/conflict-handling.md): Draft. Defines how
-  Agentic Router handles equally strong catalog matches. Basic equally scored
-  agent conflict reporting exists in v1 matching.
+  Local Orchestration Router (LOR) handles equally strong catalog matches. Basic
+  equally scored agent conflict reporting exists in v1 matching.
 - [Catalog Import](feature-specs/catalog-import.md): Draft. Defines how users
   bulk-load catalog entries into the workspace catalog.
 - [Catalog Export](feature-specs/catalog-export.md): Draft. Defines how users

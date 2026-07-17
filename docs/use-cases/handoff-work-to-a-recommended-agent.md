@@ -11,18 +11,18 @@ Codex agent acting on behalf of a Codex user.
 
 ## 3. Scenario
 
-The current Codex agent is working on a task and uses Agentic Router MCP to find
-a specialized agent. Agentic Router recommends an introduced Codex agent, and
+The current Codex agent is working on a task and uses LOR MCP to find
+a specialized agent. Local Orchestration Router (LOR) recommends an introduced Codex agent, and
 the current agent needs enough detail to coordinate work with it.
 
 ## 4. Flow
 
 1. The current Codex agent receives a task from the Codex user.
-2. The current agent asks Agentic Router MCP for a matching catalog entry.
-3. Agentic Router recommends an introduced Codex agent.
-4. The current agent asks Agentic Router to prepare a handoff prompt for the
+2. The current agent asks LOR MCP for a matching catalog entry.
+3. Local Orchestration Router (LOR) recommends an introduced Codex agent.
+4. The current agent asks Local Orchestration Router (LOR) to prepare a handoff prompt for the
    recommended agent.
-5. Agentic Router renders a task-specific prompt from stored handoff metadata or
+5. Local Orchestration Router (LOR) renders a task-specific prompt from stored handoff metadata or
    a generic fallback.
 6. The current agent reviews the prompt.
 7. The current agent sends or presents the handoff prompt using the available

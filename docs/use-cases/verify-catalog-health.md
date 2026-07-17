@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-A Codex user asks Agentic Router to identify catalog entries that may be
+A Codex user asks Local Orchestration Router (LOR) to identify catalog entries that may be
 invalid, stale, duplicate, or missing useful metadata.
 
 ## 2. Actor
@@ -11,18 +11,18 @@ Codex user.
 
 ## 3. Scenario
 
-The user wants confidence that the current Agentic Router catalog is usable
-before relying on recommendations. The current Codex agent asks Agentic Router
+The user wants confidence that the current Local Orchestration Router (LOR) catalog is usable
+before relying on recommendations. The current Codex agent asks Local Orchestration Router (LOR)
 to verify agent and skill records.
 
 ## 4. Flow
 
 1. The Codex user asks the current Codex agent to check catalog health.
-2. The current agent asks Agentic Router MCP to verify catalog entries.
-3. Agentic Router checks introduced agents and skills using approved evidence
+2. The current agent asks LOR MCP to verify catalog entries.
+3. Local Orchestration Router (LOR) checks introduced agents and skills using approved evidence
    sources.
-4. Agentic Router reports verified, unverified, or unknown entries.
-5. Agentic Router highlights duplicates, stale entries, or entries with missing
+4. Local Orchestration Router (LOR) reports verified, unverified, or unknown entries.
+5. Local Orchestration Router (LOR) highlights duplicates, stale entries, or entries with missing
    metadata when that information is available.
 6. The current agent summarizes health issues and possible cleanup actions for
    the user.

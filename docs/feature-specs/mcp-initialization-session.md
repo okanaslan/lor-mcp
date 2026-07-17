@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Draft. This feature defines how Agentic Router uses the MCP initialization
+Draft. This feature defines how Local Orchestration Router (LOR) uses the MCP initialization
 lifecycle as the session boundary for catalog operations instead of adding a
 custom `create_session` tool.
 
@@ -47,7 +47,7 @@ custom `create_session` tool.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that an MCP host connects
-to Agentic Router, completes initialization, and can then call catalog tools
+to Local Orchestration Router (LOR), completes initialization, and can then call catalog tools
 without first creating an application-specific session.
 
 ## 6. Data Model
@@ -57,7 +57,7 @@ Conceptual `McpCatalogSession` fields:
 - `sessionKey`: internal key derived from the active MCP session context.
 - `protocolVersion`: negotiated MCP protocol version.
 - `clientInfo`: descriptive client implementation metadata from initialization.
-- `serverInfo`: Agentic Router server implementation metadata.
+- `serverInfo`: Local Orchestration Router (LOR) server implementation metadata.
 - `capabilities`: server capabilities returned during initialization.
 - `initializedAt`: time the initialization exchange completed.
 - `endedAt`: time the session ended, when known.
@@ -89,7 +89,7 @@ database schema.
 - Which MCP transport will the first implementation support?
 - Should catalog records survive reconnects when a host creates a new MCP
   session?
-- What exact server capabilities should Agentic Router advertise at
+- What exact server capabilities should Local Orchestration Router (LOR) advertise at
   initialization?
 
 ## 10. Decision Log

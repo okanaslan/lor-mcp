@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines how Agentic Router scopes catalog records across
+Draft. This tech spec defines how Local Orchestration Router (LOR) scopes catalog records across
 local HTTP and stdio v1 runtimes.
 
 Catalog records should survive MCP reconnects and server restarts for the same
@@ -11,7 +11,7 @@ as the durable catalog scope.
 
 ## 2. Context
 
-Agentic Router v1 is a Deno TypeScript MCP server with local Streamable HTTP as
+Local Orchestration Router (LOR) v1 is a Deno TypeScript MCP server with local Streamable HTTP as
 the primary Codex connection mode and stdio as a fallback. The MCP
 initialization lifecycle defines when the server is ready to accept catalog
 tool calls.
@@ -44,7 +44,7 @@ cases describe the catalog as belonging to the current project or workspace.
 
 ## 5. Proposed Design
 
-Agentic Router v1 should use a client-supplied `workspace` value for durable
+Local Orchestration Router (LOR) v1 should use a client-supplied `workspace` value for durable
 catalog ownership. The caller should pass the client workspace folder name, or
 another stable client-chosen workspace slug, with every catalog tool request.
 

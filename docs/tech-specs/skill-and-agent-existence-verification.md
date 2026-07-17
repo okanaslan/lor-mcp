@@ -4,11 +4,11 @@
 
 Draft. This tech spec records the v1 decision not to block agent or skill
 introduction on local existence verification. Introduction is the registration
-step for Agentic Router.
+step for Local Orchestration Router (LOR).
 
 ## 2. Context
 
-Agentic Router v1 runs as a Deno TypeScript MCP server over local Streamable
+Local Orchestration Router (LOR) v1 runs as a Deno TypeScript MCP server over local Streamable
 HTTP, with stdio retained as a fallback. Users and agents connect through MCP
 and should not need filesystem access to the server's local state in order to
 introduce a catalog entry.
@@ -80,7 +80,7 @@ metadata, and write through the repository.
 The runtime config should not require server-local pre-registration sources for
 agent or skill introduction.
 
-The local `.agentic-router/` directory remains the default SQLite catalog data
+The local `.lor-mcp/` directory remains the default SQLite catalog data
 directory, not an introduction pre-registration directory.
 
 ## 8. Risks and Tradeoffs

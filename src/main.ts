@@ -12,7 +12,9 @@ if (import.meta.main) {
     await main();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Agentic Router startup failed: ${message}`);
+    console.error(
+      `Local Orchestration Router (LOR) startup failed: ${message}`,
+    );
     Deno.exit(1);
   }
 }

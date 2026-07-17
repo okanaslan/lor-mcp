@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Draft. This feature defines how Agentic Router handles cases where multiple
+Draft. This feature defines how Local Orchestration Router (LOR) handles cases where multiple
 introduced agents or skills match a request equally well.
 
 ## 2. Goals
@@ -35,7 +35,7 @@ introduced agents or skills match a request equally well.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that two backend-focused
-entries match a task and Agentic Router asks the caller to disambiguate instead
+entries match a task and Local Orchestration Router (LOR) asks the caller to disambiguate instead
 of guessing.
 
 ## 6. Data Model

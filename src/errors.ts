@@ -8,25 +8,25 @@ export type ErrorCode =
   | "storage_error"
   | "internal_error";
 
-export class AgenticRouterError extends Error {
+export class LorError extends Error {
   constructor(
     public readonly code: ErrorCode,
     message: string,
     public readonly details?: Record<string, unknown>,
   ) {
     super(`${code}: ${message}`);
-    this.name = "AgenticRouterError";
+    this.name = "LorError";
   }
 }
 
-export function toAgenticRouterError(error: unknown): AgenticRouterError {
-  if (error instanceof AgenticRouterError) {
+export function toLorError(error: unknown): LorError {
+  if (error instanceof LorError) {
     return error;
   }
 
   if (error instanceof Error) {
-    return new AgenticRouterError("internal_error", "Unexpected server error.");
+    return new LorError("internal_error", "Unexpected server error.");
   }
 
-  return new AgenticRouterError("internal_error", "Unexpected server error.");
+  return new LorError("internal_error", "Unexpected server error.");
 }

@@ -1,5 +1,5 @@
 import type { HandoffMetadata } from "@src/catalog/types.ts";
-import { AgenticRouterError } from "@src/errors.ts";
+import { LorError } from "@src/errors.ts";
 
 export const agentPromptRoles = [
   "backend",
@@ -229,7 +229,7 @@ function parseRole(role: string): AgentPromptRole {
     return normalized;
   }
 
-  throw new AgenticRouterError(
+  throw new LorError(
     "validation_error",
     "role must be one of the supported role presets.",
     {
@@ -246,7 +246,7 @@ function isAgentPromptRole(role: string): role is AgentPromptRole {
 function requireText(value: string, field: string): string {
   const trimmed = value?.trim();
   if (!trimmed) {
-    throw new AgenticRouterError("validation_error", `${field} is required.`, {
+    throw new LorError("validation_error", `${field} is required.`, {
       field,
     });
   }
@@ -296,7 +296,7 @@ function renderPrompt(input: {
   sections.push(
     "",
     "Delivery:",
-    "Work inside this Codex chat. Do not assume Agentic Router created, registered, or contacted any other agent.",
+    "Work inside this Codex chat. Do not assume Local Orchestration Router (LOR) created, registered, or contacted any other agent.",
   );
 
   return sections.join("\n");

@@ -1,6 +1,6 @@
-# Agentic Router MCP Server Docs
+# Local Orchestration Router (LOR) MCP Server Docs
 
-This folder is the planning and specification home for the Agentic Router MCP
+This folder is the planning and specification home for the LOR MCP
 Server.
 
 ## Contents

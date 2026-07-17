@@ -4,7 +4,7 @@ import {
   type IntroduceSkillInput,
   type PrepareAgentHandoffInput,
 } from "@src/catalog/types.ts";
-import { AgenticRouterError } from "@src/errors.ts";
+import { LorError } from "@src/errors.ts";
 
 export function validateIntroduceAgent(
   input: IntroduceAgentInput,
@@ -52,7 +52,7 @@ export function validatePrepareAgentHandoff(
 function requireString(value: string, field: string): string {
   const trimmed = value?.trim();
   if (!trimmed) {
-    throw new AgenticRouterError("validation_error", `${field} is required.`, {
+    throw new LorError("validation_error", `${field} is required.`, {
       field,
     });
   }
@@ -61,7 +61,7 @@ function requireString(value: string, field: string): string {
 
 function requireTags(tags: readonly string[]): string[] {
   if (!Array.isArray(tags)) {
-    throw new AgenticRouterError(
+    throw new LorError(
       "validation_error",
       "specialtyTags must be an array.",
       { field: "specialtyTags" },
@@ -70,7 +70,7 @@ function requireTags(tags: readonly string[]): string[] {
 
   const normalized = tags.map((tag) => tag.trim()).filter(Boolean);
   if (normalized.length === 0) {
-    throw new AgenticRouterError(
+    throw new LorError(
       "validation_error",
       "specialtyTags must include at least one tag.",
       { field: "specialtyTags" },
@@ -100,7 +100,7 @@ function validateHandoff(handoff: HandoffMetadata): HandoffMetadata {
 
 function requireStringList(values: string[], field: string): string[] {
   if (!Array.isArray(values)) {
-    throw new AgenticRouterError("validation_error", `${field} is required.`, {
+    throw new LorError("validation_error", `${field} is required.`, {
       field,
     });
   }

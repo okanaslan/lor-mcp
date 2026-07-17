@@ -14,7 +14,7 @@ Deno.test("okResult returns the standard structured envelope", () => {
 
 Deno.test("errorResult sets isError and sanitizes details", () => {
   const result = errorResult("setup_error", "Missing configuration.", {
-    field: "AGENTIC_ROUTER_DB_PATH",
+    field: "LOR_DB_PATH",
     path: "/private/tmp/router.db",
     namespace: "secret-workspace",
   });
@@ -25,7 +25,7 @@ Deno.test("errorResult sets isError and sanitizes details", () => {
     error: {
       code: "setup_error",
       message: "Missing configuration.",
-      details: { field: "AGENTIC_ROUTER_DB_PATH" },
+      details: { field: "LOR_DB_PATH" },
     },
   });
 });

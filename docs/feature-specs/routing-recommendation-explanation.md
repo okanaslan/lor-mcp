@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Draft. This feature makes Agentic Router explain why a specific agent or skill
+Draft. This feature makes Local Orchestration Router (LOR) explain why a specific agent or skill
 was recommended for a user request.
 
 ## 2. Goals

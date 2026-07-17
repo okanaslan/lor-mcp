@@ -6,7 +6,7 @@ import {
 
 export function createServer(options: CatalogToolOptions = {}): McpServer {
   const server = new McpServer({
-    name: "agentic-router",
+    name: "lor-mcp",
     version: "0.1.0",
   });
 

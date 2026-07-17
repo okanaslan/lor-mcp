@@ -267,7 +267,7 @@ Deno.test("SqliteCatalogRepository migrates legacy catalogNamespace columns", as
       primarySpecialty, specialtyTags, handoff, verificationStatus,
       verificationSource, verifiedAt, verificationMessage, createdAt, updatedAt
     ) VALUES (
-      'Agentic-Router', 'agent-1', 'Agentic Router', 'Backend Agent',
+      'LOR-MCP', 'agent-1', 'Local Orchestration Router (LOR)', 'Backend Agent',
       'backend api', '["api"]', NULL, 'verified', 'test',
       '${FIXED_NOW}', NULL, '${FIXED_NOW}', '${FIXED_NOW}'
     );
@@ -277,11 +277,11 @@ Deno.test("SqliteCatalogRepository migrates legacy catalogNamespace columns", as
   const repo = new SqliteCatalogRepository(dbPath);
   await repo.initialize();
 
-  const entries = await repo.listEntries("Agentic-Router", {
-    workspace: "Agentic-Router",
+  const entries = await repo.listEntries("LOR-MCP", {
+    workspace: "LOR-MCP",
   });
 
-  assertEquals(entries.map((entry) => entry.workspace), ["Agentic-Router"]);
+  assertEquals(entries.map((entry) => entry.workspace), ["LOR-MCP"]);
   assertEquals(entries.map((entry) => entry.entryKey), ["agent-1"]);
 
   repo.close();

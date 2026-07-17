@@ -12,7 +12,7 @@ import type {
   SkillCatalogEntry,
   VerificationMetadata,
 } from "@src/catalog/types.ts";
-import { AgenticRouterError } from "@src/errors.ts";
+import { LorError } from "@src/errors.ts";
 
 interface AgentRow {
   workspace: string;
@@ -75,7 +75,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
     const db = this.requireDb();
     const insert = db.transaction(() => {
       if (this.agentExists(workspace, input.codexSessionId)) {
-        throw new AgenticRouterError(
+        throw new LorError(
           "duplicate_entry",
           "Agent already exists in this workspace.",
           { entryType: "agent" },
@@ -128,7 +128,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
     const db = this.requireDb();
     const insert = db.transaction(() => {
       if (this.skillExists(workspace, input.skillName)) {
-        throw new AgenticRouterError(
+        throw new LorError(
           "duplicate_entry",
           "Skill already exists in this workspace.",
           { entryType: "skill" },
@@ -313,7 +313,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
   private requireDb(): Database {
     if (!this.#db) {
-      throw new AgenticRouterError(
+      throw new LorError(
         "storage_error",
         "Catalog storage has not been initialized.",
       );
@@ -406,11 +406,11 @@ function recordSchemaVersion(db: Database, version: number): void {
   );
 }
 
-function mapStorageError(error: unknown): AgenticRouterError {
-  if (error instanceof AgenticRouterError) {
+function mapStorageError(error: unknown): LorError {
+  if (error instanceof LorError) {
     return error;
   }
-  return new AgenticRouterError("storage_error", "Catalog storage failed.");
+  return new LorError("storage_error", "Catalog storage failed.");
 }
 
 const SCHEMA_SQL = `
