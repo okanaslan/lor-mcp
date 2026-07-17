@@ -239,6 +239,157 @@ Deno.test("CatalogService removes catalog entries from detail and match results"
   }
 });
 
+Deno.test("CatalogService exports workspace catalog entries with filters", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "frontend-skill",
+      projectName: "Other Project",
+      displayName: "Frontend Skill",
+      primarySpecialty: "frontend",
+      specialtyTags: ["react"],
+    });
+    await service.introduceSkill({
+      workspace: "other-workspace",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const catalog = await service.exportCatalog({
+      workspace: "LOR-MCP",
+      projectName: "Local Orchestration Router (LOR)",
+    });
+
+    assertEquals(catalog.version, 1);
+    assertEquals(catalog.workspace, "LOR-MCP");
+    assertEquals(catalog.exportedAt, FIXED_NOW);
+    assertEquals(catalog.filters, {
+      entryType: undefined,
+      projectName: "Local Orchestration Router (LOR)",
+    });
+    assertEquals(catalog.entries.map((entry) => entry.entryType), ["agent"]);
+    assertEquals(catalog.entries[0].displayName, "Backend Agent");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService imports exported catalog entries into requested workspace", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const catalog = await service.exportCatalog({ workspace: "empty" });
+    catalog.entries = [
+      {
+        entryType: "agent",
+        codexSessionId: "agent-1",
+        projectName: "Local Orchestration Router (LOR)",
+        displayName: "Backend Agent",
+        primarySpecialty: "backend api",
+        specialtyTags: ["api"],
+        verificationStatus: "verified",
+        verificationSource: "catalog_export",
+        verifiedAt: FIXED_NOW,
+        handoff: {
+          whenToUse: "Backend work",
+          handoffPromptTemplate: "Handle {task}",
+          requiredContext: ["task"],
+          expectedOutput: "Patch",
+          constraints: ["Stay scoped"],
+        },
+      },
+      {
+        entryType: "skill",
+        skillName: "backend-skill",
+        projectName: "Local Orchestration Router (LOR)",
+        displayName: "Backend Skill",
+        primarySpecialty: "backend api",
+        specialtyTags: ["api"],
+        verificationStatus: "verified",
+        verificationSource: "catalog_export",
+        verifiedAt: FIXED_NOW,
+      },
+    ];
+
+    const result = await service.importCatalog({
+      workspace: "LOR-MCP",
+      catalog,
+    });
+    const entries = await service.listEntries({ workspace: "LOR-MCP" });
+    const agent = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+
+    assertEquals(result, {
+      workspace: "LOR-MCP",
+      version: 1,
+      conflictStrategy: "skip",
+      importedCount: 2,
+      skippedCount: 0,
+      failedCount: 0,
+      errors: [],
+    });
+    assertEquals(entries.map((entry) => entry.entryKey), [
+      "agent-1",
+      "backend-skill",
+    ]);
+    if (agent?.entryType !== "agent") {
+      throw new Error("Expected imported agent.");
+    }
+    assertEquals(agent.handoff?.whenToUse, "Backend work");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService import skips or fails duplicate entries", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const catalog = await service.exportCatalog({ workspace: "LOR-MCP" });
+
+    const skipped = await service.importCatalog({
+      workspace: "LOR-MCP",
+      catalog,
+    });
+    const failed = await service.importCatalog({
+      workspace: "LOR-MCP",
+      catalog,
+      conflictStrategy: "fail",
+    });
+
+    assertEquals(skipped.importedCount, 0);
+    assertEquals(skipped.skippedCount, 1);
+    assertEquals(skipped.failedCount, 0);
+    assertEquals(failed.importedCount, 0);
+    assertEquals(failed.skippedCount, 0);
+    assertEquals(failed.failedCount, 1);
+    assertEquals(failed.errors[0].code, "duplicate_entry");
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService returns not_found for missing catalog remove target", async () => {
   const { repo, service } = await createCatalogService();
   try {

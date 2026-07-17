@@ -1,5 +1,9 @@
 import {
   type CatalogEntryUpdate,
+  type CatalogExportEntry,
+  type CatalogExportFilter,
+  type CatalogImportConflictStrategy,
+  type CatalogImportInput,
   type EntryLookup,
   type HandoffMetadata,
   type IntroduceAgentInput,
@@ -83,6 +87,64 @@ export function validateEntryLookup(input: EntryLookup): EntryLookup {
   };
 }
 
+export function validateCatalogExportFilter(
+  input: CatalogExportFilter,
+): CatalogExportFilter {
+  const projectName = input.projectName?.trim();
+  return {
+    workspace: requireString(input.workspace, "workspace"),
+    entryType: input.entryType === undefined
+      ? undefined
+      : requireEntryType(input.entryType),
+    projectName: projectName || undefined,
+  };
+}
+
+export function validateCatalogImportInput(
+  input: CatalogImportInput,
+): CatalogImportInput & { conflictStrategy: CatalogImportConflictStrategy } {
+  const workspace = requireString(input.workspace, "workspace");
+  const conflictStrategy = input.conflictStrategy ?? "skip";
+  if (conflictStrategy !== "skip" && conflictStrategy !== "fail") {
+    throw new LorError(
+      "validation_error",
+      "conflictStrategy must be skip or fail.",
+      { field: "conflictStrategy" },
+    );
+  }
+  if (!input.catalog || input.catalog.version !== 1) {
+    throw new LorError(
+      "validation_error",
+      "catalog version must be 1.",
+      { field: "catalog.version" },
+    );
+  }
+  if (!Array.isArray(input.catalog.entries)) {
+    throw new LorError(
+      "validation_error",
+      "catalog entries must be an array.",
+      { field: "catalog.entries" },
+    );
+  }
+
+  return {
+    workspace,
+    conflictStrategy,
+    catalog: {
+      version: 1,
+      exportedAt: requireString(input.catalog.exportedAt, "catalog.exportedAt"),
+      workspace: requireString(input.catalog.workspace, "catalog.workspace"),
+      filters: {
+        entryType: input.catalog.filters?.entryType === undefined
+          ? undefined
+          : requireEntryType(input.catalog.filters.entryType),
+        projectName: input.catalog.filters?.projectName?.trim() || undefined,
+      },
+      entries: input.catalog.entries.map(validateCatalogImportEntry),
+    },
+  };
+}
+
 export function validatePrepareAgentHandoff(
   input: PrepareAgentHandoffInput,
 ): PrepareAgentHandoffInput {
@@ -105,6 +167,62 @@ function requireString(value: string, field: string): string {
   return trimmed;
 }
 
+function validateCatalogImportEntry(
+  entry: CatalogExportEntry,
+  index: number,
+): CatalogExportEntry {
+  requireEntryType(entry.entryType);
+  const base = {
+    projectName: requireString(
+      entry.projectName,
+      `catalog.entries.${index}.projectName`,
+    ),
+    displayName: requireString(
+      entry.displayName,
+      `catalog.entries.${index}.displayName`,
+    ),
+    primarySpecialty: requireString(
+      entry.primarySpecialty,
+      `catalog.entries.${index}.primarySpecialty`,
+    ),
+    specialtyTags: requireTags(entry.specialtyTags),
+    verificationStatus: requireVerificationStatus(
+      entry.verificationStatus,
+      `catalog.entries.${index}.verificationStatus`,
+    ),
+    verificationSource: requireString(
+      entry.verificationSource,
+      `catalog.entries.${index}.verificationSource`,
+    ),
+    verifiedAt: requireString(
+      entry.verifiedAt,
+      `catalog.entries.${index}.verifiedAt`,
+    ),
+    verificationMessage: entry.verificationMessage?.trim() || undefined,
+  };
+
+  if (entry.entryType === "agent") {
+    return {
+      ...base,
+      entryType: "agent",
+      codexSessionId: requireString(
+        entry.codexSessionId,
+        `catalog.entries.${index}.codexSessionId`,
+      ),
+      handoff: entry.handoff ? validateHandoff(entry.handoff) : undefined,
+    };
+  }
+
+  return {
+    ...base,
+    entryType: "skill",
+    skillName: requireString(
+      entry.skillName,
+      `catalog.entries.${index}.skillName`,
+    ),
+  };
+}
+
 function hasEditableUpdate(input: CatalogEntryUpdate): boolean {
   return input.projectName !== undefined ||
     input.displayName !== undefined ||
@@ -123,6 +241,20 @@ function requireEntryType(value: unknown): "agent" | "skill" {
     );
   }
   return value;
+}
+
+function requireVerificationStatus(
+  value: unknown,
+  field: string,
+): "verified" | "unverified" | "unknown" {
+  if (value === "verified" || value === "unverified" || value === "unknown") {
+    return value;
+  }
+  throw new LorError(
+    "validation_error",
+    `${field} must be verified, unverified, or unknown.`,
+    { field },
+  );
 }
 
 function requireTags(tags: readonly string[]): string[] {

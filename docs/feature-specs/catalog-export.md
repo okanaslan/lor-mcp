@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Draft. This feature lets a user export catalog entries from the active
-initialized MCP session into a portable representation.
+Implemented for v1. This feature lets a user export catalog entries from the
+requested workspace into a portable structured JSON representation.
 
 ## 2. Goals
 
@@ -20,8 +20,7 @@ initialized MCP session into a portable representation.
 
 ## 4. Functional Requirements
 
-- The server must export catalog entries scoped to the active initialized MCP
-  session.
+- The server must export catalog entries scoped to the requested workspace.
 - The export must include introduced agents and introduced skills by default.
 - The caller may filter export by entry type or project name.
 - The export must include stored catalog metadata needed to recreate entries.
@@ -29,7 +28,7 @@ initialized MCP session into a portable representation.
   for import.
 - The server must return an empty export when no entries exist in the active
   session.
-- The server must not export entries from another initialized MCP session.
+- The server must not export entries from another workspace.
 
 ## 5. User Stories / Use Cases
 
@@ -62,12 +61,13 @@ Conceptual `CatalogExport` fields:
 
 ## 9. Open Questions
 
-- What export format should be supported first?
-- Should exported entries include verification status?
-- Should exported files include enough metadata to preserve original session
-  context?
+- Should a later version write directly to files, or should file handling remain
+  caller-owned?
 
 ## 10. Decision Log
 
 - 2026-07-11: Treat export as session-scoped catalog backup.
 - 2026-07-11: Keep remote sync behavior out of scope.
+- 2026-07-17: V1 exports a versioned structured JSON object through
+  `export_catalog`; it includes verification metadata and is scoped by
+  `workspace`.

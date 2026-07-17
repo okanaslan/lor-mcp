@@ -3,12 +3,16 @@ import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 import {
   clearWorkspaceCatalogInputSchema,
   type ClearWorkspaceCatalogToolInput,
+  exportCatalogInputSchema,
+  type ExportCatalogToolInput,
   findMatchingCatalogEntryInputSchema,
   type FindMatchingCatalogEntryToolInput,
   generateAgentPromptInputSchema,
   type GenerateAgentPromptToolInput,
   getCatalogEntryDetailInputSchema,
   type GetCatalogEntryDetailToolInput,
+  importCatalogInputSchema,
+  type ImportCatalogToolInput,
   introduceAgentInputSchema,
   type IntroduceAgentToolInput,
   introduceSkillInputSchema,
@@ -153,6 +157,40 @@ export function registerCatalogTools(
         return okResult(
           result,
           `Removed ${result.entryType} ${result.entryKey}.`,
+        );
+      }),
+  );
+
+  server.registerTool(
+    "export_catalog",
+    {
+      description: "Export workspace catalog entries as portable JSON data.",
+      inputSchema: exportCatalogInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: ExportCatalogToolInput) =>
+      withRuntime(runtimeFactory, async (runtime) => {
+        const catalog = await runtime.service.exportCatalog(input);
+        return okResult(
+          catalog,
+          `Exported ${catalog.entries.length} catalog entries.`,
+        );
+      }),
+  );
+
+  server.registerTool(
+    "import_catalog",
+    {
+      description: "Import workspace catalog entries from exported JSON data.",
+      inputSchema: importCatalogInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: ImportCatalogToolInput) =>
+      withRuntime(runtimeFactory, async (runtime) => {
+        const result = await runtime.service.importCatalog(input);
+        return okResult(
+          result,
+          `Imported ${result.importedCount} catalog entries.`,
         );
       }),
   );

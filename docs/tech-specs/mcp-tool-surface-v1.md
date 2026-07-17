@@ -4,9 +4,10 @@
 
 Implemented for the current v1 runtime. This tech spec defines the first usable
 MCP tool set for Local Orchestration Router (LOR). The v1 surface supports
-introducing agents and skills, inspecting, updating, removing, and clearing the
-catalog, preparing manual agent handoff prompts, generating empty-chat starter
-prompts, and finding a matching catalog entry for a task.
+introducing agents and skills, inspecting, updating, removing, clearing,
+exporting, and importing the catalog, preparing manual agent handoff prompts,
+generating empty-chat starter prompts, and finding a matching catalog entry for
+a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -25,8 +26,8 @@ error results. V1 should use those SDK surfaces directly.
 
 Existing feature specs define more catalog capabilities than the first
 implementation should expose. The first tool set should cover a complete basic
-workflow without adding import, export, health, existence verification,
-dispatch, or standalone explanation tools.
+workflow without adding health, existence verification, dispatch, or standalone
+explanation tools.
 
 ## 3. Goals
 
@@ -40,7 +41,6 @@ dispatch, or standalone explanation tools.
 
 ## 4. Non-Goals
 
-- Add import or export tools.
 - Add catalog health tools.
 - Add skill or agent existence verification tools.
 - Dispatch work to another Codex agent.
@@ -49,7 +49,7 @@ dispatch, or standalone explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register ten MCP tools with snake_case names:
+V1 should register twelve MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -58,6 +58,8 @@ V1 should register ten MCP tools with snake_case names:
 - `get_catalog_entry_detail`
 - `update_catalog_entry`
 - `remove_catalog_entry`
+- `export_catalog`
+- `import_catalog`
 - `prepare_agent_handoff`
 - `generate_agent_prompt`
 - `find_matching_catalog_entry`
@@ -106,9 +108,9 @@ Excluding update and single-entry remove from v1 was considered. They were added
 after the first runnable slice because catalog maintenance needs precise
 single-entry correction and removal, not only bulk workspace clearing.
 
-Including import, export, health, verification, and explanation tools in v1 was
-considered. It was not chosen because those tools depend on additional specs and
-would widen the first implementation too much.
+Including catalog health, verification, and standalone explanation tools in v1
+was considered. It was not chosen because those tools depend on additional specs
+and would widen the first implementation too much.
 
 Text-only responses were considered. They were not chosen because Codex agents
 need stable structured output to make reliable routing decisions.
@@ -199,6 +201,28 @@ workspace, and removal confirmation. It may return validation, session/setup,
 not-found, or storage errors. Removing an entry must not affect the underlying
 Codex agent session or skill file.
 
+`export_catalog` input:
+
+- `workspace`
+- optional `entryType`
+- optional `projectName`
+
+`export_catalog` output data should include a versioned structured JSON catalog
+object with `version`, `exportedAt`, `workspace`, `filters`, and `entries`. It
+may return validation, session/setup, or storage errors. It must only export
+entries from the requested workspace.
+
+`import_catalog` input:
+
+- `workspace`
+- `catalog`: a versioned object produced by `export_catalog`
+- optional `conflictStrategy`: `skip` or `fail`
+
+`import_catalog` output data should include the requested workspace, format
+version, conflict strategy, imported count, skipped count, failed count, and
+entry-level errors. V1 skips existing workspace entries by default and reports
+them as failures when `conflictStrategy` is `fail`.
+
 `prepare_agent_handoff` input:
 
 - `workspace`
@@ -249,8 +273,8 @@ Stable error codes for v1 should include:
 
 ## 8. Risks and Tradeoffs
 
-- Adding single-entry maintenance tools makes v1 more complete but increases the
-  catalog mutation surface that must stay workspace-scoped.
+- Adding single-entry maintenance and import tools makes v1 more complete but
+  increases the catalog mutation surface that must stay workspace-scoped.
 - Structured envelopes add small implementation overhead but make agent
   consumption more reliable.
 - Leaving exact field-level constraints to implementation gives flexibility but
@@ -274,6 +298,9 @@ When this tech spec is implemented as code, verification should include:
 - Update changes only editable metadata for entries in the requested workspace
   and rejects empty patches.
 - Remove hard-deletes only entries in the requested workspace.
+- Export only includes entries from the requested workspace and honors filters.
+- Import writes only to the requested workspace and handles duplicates according
+  to `conflictStrategy`.
 - Prepare handoff renders prompts only for agents in the requested workspace and
   does not dispatch work.
 - Generate prompt returns deterministic starter prompts for supported roles and
@@ -315,3 +342,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   prompt generation.
 - 2026-07-17: Add `update_catalog_entry` and `remove_catalog_entry` for
   workspace-scoped single-entry catalog maintenance.
+- 2026-07-17: Add `export_catalog` and `import_catalog` for versioned structured
+  JSON backup and restore flows.

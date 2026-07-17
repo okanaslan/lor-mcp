@@ -93,6 +93,72 @@ export interface RemoveCatalogEntryResult extends EntryLookup {
   removed: true;
 }
 
+export interface CatalogExportFilter {
+  workspace: string;
+  entryType?: EntryType;
+  projectName?: string;
+}
+
+export type CatalogImportConflictStrategy = "skip" | "fail";
+
+export interface CatalogExportAgentEntry extends VerificationMetadata {
+  entryType: "agent";
+  codexSessionId: string;
+  projectName: string;
+  displayName: string;
+  primarySpecialty: string;
+  specialtyTags: readonly string[];
+  handoff?: HandoffMetadata;
+}
+
+export interface CatalogExportSkillEntry extends VerificationMetadata {
+  entryType: "skill";
+  skillName: string;
+  projectName: string;
+  displayName: string;
+  primarySpecialty: string;
+  specialtyTags: readonly string[];
+}
+
+export type CatalogExportEntry =
+  | CatalogExportAgentEntry
+  | CatalogExportSkillEntry;
+
+export interface CatalogExport {
+  version: 1;
+  exportedAt: string;
+  workspace: string;
+  filters: {
+    entryType?: EntryType;
+    projectName?: string;
+  };
+  entries: CatalogExportEntry[];
+}
+
+export interface CatalogImportInput {
+  workspace: string;
+  catalog: CatalogExport;
+  conflictStrategy?: CatalogImportConflictStrategy;
+}
+
+export interface CatalogImportIssue {
+  index: number;
+  entryType?: EntryType;
+  entryKey?: string;
+  code: string;
+  message: string;
+}
+
+export interface CatalogImportResult {
+  workspace: string;
+  version: 1;
+  conflictStrategy: CatalogImportConflictStrategy;
+  importedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  errors: CatalogImportIssue[];
+}
+
 export interface PrepareAgentHandoffInput {
   workspace: string;
   agentEntryKey: string;

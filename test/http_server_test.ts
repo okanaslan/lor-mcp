@@ -60,6 +60,8 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "get_catalog_entry_detail",
       "update_catalog_entry",
       "remove_catalog_entry",
+      "export_catalog",
+      "import_catalog",
       "prepare_agent_handoff",
       "generate_agent_prompt",
       "find_matching_catalog_entry",
@@ -165,6 +167,71 @@ Deno.test("HTTP MCP handler calls remove_catalog_entry", async () => {
       removed: true,
     });
     assertEquals(entries, []);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls export_catalog and import_catalog", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const exportResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "export_catalog",
+        arguments: {
+          workspace: "LOR-MCP",
+        },
+      },
+    });
+    const exportBody = await exportResponse.json();
+
+    assertEquals(exportResponse.status, 200);
+    assertEquals(exportBody.result.structuredContent.status, "ok");
+    assertEquals(exportBody.result.structuredContent.data.entries.length, 1);
+
+    await service.clearWorkspaceCatalog({
+      workspace: "LOR-MCP",
+      confirm: true,
+    });
+    const importResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "import_catalog",
+        arguments: {
+          workspace: "LOR-MCP",
+          catalog: exportBody.result.structuredContent.data,
+        },
+      },
+    });
+    const importBody = await importResponse.json();
+    const entries = await service.listEntries({ workspace: "LOR-MCP" });
+
+    assertEquals(importResponse.status, 200);
+    assertEquals(importBody.result.structuredContent.status, "ok");
+    assertEquals(importBody.result.structuredContent.data.importedCount, 1);
+    assertEquals(entries.map((entry) => entry.entryKey), ["backend-skill"]);
   } finally {
     repo.close();
   }

@@ -1,7 +1,9 @@
 import { assertEquals } from "@std/assert";
 import {
   clearWorkspaceCatalogInputSchema,
+  exportCatalogInputSchema,
   generateAgentPromptInputSchema,
+  importCatalogInputSchema,
   prepareAgentHandoffInputSchema,
   removeCatalogEntryInputSchema,
   updateCatalogEntryInputSchema,
@@ -111,6 +113,67 @@ Deno.test("removeCatalogEntryInputSchema requires workspace type and key", () =>
     removeCatalogEntryInputSchema.safeParse({
       workspace: "LOR-MCP",
       entryType: "skill",
+    }).success,
+    false,
+  );
+});
+
+Deno.test("exportCatalogInputSchema accepts optional filters", () => {
+  assertEquals(
+    exportCatalogInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      projectName: "Local Orchestration Router (LOR)",
+    }).success,
+    true,
+  );
+  assertEquals(
+    exportCatalogInputSchema.safeParse({
+      entryType: "agent",
+    }).success,
+    false,
+  );
+});
+
+Deno.test("importCatalogInputSchema requires versioned catalog data", () => {
+  const validCatalog = {
+    version: 1,
+    exportedAt: "2026-07-17T00:00:00.000Z",
+    workspace: "Source",
+    filters: {},
+    entries: [{
+      entryType: "skill",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      verificationStatus: "verified",
+      verificationSource: "catalog_export",
+      verifiedAt: "2026-07-17T00:00:00.000Z",
+    }],
+  };
+
+  assertEquals(
+    importCatalogInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      conflictStrategy: "skip",
+      catalog: validCatalog,
+    }).success,
+    true,
+  );
+  assertEquals(
+    importCatalogInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      catalog: { ...validCatalog, version: 2 },
+    }).success,
+    false,
+  );
+  assertEquals(
+    importCatalogInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      conflictStrategy: "overwrite",
+      catalog: validCatalog,
     }).success,
     false,
   );

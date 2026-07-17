@@ -24,6 +24,8 @@ Implemented in the first runnable v1 slice:
   - `get_catalog_entry_detail`
   - `update_catalog_entry`
   - `remove_catalog_entry`
+  - `export_catalog`
+  - `import_catalog`
   - `prepare_agent_handoff`
   - `generate_agent_prompt`
   - `find_matching_catalog_entry`
@@ -77,16 +79,16 @@ Latest implementation verification:
 - [Conflict Handling](feature-specs/conflict-handling.md): Draft. Defines how
   Local Orchestration Router (LOR) handles equally strong catalog matches. Basic
   equally scored agent conflict reporting exists in v1 matching.
-- [Catalog Import](feature-specs/catalog-import.md): Draft. Defines how users
-  bulk-load catalog entries into the workspace catalog.
-- [Catalog Export](feature-specs/catalog-export.md): Draft. Defines how users
-  export workspace catalog entries for backup or reuse.
+- [Catalog Export](feature-specs/catalog-export.md): Implemented for v1
+  structured JSON workspace backups.
+- [Catalog Import](feature-specs/catalog-import.md): Implemented for v1
+  structured JSON imports with skip/fail duplicate handling.
 
 ## Next
 
 - Keep feature specs aligned with client-supplied `workspace` scoping and the
   Streamable HTTP runtime.
-- Decide whether import/export should land before richer recommendation
-  explanation.
 - Design non-blocking catalog health or verification reporting for introduced
   agents and skills.
+- Decide whether richer recommendation explanation should become a standalone
+  tool or remain inline with matching.

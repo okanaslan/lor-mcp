@@ -75,6 +75,59 @@ export const removeCatalogEntryInputSchema = z.object({
   entryKey: z.string().trim().min(1),
 });
 
+export const exportCatalogInputSchema = z.object({
+  workspace: workspaceSchema,
+  entryType: entryTypeSchema.optional(),
+  projectName: z.string().trim().min(1).optional(),
+});
+
+const verificationStatusSchema = z.enum(["verified", "unverified", "unknown"]);
+
+const exportAgentEntrySchema = z.object({
+  entryType: z.literal("agent"),
+  codexSessionId: z.string().trim().min(1),
+  projectName: z.string().trim().min(1),
+  displayName: z.string().trim().min(1),
+  primarySpecialty: z.string().trim().min(1),
+  specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  handoff: handoffSchema.optional(),
+  verificationStatus: verificationStatusSchema,
+  verificationSource: z.string().trim().min(1),
+  verifiedAt: z.string().trim().min(1),
+  verificationMessage: z.string().trim().min(1).optional(),
+});
+
+const exportSkillEntrySchema = z.object({
+  entryType: z.literal("skill"),
+  skillName: z.string().trim().min(1),
+  projectName: z.string().trim().min(1),
+  displayName: z.string().trim().min(1),
+  primarySpecialty: z.string().trim().min(1),
+  specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  verificationStatus: verificationStatusSchema,
+  verificationSource: z.string().trim().min(1),
+  verifiedAt: z.string().trim().min(1),
+  verificationMessage: z.string().trim().min(1).optional(),
+});
+
+export const importCatalogInputSchema = z.object({
+  workspace: workspaceSchema,
+  conflictStrategy: z.enum(["skip", "fail"]).optional(),
+  catalog: z.object({
+    version: z.literal(1),
+    exportedAt: z.string().trim().min(1),
+    workspace: z.string().trim().min(1),
+    filters: z.object({
+      entryType: entryTypeSchema.optional(),
+      projectName: z.string().trim().min(1).optional(),
+    }),
+    entries: z.array(z.discriminatedUnion("entryType", [
+      exportAgentEntrySchema,
+      exportSkillEntrySchema,
+    ])),
+  }),
+});
+
 export const prepareAgentHandoffInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -116,6 +169,8 @@ export type UpdateCatalogEntryToolInput = z.infer<
 export type RemoveCatalogEntryToolInput = z.infer<
   typeof removeCatalogEntryInputSchema
 >;
+export type ExportCatalogToolInput = z.infer<typeof exportCatalogInputSchema>;
+export type ImportCatalogToolInput = z.infer<typeof importCatalogInputSchema>;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema
 >;
