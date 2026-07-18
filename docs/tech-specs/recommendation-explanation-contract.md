@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines the v1 recommendation explanation contract for
-Local Orchestration Router (LOR).
+Implemented for v1. This tech spec defines the recommendation explanation
+contract for Local Orchestration Router (LOR).
 
 Recommendation explanations are deterministic inline objects attached to
 returned match candidates from `find_matching_catalog_entry`. They expose why a
@@ -119,9 +119,10 @@ token that caused the match.
 matching algorithm. The explanation builder should not invent signals that the
 matcher did not provide.
 
-Confidence thresholds should be derived from deterministic match scores during
-implementation. Exact thresholds remain open, but returned candidates must not
-use confidence to hide cross-workspace data or rejected candidate details.
+Confidence thresholds are derived from deterministic match scores. V1 uses
+`high` for scores greater than or equal to 10 and `medium` for returned
+candidates below that threshold. Candidates below the match threshold are not
+returned.
 
 ## 8. Risks and Tradeoffs
 
@@ -153,10 +154,9 @@ checking the docs tree, running `git diff --check`, and checking git status.
 
 ## 10. Open Questions
 
-- What exact score thresholds should map to `medium` and `high`?
 - Should later versions expose low-confidence fallback candidates?
 - Should a separate explanation tool be added after update, remove, import, and
-  export tools exist?
+  export tools exist, or should explanations remain inline?
 - Should numeric score be hidden from end-user summaries while remaining in
   structured data?
 
@@ -173,3 +173,6 @@ checking the docs tree, running `git diff --check`, and checking git status.
 - 2026-07-12: Use `low`, `medium`, and `high` as confidence labels.
 - 2026-07-12: Include summary text plus structured matched fields, matched
   signals, and score.
+- 2026-07-17: Keep explanations inline with `find_matching_catalog_entry` and
+  use deterministic summaries that include entry type, strongest matched field,
+  and matched signals.

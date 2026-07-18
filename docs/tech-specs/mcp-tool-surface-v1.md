@@ -6,8 +6,8 @@ Implemented for the current v1 runtime. This tech spec defines the first usable
 MCP tool set for Local Orchestration Router (LOR). The v1 surface supports
 introducing agents and skills, inspecting, updating, removing, clearing,
 exporting, and importing the catalog, preparing manual agent handoff prompts,
-generating empty-chat starter prompts, and finding a matching catalog entry for
-a task.
+generating empty-chat starter prompts, checking stored catalog health metadata,
+and finding a matching catalog entry for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -26,7 +26,7 @@ error results. V1 should use those SDK surfaces directly.
 
 Existing feature specs define more catalog capabilities than the first
 implementation should expose. The first tool set should cover a complete basic
-workflow without adding health, existence verification, dispatch, or standalone
+workflow without adding external existence verification, dispatch, or standalone
 explanation tools.
 
 ## 3. Goals
@@ -41,15 +41,14 @@ explanation tools.
 
 ## 4. Non-Goals
 
-- Add catalog health tools.
-- Add skill or agent existence verification tools.
+- Add external skill or agent existence verification tools.
 - Dispatch work to another Codex agent.
 - Define the full matching algorithm.
 - Define the recommendation explanation contract.
 
 ## 5. Proposed Design
 
-V1 should register twelve MCP tools with snake_case names:
+V1 should register thirteen MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -60,6 +59,7 @@ V1 should register twelve MCP tools with snake_case names:
 - `remove_catalog_entry`
 - `export_catalog`
 - `import_catalog`
+- `check_catalog_health`
 - `prepare_agent_handoff`
 - `generate_agent_prompt`
 - `find_matching_catalog_entry`
@@ -108,7 +108,7 @@ Excluding update and single-entry remove from v1 was considered. They were added
 after the first runnable slice because catalog maintenance needs precise
 single-entry correction and removal, not only bulk workspace clearing.
 
-Including catalog health, verification, and standalone explanation tools in v1
+Including external existence verification and standalone explanation tools in v1
 was considered. It was not chosen because those tools depend on additional specs
 and would widen the first implementation too much.
 
@@ -223,6 +223,18 @@ version, conflict strategy, imported count, skipped count, failed count, and
 entry-level errors. V1 skips existing workspace entries by default and reports
 them as failures when `conflictStrategy` is `fail`.
 
+`check_catalog_health` input:
+
+- `workspace`
+- optional `entryType`
+- optional `projectName`
+- optional `entryKey`, only valid when `entryType` is provided
+
+`check_catalog_health` output data should include `checkedAt`, requested
+workspace, filters, summary counts, and per-entry health rows derived from
+stored verification metadata. V1 must not probe external evidence sources or
+mutate stored verification metadata.
+
 `prepare_agent_handoff` input:
 
 - `workspace`
@@ -301,6 +313,8 @@ When this tech spec is implemented as code, verification should include:
 - Export only includes entries from the requested workspace and honors filters.
 - Import writes only to the requested workspace and handles duplicates according
   to `conflictStrategy`.
+- Health reports only entries from the requested workspace and does not mutate
+  stored verification metadata.
 - Prepare handoff renders prompts only for agents in the requested workspace and
   does not dispatch work.
 - Generate prompt returns deterministic starter prompts for supported roles and
@@ -344,3 +358,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   workspace-scoped single-entry catalog maintenance.
 - 2026-07-17: Add `export_catalog` and `import_catalog` for versioned structured
   JSON backup and restore flows.
+- 2026-07-17: Add `check_catalog_health` for read-only metadata-derived catalog
+  health reporting.

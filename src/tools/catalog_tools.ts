@@ -1,6 +1,8 @@
 import type { McpServer } from "@mcp/server";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 import {
+  checkCatalogHealthInputSchema,
+  type CheckCatalogHealthToolInput,
   clearWorkspaceCatalogInputSchema,
   type ClearWorkspaceCatalogToolInput,
   exportCatalogInputSchema,
@@ -191,6 +193,24 @@ export function registerCatalogTools(
         return okResult(
           result,
           `Imported ${result.importedCount} catalog entries.`,
+        );
+      }),
+  );
+
+  server.registerTool(
+    "check_catalog_health",
+    {
+      description:
+        "Report workspace catalog health from stored verification metadata.",
+      inputSchema: checkCatalogHealthInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: CheckCatalogHealthToolInput) =>
+      withRuntime(runtimeFactory, async (runtime) => {
+        const report = await runtime.service.checkCatalogHealth(input);
+        return okResult(
+          report,
+          `Checked ${report.summary.total} catalog entries.`,
         );
       }),
   );

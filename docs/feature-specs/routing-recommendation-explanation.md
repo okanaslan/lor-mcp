@@ -2,8 +2,9 @@
 
 ## 1. Summary
 
-Draft. This feature makes Local Orchestration Router (LOR) explain why a specific agent or skill
-was recommended for a user request.
+Implemented for v1 inline matching results. This feature makes Local
+Orchestration Router (LOR) explain why a specific agent or skill was recommended
+for a user request.
 
 ## 2. Goals
 
@@ -26,10 +27,9 @@ was recommended for a user request.
 - The explanation must identify the recommended entry type and display name.
 - The explanation must list the strongest matching signals, such as project,
   primary specialty, or specialty tags.
-- The explanation must state when confidence is low or when the recommendation
-  is a fallback.
+- The explanation must expose deterministic confidence for returned candidates.
 - The explanation must not include hidden entries from conflict resolution.
-- The explanation must not expose entries from other initialized MCP sessions.
+- The explanation must not expose entries from other workspaces.
 
 ## 5. User Stories / Use Cases
 
@@ -47,10 +47,10 @@ Conceptual `RecommendationExplanation` fields:
 
 ## 7. Error Handling
 
-- Missing recommendation context must return a validation error.
-- Missing or invalid initialized MCP session context must return a session
-  error.
-- Explanation generation failures must not change the selected recommendation.
+- Missing match request context must return a validation error through
+  `find_matching_catalog_entry`.
+- Explanation generation must be deterministic and attached only to returned
+  candidates.
 
 ## 8. Security and Permissions
 
@@ -69,3 +69,5 @@ Conceptual `RecommendationExplanation` fields:
 - 2026-07-11: Keep explanations short and tied to explicit matching signals.
 - 2026-07-11: Treat detailed ranking policy as part of matching and conflict
   features.
+- 2026-07-17: Implement explanations inline on returned match candidates from
+  `find_matching_catalog_entry`; no separate explanation tool in v1.

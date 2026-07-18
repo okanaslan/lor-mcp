@@ -128,6 +128,19 @@ export const importCatalogInputSchema = z.object({
   }),
 });
 
+export const checkCatalogHealthInputSchema = z.object({
+  workspace: workspaceSchema,
+  entryType: entryTypeSchema.optional(),
+  projectName: z.string().trim().min(1).optional(),
+  entryKey: z.string().trim().min(1).optional(),
+}).refine(
+  (input) => input.entryKey === undefined || input.entryType !== undefined,
+  {
+    message: "entryType is required when entryKey is provided.",
+    path: ["entryType"],
+  },
+);
+
 export const prepareAgentHandoffInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -171,6 +184,9 @@ export type RemoveCatalogEntryToolInput = z.infer<
 >;
 export type ExportCatalogToolInput = z.infer<typeof exportCatalogInputSchema>;
 export type ImportCatalogToolInput = z.infer<typeof importCatalogInputSchema>;
+export type CheckCatalogHealthToolInput = z.infer<
+  typeof checkCatalogHealthInputSchema
+>;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema
 >;

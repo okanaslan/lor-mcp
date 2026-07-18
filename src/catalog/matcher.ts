@@ -100,7 +100,7 @@ function scoreEntry(
     ...new Set(fieldScores.flatMap((field) => field.signals)),
   ];
   const confidence = score >= 10 ? "high" : "medium";
-  const strongestField = fieldScores.sort((a, b) => b.score - a.score)[0]
+  const strongestField = [...fieldScores].sort((a, b) => b.score - a.score)[0]
     ?.field;
 
   return {
@@ -114,15 +114,42 @@ function scoreEntry(
     matchedFields,
     matchedSignals,
     explanation: {
-      summary: strongestField
-        ? `${entry.displayName} matched on ${strongestField}.`
-        : `${entry.displayName} matched the task.`,
+      summary: explanationSummary(entry, strongestField, matchedSignals),
       confidence,
       matchedFields,
       matchedSignals,
       score,
     },
   };
+}
+
+function explanationSummary(
+  entry: CatalogEntry,
+  strongestField: FieldScore["field"] | undefined,
+  matchedSignals: string[],
+): string {
+  const entryLabel = `${entry.displayName} (${entry.entryType})`;
+  if (!strongestField) {
+    return `${entryLabel} matched the task.`;
+  }
+
+  const signals = matchedSignals.slice(0, 3);
+  const signalText = signals.length > 0 ? ` using ${signals.join(", ")}` : "";
+
+  return `${entryLabel} matched ${fieldLabel(strongestField)}${signalText}.`;
+}
+
+function fieldLabel(field: FieldScore["field"]): string {
+  switch (field) {
+    case "primarySpecialty":
+      return "primary specialty";
+    case "specialtyTags":
+      return "specialty tags";
+    case "displayName":
+      return "display name";
+    case "projectName":
+      return "project name";
+  }
 }
 
 function scoreField(
@@ -179,7 +206,9 @@ function topAgentsAreAmbiguous(agents: MatchCandidate[]): boolean {
 }
 
 function tokenize(value: string): string[] {
-  return normalize(value).split(/[^a-z0-9]+/).filter(Boolean);
+  return normalize(value).split(/[^a-z0-9]+/).filter((token) =>
+    token.length > 1
+  );
 }
 
 function normalize(value: string): string {

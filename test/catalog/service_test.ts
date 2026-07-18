@@ -390,6 +390,150 @@ Deno.test("CatalogService import skips or fails duplicate entries", async () => 
   }
 });
 
+Deno.test("CatalogService reports catalog health from stored verification metadata", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await repo.createSkill("LOR-MCP", {
+      workspace: "LOR-MCP",
+      skillName: "unverified-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Unverified Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      verification: {
+        verificationStatus: "unverified",
+        verificationSource: "health_check",
+        verifiedAt: FIXED_NOW,
+        verificationMessage: "Skill could not be confirmed.",
+      },
+      now: FIXED_NOW,
+    });
+    await repo.createSkill("LOR-MCP", {
+      workspace: "LOR-MCP",
+      skillName: "unknown-skill",
+      projectName: "Other Project",
+      displayName: "Unknown Skill",
+      primarySpecialty: "frontend",
+      specialtyTags: ["react"],
+      verification: {
+        verificationStatus: "unknown",
+        verificationSource: "health_check",
+        verifiedAt: FIXED_NOW,
+        verificationMessage: "Health source was unavailable.",
+      },
+      now: FIXED_NOW,
+    });
+
+    const report = await service.checkCatalogHealth({ workspace: "LOR-MCP" });
+
+    assertEquals(report.checkedAt, FIXED_NOW);
+    assertEquals(report.workspace, "LOR-MCP");
+    assertEquals(report.summary, {
+      total: 3,
+      verified: 1,
+      unverified: 1,
+      unknown: 1,
+      agents: 1,
+      skills: 2,
+    });
+    assertEquals(report.entries.map((entry) => entry.entryKey), [
+      "agent-1",
+      "unknown-skill",
+      "unverified-skill",
+    ]);
+    assertEquals(report.entries[0].issues, []);
+    assertEquals(report.entries[1].issues[0].code, "verification_unknown");
+    assertEquals(report.entries[2].issues[0].code, "verification_unverified");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService filters catalog health by type project and entry key", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSkill({
+      workspace: "other-workspace",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Other Workspace Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const report = await service.checkCatalogHealth({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      projectName: "Local Orchestration Router (LOR)",
+      entryKey: "backend-skill",
+    });
+
+    assertEquals(report.filters, {
+      entryType: "skill",
+      projectName: "Local Orchestration Router (LOR)",
+      entryKey: "backend-skill",
+    });
+    assertEquals(report.summary, {
+      total: 1,
+      verified: 1,
+      unverified: 0,
+      unknown: 0,
+      agents: 0,
+      skills: 1,
+    });
+    assertEquals(report.entries.map((entry) => entry.displayName), [
+      "Backend Skill",
+    ]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns empty catalog health for empty workspace", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const report = await service.checkCatalogHealth({
+      workspace: "empty-workspace",
+    });
+
+    assertEquals(report.summary, {
+      total: 0,
+      verified: 0,
+      unverified: 0,
+      unknown: 0,
+      agents: 0,
+      skills: 0,
+    });
+    assertEquals(report.entries, []);
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService returns not_found for missing catalog remove target", async () => {
   const { repo, service } = await createCatalogService();
   try {

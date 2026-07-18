@@ -42,6 +42,20 @@ Deno.test("findCatalogMatches returns separate ranked agent and skill lists", ()
   assertEquals(result.data.agents[0]?.entryKey, "agent-1");
   assertEquals(result.data.skills[0]?.entryKey, "skill-1");
   assertEquals(result.data.agents[0]?.explanation.confidence, "high");
+  assertEquals(
+    result.data.agents[0]?.explanation.summary,
+    "Backend Agent (agent) matched primary specialty using backend, api, route.",
+  );
+  assertEquals(result.data.agents[0]?.explanation.matchedFields, [
+    "primarySpecialty",
+    "displayName",
+    "projectName",
+  ]);
+  assertEquals(result.data.agents[0]?.explanation.matchedSignals, [
+    "backend",
+    "api",
+    "route",
+  ]);
 });
 
 Deno.test("findCatalogMatches filters by project and returns no_match", () => {
@@ -58,6 +72,26 @@ Deno.test("findCatalogMatches filters by project and returns no_match", () => {
     workspace: "LOR-MCP",
     task: "Implement a backend API route",
     projectName: "Other Project",
+  });
+
+  assertEquals(result.status, "no_match");
+  assertEquals(result.data.agents, []);
+  assertEquals(result.data.skills, []);
+});
+
+Deno.test("findCatalogMatches omits explanations when no candidates match", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "skill-1",
+      skillName: "api-skill",
+      displayName: "API Skill",
+      primarySpecialty: "backend api",
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "write marketing copy",
   });
 
   assertEquals(result.status, "no_match");

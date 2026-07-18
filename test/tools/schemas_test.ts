@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
+  checkCatalogHealthInputSchema,
   clearWorkspaceCatalogInputSchema,
   exportCatalogInputSchema,
   generateAgentPromptInputSchema,
@@ -174,6 +175,31 @@ Deno.test("importCatalogInputSchema requires versioned catalog data", () => {
       workspace: "LOR-MCP",
       conflictStrategy: "overwrite",
       catalog: validCatalog,
+    }).success,
+    false,
+  );
+});
+
+Deno.test("checkCatalogHealthInputSchema accepts filters and requires type for key", () => {
+  assertEquals(
+    checkCatalogHealthInputSchema.safeParse({
+      workspace: "LOR-MCP",
+    }).success,
+    true,
+  );
+  assertEquals(
+    checkCatalogHealthInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      projectName: "Local Orchestration Router (LOR)",
+      entryKey: "backend-skill",
+    }).success,
+    true,
+  );
+  assertEquals(
+    checkCatalogHealthInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryKey: "backend-skill",
     }).success,
     false,
   );

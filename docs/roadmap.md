@@ -26,6 +26,7 @@ Implemented in the first runnable v1 slice:
   - `remove_catalog_entry`
   - `export_catalog`
   - `import_catalog`
+  - `check_catalog_health`
   - `prepare_agent_handoff`
   - `generate_agent_prompt`
   - `find_matching_catalog_entry`
@@ -71,11 +72,10 @@ Latest implementation verification:
 - [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Implemented for
   v1 single-entry hard delete.
 - [Skill / Agent Existence Verification](feature-specs/existence-verification.md):
-  Deferred. Blocking verification was removed from v1 introduction flows. Future
-  verification should be a separate health/reporting workflow.
+  Implemented for v1 metadata-only catalog health reporting. Blocking
+  verification remains out of scope for introduction flows.
 - [Routing Recommendation Explanation](feature-specs/routing-recommendation-explanation.md):
-  Partially implemented. V1 matching returns structured explanation fields; the
-  richer explanation contract remains draft.
+  Implemented for v1 inline deterministic match candidate explanations.
 - [Conflict Handling](feature-specs/conflict-handling.md): Draft. Defines how
   Local Orchestration Router (LOR) handles equally strong catalog matches. Basic
   equally scored agent conflict reporting exists in v1 matching.
@@ -88,7 +88,7 @@ Latest implementation verification:
 
 - Keep feature specs aligned with client-supplied `workspace` scoping and the
   Streamable HTTP runtime.
-- Design non-blocking catalog health or verification reporting for introduced
-  agents and skills.
-- Decide whether richer recommendation explanation should become a standalone
-  tool or remain inline with matching.
+- Decide whether future health refresh should probe external evidence sources
+  and update stored verification metadata.
+- Decide whether conflict handling needs a dedicated follow-up beyond the basic
+  equally scored agent conflict reporting in v1 matching.

@@ -159,6 +159,53 @@ export interface CatalogImportResult {
   errors: CatalogImportIssue[];
 }
 
+export interface CatalogHealthFilter {
+  workspace: string;
+  entryType?: EntryType;
+  projectName?: string;
+  entryKey?: string;
+}
+
+export interface CatalogHealthIssue {
+  code: string;
+  message: string;
+}
+
+export interface CatalogHealthEntry {
+  entryType: EntryType;
+  entryKey: string;
+  displayName: string;
+  projectName: string;
+  primarySpecialty: string;
+  specialtyTags: readonly string[];
+  verificationStatus: VerificationStatus;
+  verificationSource: string;
+  verifiedAt: string;
+  verificationMessage?: string;
+  issues: CatalogHealthIssue[];
+}
+
+export interface CatalogHealthSummary {
+  total: number;
+  verified: number;
+  unverified: number;
+  unknown: number;
+  agents: number;
+  skills: number;
+}
+
+export interface CatalogHealthReport {
+  checkedAt: string;
+  workspace: string;
+  filters: {
+    entryType?: EntryType;
+    projectName?: string;
+    entryKey?: string;
+  };
+  summary: CatalogHealthSummary;
+  entries: CatalogHealthEntry[];
+}
+
 export interface PrepareAgentHandoffInput {
   workspace: string;
   agentEntryKey: string;

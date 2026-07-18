@@ -2,6 +2,7 @@ import {
   type CatalogEntryUpdate,
   type CatalogExportEntry,
   type CatalogExportFilter,
+  type CatalogHealthFilter,
   type CatalogImportConflictStrategy,
   type CatalogImportInput,
   type EntryLookup,
@@ -97,6 +98,29 @@ export function validateCatalogExportFilter(
       ? undefined
       : requireEntryType(input.entryType),
     projectName: projectName || undefined,
+  };
+}
+
+export function validateCatalogHealthFilter(
+  input: CatalogHealthFilter,
+): CatalogHealthFilter {
+  const projectName = input.projectName?.trim();
+  const entryKey = input.entryKey?.trim();
+  if (entryKey && input.entryType === undefined) {
+    throw new LorError(
+      "validation_error",
+      "entryType is required when entryKey is provided.",
+      { field: "entryType" },
+    );
+  }
+
+  return {
+    workspace: requireString(input.workspace, "workspace"),
+    entryType: input.entryType === undefined
+      ? undefined
+      : requireEntryType(input.entryType),
+    projectName: projectName || undefined,
+    entryKey: entryKey || undefined,
   };
 }
 

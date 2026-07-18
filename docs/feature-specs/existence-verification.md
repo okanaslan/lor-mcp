@@ -2,14 +2,15 @@
 
 ## 1. Summary
 
-Deferred. This feature defines how Local Orchestration Router (LOR) may report whether an
-introduced Codex agent or Codex skill appears usable after it has already been
-registered in the workspace catalog.
+Implemented for v1 metadata-only catalog health reporting. This feature defines
+how Local Orchestration Router (LOR) reports stored verification metadata for
+introduced Codex agents and Codex skills after they have already been registered
+in the workspace catalog.
 
 ## 2. Goals
 
 - Reduce stale or invalid catalog entries.
-- Check introduced agents and skills through defined health evidence sources.
+- Report introduced agent and skill health from stored verification metadata.
 - Keep health reporting separate from normal introduction.
 
 ## 3. Non-Goals
@@ -17,28 +18,27 @@ registered in the workspace catalog.
 - Create missing agents or skills.
 - Install missing skills.
 - Repair invalid Codex sessions.
-- Choose final storage technology for verification results.
+- Probe external Codex sessions, skill roots, filesystems, registries, or remote
+  APIs in v1.
+- Update stored verification metadata during health checks.
 
 ## 4. Functional Requirements
 
-- The server must define health evidence sources for agents and skills.
-- Agent health checks may report whether the Codex session ID can be recognized
-  by an approved source.
-- Skill health checks may report whether the skill name can be recognized by an
-  approved source.
+- The server must expose `check_catalog_health`.
+- The server must report catalog health scoped to the requested workspace.
+- The caller may filter health by entry type, project name, or one entry key
+  when an entry type is provided.
 - Verification must produce a clear verified, unverified, or unknown result.
+- V1 health must derive those results from stored verification metadata only.
 - Introduction features must not require health evidence before accepting
   entries in v1.
-- Matching and routing features may use verification status to avoid
-  recommending invalid entries.
-- Verification failures must not expose entries or filesystem paths from other
-  sessions.
+- Health checks must not mutate stored verification metadata.
+- Health reporting must not expose entries from other workspaces.
 
 ## 5. User Stories / Use Cases
 
-Optional for later expansion. The initial use case is that a user introduces a
-skill or agent and Local Orchestration Router (LOR) later reports whether it still appears
-usable before recommending it.
+The initial use case is that a user asks whether the current workspace catalog
+contains entries marked unverified or unknown before relying on recommendations.
 
 ## 6. Data Model
 
@@ -49,28 +49,29 @@ Conceptual `VerificationResult` fields:
 - `status`: identifies `verified`, `unverified`, or `unknown`.
 - `source`: names the verification source.
 - `checkedAt`: records when verification ran.
+- `issues`: lists metadata-derived health warnings.
 
 ## 7. Error Handling
 
 - Missing entry type or identifier must return a validation error.
 - Missing or invalid MCP readiness context must return a session error.
-- Unavailable verification sources must return an unknown result.
-- Verification source failures must not be reported as successful verification.
+- Missing workspace must return a validation error.
+- `entryKey` without `entryType` must return a validation error.
+- Storage failures must return a storage error.
 
 ## 8. Security and Permissions
 
-- Verification must not disclose private filesystem paths, unrelated session
-  data, or hidden catalog entries.
-- Health evidence sources must be limited to approved local or configured
-  sources.
+- Verification must not disclose unrelated workspace data or hidden catalog
+  entries.
+- V1 health uses stored metadata only, so it must not inspect or expose local
+  filesystem paths.
 
 ## 9. Open Questions
 
-- What source reports Codex session health?
-- Should skill health reporting inspect local user skills, repo-vendored
-  skills, or both?
-- Should future health results update catalog verification metadata or only
-  return transient report data?
+- What future source should report Codex session health?
+- Should future skill health inspect local user skills, repo-vendored skills, or
+  both?
+- Should a future explicit refresh tool update stored verification metadata?
 
 ## 10. Decision Log
 
@@ -78,3 +79,5 @@ Conceptual `VerificationResult` fields:
 - 2026-07-11: Support verified, unverified, and unknown outcomes.
 - 2026-07-13: Keep v1 introduction non-blocking; future health reporting must
   not be required for registration.
+- 2026-07-17: Implement v1 as read-only `check_catalog_health` reporting from
+  stored verification metadata only.

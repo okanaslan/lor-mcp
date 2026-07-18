@@ -62,6 +62,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "remove_catalog_entry",
       "export_catalog",
       "import_catalog",
+      "check_catalog_health",
       "prepare_agent_handoff",
       "generate_agent_prompt",
       "find_matching_catalog_entry",
@@ -232,6 +233,60 @@ Deno.test("HTTP MCP handler calls export_catalog and import_catalog", async () =
     assertEquals(importBody.result.structuredContent.status, "ok");
     assertEquals(importBody.result.structuredContent.data.importedCount, 1);
     assertEquals(entries.map((entry) => entry.entryKey), ["backend-skill"]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls check_catalog_health", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const response = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "check_catalog_health",
+        arguments: {
+          workspace: "LOR-MCP",
+          entryType: "skill",
+          entryKey: "backend-skill",
+        },
+      },
+    });
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body.result.structuredContent.status, "ok");
+    assertEquals(body.result.structuredContent.data.summary, {
+      total: 1,
+      verified: 1,
+      unverified: 0,
+      unknown: 0,
+      agents: 0,
+      skills: 1,
+    });
+    assertEquals(
+      body.result.structuredContent.data.entries[0].entryKey,
+      "backend-skill",
+    );
   } finally {
     repo.close();
   }

@@ -4,6 +4,11 @@ import {
   type CatalogEntryUpdate,
   type CatalogExport,
   type CatalogExportFilter,
+  type CatalogHealthEntry,
+  type CatalogHealthFilter,
+  type CatalogHealthIssue,
+  type CatalogHealthReport,
+  type CatalogHealthSummary,
   type CatalogImportInput,
   type CatalogImportIssue,
   type CatalogImportResult,
@@ -24,6 +29,7 @@ import {
 import {
   validateCatalogEntryUpdate,
   validateCatalogExportFilter,
+  validateCatalogHealthFilter,
   validateCatalogImportInput,
   validateEntryLookup,
   validateIntroduceAgent,
@@ -251,6 +257,33 @@ export class CatalogService {
     };
   }
 
+  async checkCatalogHealth(
+    filter: CatalogHealthFilter,
+  ): Promise<CatalogHealthReport> {
+    const validated = validateCatalogHealthFilter(filter);
+    const entries = await this.#repository.listEntries(validated.workspace, {
+      workspace: validated.workspace,
+      entryType: validated.entryType,
+      projectName: validated.projectName,
+    });
+    const filteredEntries = validated.entryKey
+      ? entries.filter((entry) => entry.entryKey === validated.entryKey)
+      : entries;
+    const healthEntries = filteredEntries.map(toHealthEntry);
+
+    return {
+      checkedAt: this.#now(),
+      workspace: validated.workspace,
+      filters: {
+        entryType: validated.entryType,
+        projectName: validated.projectName,
+        entryKey: validated.entryKey,
+      },
+      summary: summarizeHealth(healthEntries),
+      entries: healthEntries,
+    };
+  }
+
   async prepareAgentHandoff(
     input: PrepareAgentHandoffInput,
   ): Promise<PrepareAgentHandoffResult> {
@@ -395,6 +428,57 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
     entryType: "skill",
     skillName: entry.skillName,
   };
+}
+
+function toHealthEntry(entry: CatalogEntry): CatalogHealthEntry {
+  return {
+    entryType: entry.entryType,
+    entryKey: entry.entryKey,
+    displayName: entry.displayName,
+    projectName: entry.projectName,
+    primarySpecialty: entry.primarySpecialty,
+    specialtyTags: entry.specialtyTags,
+    verificationStatus: entry.verificationStatus,
+    verificationSource: entry.verificationSource,
+    verifiedAt: entry.verifiedAt,
+    verificationMessage: entry.verificationMessage,
+    issues: verificationIssues(entry),
+  };
+}
+
+function summarizeHealth(
+  entries: readonly CatalogHealthEntry[],
+): CatalogHealthSummary {
+  return {
+    total: entries.length,
+    verified:
+      entries.filter((entry) => entry.verificationStatus === "verified").length,
+    unverified:
+      entries.filter((entry) => entry.verificationStatus === "unverified")
+        .length,
+    unknown:
+      entries.filter((entry) => entry.verificationStatus === "unknown").length,
+    agents: entries.filter((entry) => entry.entryType === "agent").length,
+    skills: entries.filter((entry) => entry.entryType === "skill").length,
+  };
+}
+
+function verificationIssues(entry: CatalogEntry): CatalogHealthIssue[] {
+  if (entry.verificationStatus === "verified") {
+    return [];
+  }
+
+  if (entry.verificationStatus === "unverified") {
+    return [{
+      code: "verification_unverified",
+      message: "Stored verification metadata marks this entry as unverified.",
+    }];
+  }
+
+  return [{
+    code: "verification_unknown",
+    message: "Stored verification metadata marks this entry as unknown.",
+  }];
 }
 
 function renderHandoffTemplate(
