@@ -37,9 +37,15 @@ import {
 } from "@src/tools/response.ts";
 import { createDefaultRuntime, type ToolRuntime } from "@src/tools/runtime.ts";
 import { LorError, toLorError } from "@src/errors.ts";
+import {
+  createNoopLogger,
+  type LogFields,
+  type LorLogger,
+} from "@src/logger.ts";
 
 export interface CatalogToolOptions {
   runtimeFactory?: () => Promise<ToolRuntime>;
+  logger?: LorLogger;
 }
 
 export function registerCatalogTools(
@@ -47,6 +53,9 @@ export function registerCatalogTools(
   options: CatalogToolOptions = {},
 ): void {
   const runtimeFactory = options.runtimeFactory ?? createDefaultRuntime;
+  const logger = (options.logger ?? createNoopLogger()).child({
+    component: "tools",
+  });
 
   server.registerTool(
     "introduce_agent",
@@ -56,10 +65,16 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: IntroduceAgentToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const entry = await runtime.service.introduceAgent(input);
-        return okResult(entry, `Introduced agent ${entry.displayName}.`);
-      }),
+      withLoggedRuntime(
+        "introduce_agent",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.introduceAgent(input);
+          return okResult(entry, `Introduced agent ${entry.displayName}.`);
+        },
+      ),
   );
 
   server.registerTool(
@@ -70,10 +85,16 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: IntroduceSkillToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const entry = await runtime.service.introduceSkill(input);
-        return okResult(entry, `Introduced skill ${entry.displayName}.`);
-      }),
+      withLoggedRuntime(
+        "introduce_skill",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.introduceSkill(input);
+          return okResult(entry, `Introduced skill ${entry.displayName}.`);
+        },
+      ),
   );
 
   server.registerTool(
@@ -84,13 +105,19 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: ListCatalogEntriesToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const entries = await runtime.service.listEntries(input);
-        return okResult(
-          { entries },
-          `Found ${entries.length} catalog entries.`,
-        );
-      }),
+      withLoggedRuntime(
+        "list_catalog_entries",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entries = await runtime.service.listEntries(input);
+          return okResult(
+            { entries },
+            `Found ${entries.length} catalog entries.`,
+          );
+        },
+      ),
   );
 
   server.registerTool(
@@ -102,13 +129,19 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: ClearWorkspaceCatalogToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const result = await runtime.service.clearWorkspaceCatalog(input);
-        return okResult(
-          result,
-          `Cleared ${result.deletedTotal} catalog entries.`,
-        );
-      }),
+      withLoggedRuntime(
+        "clear_workspace_catalog",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.clearWorkspaceCatalog(input);
+          return okResult(
+            result,
+            `Cleared ${result.deletedTotal} catalog entries.`,
+          );
+        },
+      ),
   );
 
   server.registerTool(
@@ -119,17 +152,23 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: GetCatalogEntryDetailToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const entry = await runtime.service.getEntryDetail(input);
-        if (!entry) {
-          throw new LorError(
-            "not_found",
-            "Catalog entry was not found.",
-            { entryType: input.entryType },
-          );
-        }
-        return okResult(entry, `Found ${entry.displayName}.`);
-      }),
+      withLoggedRuntime(
+        "get_catalog_entry_detail",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.getEntryDetail(input);
+          if (!entry) {
+            throw new LorError(
+              "not_found",
+              "Catalog entry was not found.",
+              { entryType: input.entryType },
+            );
+          }
+          return okResult(entry, `Found ${entry.displayName}.`);
+        },
+      ),
   );
 
   server.registerTool(
@@ -140,10 +179,16 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: UpdateCatalogEntryToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const entry = await runtime.service.updateCatalogEntry(input);
-        return okResult(entry, `Updated ${entry.displayName}.`);
-      }),
+      withLoggedRuntime(
+        "update_catalog_entry",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.updateCatalogEntry(input);
+          return okResult(entry, `Updated ${entry.displayName}.`);
+        },
+      ),
   );
 
   server.registerTool(
@@ -154,13 +199,19 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: RemoveCatalogEntryToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const result = await runtime.service.removeCatalogEntry(input);
-        return okResult(
-          result,
-          `Removed ${result.entryType} ${result.entryKey}.`,
-        );
-      }),
+      withLoggedRuntime(
+        "remove_catalog_entry",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.removeCatalogEntry(input);
+          return okResult(
+            result,
+            `Removed ${result.entryType} ${result.entryKey}.`,
+          );
+        },
+      ),
   );
 
   server.registerTool(
@@ -171,13 +222,19 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: ExportCatalogToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const catalog = await runtime.service.exportCatalog(input);
-        return okResult(
-          catalog,
-          `Exported ${catalog.entries.length} catalog entries.`,
-        );
-      }),
+      withLoggedRuntime(
+        "export_catalog",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const catalog = await runtime.service.exportCatalog(input);
+          return okResult(
+            catalog,
+            `Exported ${catalog.entries.length} catalog entries.`,
+          );
+        },
+      ),
   );
 
   server.registerTool(
@@ -188,13 +245,19 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: ImportCatalogToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const result = await runtime.service.importCatalog(input);
-        return okResult(
-          result,
-          `Imported ${result.importedCount} catalog entries.`,
-        );
-      }),
+      withLoggedRuntime(
+        "import_catalog",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.importCatalog(input);
+          return okResult(
+            result,
+            `Imported ${result.importedCount} catalog entries.`,
+          );
+        },
+      ),
   );
 
   server.registerTool(
@@ -206,13 +269,19 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: CheckCatalogHealthToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const report = await runtime.service.checkCatalogHealth(input);
-        return okResult(
-          report,
-          `Checked ${report.summary.total} catalog entries.`,
-        );
-      }),
+      withLoggedRuntime(
+        "check_catalog_health",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const report = await runtime.service.checkCatalogHealth(input);
+          return okResult(
+            report,
+            `Checked ${report.summary.total} catalog entries.`,
+          );
+        },
+      ),
   );
 
   server.registerTool(
@@ -224,13 +293,19 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: PrepareAgentHandoffToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const result = await runtime.service.prepareAgentHandoff(input);
-        return okResult(
-          result,
-          `Prepared handoff prompt for ${result.targetAgent.displayName}.`,
-        );
-      }),
+      withLoggedRuntime(
+        "prepare_agent_handoff",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.prepareAgentHandoff(input);
+          return okResult(
+            result,
+            `Prepared handoff prompt for ${result.targetAgent.displayName}.`,
+          );
+        },
+      ),
   );
 
   server.registerTool(
@@ -241,7 +316,7 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: GenerateAgentPromptToolInput) =>
-      withToolErrors(() => {
+      withLoggedToolErrors("generate_agent_prompt", input, logger, () => {
         const result = generateAgentPrompt(input);
         return okResult(
           result,
@@ -258,21 +333,56 @@ export function registerCatalogTools(
       outputSchema: toolOutputSchema,
     },
     (input: FindMatchingCatalogEntryToolInput) =>
-      withRuntime(runtimeFactory, async (runtime) => {
-        const result = await runtime.service.findMatchingEntries(input);
-        if (result.status === "no_match") {
-          return statusResult("no_match", result.data, "No matching entries.");
-        }
-        if (result.status === "conflict") {
-          return statusResult(
-            "conflict",
-            result.data,
-            "Multiple agents matched equally well.",
-          );
-        }
-        return okResult(result.data, "Found matching catalog entries.");
-      }),
+      withLoggedRuntime(
+        "find_matching_catalog_entry",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.findMatchingEntries(input);
+          if (result.status === "no_match") {
+            return statusResult(
+              "no_match",
+              result.data,
+              "No matching entries.",
+            );
+          }
+          if (result.status === "conflict") {
+            return statusResult(
+              "conflict",
+              result.data,
+              "Multiple agents matched equally well.",
+            );
+          }
+          return okResult(result.data, "Found matching catalog entries.");
+        },
+      ),
   );
+}
+
+function withLoggedToolErrors(
+  toolName: string,
+  input: unknown,
+  logger: LorLogger,
+  handler: () => ToolResult,
+): ToolResult {
+  const startedAt = performance.now();
+  const result = withToolErrors(handler);
+  logToolCall(logger, toolName, input, result, startedAt);
+  return result;
+}
+
+async function withLoggedRuntime(
+  toolName: string,
+  input: unknown,
+  logger: LorLogger,
+  runtimeFactory: () => Promise<ToolRuntime>,
+  handler: (runtime: ToolRuntime) => Promise<ToolResult>,
+): Promise<ToolResult> {
+  const startedAt = performance.now();
+  const result = await withRuntime(runtimeFactory, handler);
+  logToolCall(logger, toolName, input, result, startedAt);
+  return result;
 }
 
 function withToolErrors(handler: () => ToolResult): ToolResult {
@@ -312,4 +422,83 @@ function stripErrorPrefix(message: string, code: string): string {
   return message.startsWith(`${code}: `)
     ? message.slice(code.length + 2)
     : message;
+}
+
+function logToolCall(
+  logger: LorLogger,
+  toolName: string,
+  input: unknown,
+  result: ToolResult,
+  startedAt: number,
+): void {
+  const status = getResultStatus(result);
+  const errorCode = getErrorCode(result);
+  const fields: LogFields = {
+    event: "mcp_tool_call",
+    toolName,
+    status,
+    durationMs: durationMs(startedAt),
+    ...safeInputFields(input),
+  };
+  if (errorCode) {
+    fields.errorCode = errorCode;
+  }
+
+  const message = "MCP tool call completed.";
+  if (errorCode === "storage_error" || errorCode === "setup_error") {
+    logger.error(fields, message);
+    return;
+  }
+  if (
+    errorCode === "validation_error" ||
+    errorCode === "not_found" ||
+    errorCode === "duplicate_entry" ||
+    errorCode === "session_error" ||
+    errorCode === "verification_failed"
+  ) {
+    logger.warn(fields, message);
+    return;
+  }
+  logger.info(fields, message);
+}
+
+function getResultStatus(result: ToolResult): string {
+  const status = result.structuredContent.status;
+  return typeof status === "string" ? status : "unknown";
+}
+
+function getErrorCode(result: ToolResult): string | undefined {
+  const error = result.structuredContent.error;
+  if (!isRecord(error)) {
+    return undefined;
+  }
+  return typeof error.code === "string" ? error.code : undefined;
+}
+
+function safeInputFields(input: unknown): LogFields {
+  if (!isRecord(input)) {
+    return {};
+  }
+  const fields: LogFields = {};
+  if (typeof input.workspace === "string") {
+    fields.workspace = input.workspace;
+  }
+  if (typeof input.entryType === "string") {
+    fields.entryType = input.entryType;
+  }
+  if (typeof input.entryKey === "string") {
+    fields.entryKey = input.entryKey;
+  }
+  if (typeof input.agentEntryKey === "string") {
+    fields.agentEntryKey = input.agentEntryKey;
+  }
+  return fields;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function durationMs(startedAt: number): number {
+  return Math.round((performance.now() - startedAt) * 100) / 100;
 }

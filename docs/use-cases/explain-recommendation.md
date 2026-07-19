@@ -40,6 +40,12 @@ reject, or refine the routing decision.
 
 ## 7. Open Questions
 
-- Should explanations include rejected same-session candidates?
-- Should a future standalone explanation tool add value beyond inline match
-  explanations?
+None for v1.
+
+## 8. Decisions
+
+- V1 explanations only describe returned candidates, not rejected candidates.
+- Recommendation explanations remain inline on `find_matching_catalog_entry`
+  results.
+- A standalone explanation tool is deferred until there is a clear need beyond
+  inline candidate explanations.

@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { join } from "@std/path";
-import { loadConfig, loadServeConfig } from "@src/config.ts";
+import { loadConfig, loadLogConfig, loadServeConfig } from "@src/config.ts";
 
 Deno.test("loadConfig trims explicit LOR database path setting", () => {
   const config = loadConfig({
@@ -51,5 +51,38 @@ Deno.test("loadServeConfig rejects invalid ports", () => {
     () => loadServeConfig({ LOR_PORT: "not-a-port" }),
     Error,
     "LOR_PORT",
+  );
+});
+
+Deno.test("loadLogConfig uses readable local defaults", () => {
+  assertEquals(loadLogConfig({}), {
+    level: "info",
+    format: "pretty",
+  });
+});
+
+Deno.test("loadLogConfig lets env override level and format", () => {
+  assertEquals(
+    loadLogConfig({
+      LOR_LOG_LEVEL: " debug ",
+      LOR_LOG_FORMAT: " json ",
+    }),
+    {
+      level: "debug",
+      format: "json",
+    },
+  );
+});
+
+Deno.test("loadLogConfig rejects invalid level and format", () => {
+  assertThrows(
+    () => loadLogConfig({ LOR_LOG_LEVEL: "verbose" }),
+    Error,
+    "LOR_LOG_LEVEL",
+  );
+  assertThrows(
+    () => loadLogConfig({ LOR_LOG_FORMAT: "text" }),
+    Error,
+    "LOR_LOG_FORMAT",
   );
 });

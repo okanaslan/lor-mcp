@@ -10,6 +10,22 @@ export interface LorServeConfig {
   port: number;
 }
 
+export type LorLogLevel =
+  | "trace"
+  | "debug"
+  | "info"
+  | "warn"
+  | "error"
+  | "fatal"
+  | "silent";
+
+export type LorLogFormat = "pretty" | "json";
+
+export interface LorLogConfig {
+  level: LorLogLevel;
+  format: LorLogFormat;
+}
+
 type Env = Record<string, string | undefined>;
 
 export interface LoadConfigOptions {
@@ -48,6 +64,30 @@ export function loadServeConfig(
   return { host, port };
 }
 
+export function loadLogConfig(
+  env: Env = readDenoEnv(),
+): LorLogConfig {
+  const level = optionalEnv(env, "LOR_LOG_LEVEL") ?? "info";
+  const format = optionalEnv(env, "LOR_LOG_FORMAT") ?? "pretty";
+
+  if (!isLogLevel(level)) {
+    throw new LorError(
+      "setup_error",
+      "LOR_LOG_LEVEL must be one of trace, debug, info, warn, error, fatal, or silent.",
+      { field: "LOR_LOG_LEVEL" },
+    );
+  }
+  if (!isLogFormat(format)) {
+    throw new LorError(
+      "setup_error",
+      "LOR_LOG_FORMAT must be either pretty or json.",
+      { field: "LOR_LOG_FORMAT" },
+    );
+  }
+
+  return { level, format };
+}
+
 export async function prepareConfigStorage(
   config: LorConfig,
 ): Promise<void> {
@@ -59,10 +99,28 @@ function readDenoEnv(): Env {
     LOR_DB_PATH: Deno.env.get("LOR_DB_PATH"),
     LOR_HOST: Deno.env.get("LOR_HOST"),
     LOR_PORT: Deno.env.get("LOR_PORT"),
+    LOR_LOG_LEVEL: Deno.env.get("LOR_LOG_LEVEL"),
+    LOR_LOG_FORMAT: Deno.env.get("LOR_LOG_FORMAT"),
   };
 }
 
 function optionalEnv(env: Env, name: string): string | undefined {
   const value = env[name]?.trim();
   return value ? value : undefined;
+}
+
+function isLogLevel(value: string): value is LorLogLevel {
+  return [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "fatal",
+    "silent",
+  ].includes(value);
+}
+
+function isLogFormat(value: string): value is LorLogFormat {
+  return value === "pretty" || value === "json";
 }

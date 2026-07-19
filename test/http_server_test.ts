@@ -1,6 +1,7 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { createHttpMcpHandler } from "@src/http_server.ts";
 import { createCatalogService } from "@test/helpers/catalog_fixtures.ts";
+import { CapturingLogger } from "@test/helpers/logging.ts";
 
 const endpoint = "http://127.0.0.1:8765/mcp";
 
@@ -348,7 +349,8 @@ Deno.test("HTTP MCP handler calls prepare_agent_handoff", async () => {
 });
 
 Deno.test("HTTP MCP handler calls generate_agent_prompt", async () => {
-  const handler = createHttpMcpHandler();
+  const logger = new CapturingLogger();
+  const handler = createHttpMcpHandler({ logger });
   const sessionId = await initializeSession(handler);
   const response = await postMcp(handler, sessionId, {
     jsonrpc: "2.0",
@@ -360,7 +362,7 @@ Deno.test("HTTP MCP handler calls generate_agent_prompt", async () => {
         workspace: "LOR-MCP",
         role: "backend",
         projectName: "Local Orchestration Router (LOR)",
-        task: "Add a route",
+        task: "Add a secret prompt task",
         context: "Follow existing tool registration patterns",
         constraints: "Do not write to SQLite",
       },
@@ -381,10 +383,73 @@ Deno.test("HTTP MCP handler calls generate_agent_prompt", async () => {
     "manual",
   );
   assertExists(body.result.structuredContent.data.prompt);
+  assert(
+    logger.logs.some((log) =>
+      log.level === "info" &&
+      log.fields.event === "mcp_tool_call" &&
+      log.fields.toolName === "generate_agent_prompt" &&
+      log.fields.workspace === "LOR-MCP" &&
+      log.fields.status === "ok" &&
+      typeof log.fields.durationMs === "number"
+    ),
+  );
+  assertEquals(
+    JSON.stringify(logger.logs).includes("secret prompt task"),
+    false,
+  );
+});
+
+Deno.test("HTTP MCP handler logs structured tool errors", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const logger = new CapturingLogger();
+    const handler = createHttpMcpHandler({
+      logger,
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const response = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "get_catalog_entry_detail",
+        arguments: {
+          workspace: "LOR-MCP",
+          entryType: "agent",
+          entryKey: "missing-agent",
+        },
+      },
+    });
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body.result.structuredContent.status, "error");
+    assertEquals(body.result.structuredContent.error.code, "not_found");
+    assert(
+      logger.logs.some((log) =>
+        log.level === "warn" &&
+        log.fields.event === "mcp_tool_call" &&
+        log.fields.toolName === "get_catalog_entry_detail" &&
+        log.fields.workspace === "LOR-MCP" &&
+        log.fields.entryType === "agent" &&
+        log.fields.entryKey === "missing-agent" &&
+        log.fields.status === "error" &&
+        log.fields.errorCode === "not_found"
+      ),
+    );
+  } finally {
+    repo.close();
+  }
 });
 
 Deno.test("HTTP MCP handler rejects unknown session ids and deletes known sessions", async () => {
-  const handler = createHttpMcpHandler();
+  const logger = new CapturingLogger();
+  const handler = createHttpMcpHandler({ logger });
 
   const unknownSessionResponse = await handler(
     new Request(endpoint, {
@@ -398,11 +463,18 @@ Deno.test("HTTP MCP handler rejects unknown session ids and deletes known sessio
         jsonrpc: "2.0",
         id: 1,
         method: "tools/list",
-        params: {},
+        params: { secret: "do-not-log" },
       }),
     }),
   );
   assertEquals(unknownSessionResponse.status, 404);
+  assert(
+    logger.logs.some((log) =>
+      log.level === "warn" &&
+      log.fields.event === "mcp_session_unknown" &&
+      log.fields.sessionId === "missing-session"
+    ),
+  );
 
   const initializeResponse = await handler(
     new Request(endpoint, {
@@ -425,6 +497,13 @@ Deno.test("HTTP MCP handler rejects unknown session ids and deletes known sessio
   );
   const sessionId = initializeResponse.headers.get("mcp-session-id");
   assertExists(sessionId);
+  assert(
+    logger.logs.some((log) =>
+      log.level === "info" &&
+      log.fields.event === "mcp_session_created" &&
+      log.fields.sessionId === sessionId
+    ),
+  );
 
   const deleteResponse = await handler(
     new Request(endpoint, {
@@ -433,6 +512,13 @@ Deno.test("HTTP MCP handler rejects unknown session ids and deletes known sessio
     }),
   );
   assertEquals(deleteResponse.status, 200);
+  assert(
+    logger.logs.some((log) =>
+      log.level === "info" &&
+      log.fields.event === "mcp_session_closed" &&
+      log.fields.sessionId === sessionId
+    ),
+  );
 
   const afterDeleteResponse = await handler(
     new Request(endpoint, {
@@ -452,6 +538,15 @@ Deno.test("HTTP MCP handler rejects unknown session ids and deletes known sessio
   );
 
   assertEquals(afterDeleteResponse.status, 404);
+  assert(
+    logger.logs.some((log) =>
+      log.level === "info" &&
+      log.fields.event === "http_request" &&
+      log.fields.status === 404 &&
+      log.fields.sessionPresent === true
+    ),
+  );
+  assertEquals(JSON.stringify(logger.logs).includes("do-not-log"), false);
 });
 
 async function initializeSession(

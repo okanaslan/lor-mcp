@@ -75,10 +75,17 @@ logic.
 
 Server configuration should have local storage and transport defaults so Codex
 client configuration only needs the HTTP URL. Environment variables remain
-server-side overrides for storage, host, and port. Catalog workspace scope must
-come from the client-supplied `workspace` tool input, and introduction tools
-register supplied agent or skill metadata directly without requiring server-side
-pre-registration files.
+server-side overrides for storage, host, port, and logging. Catalog workspace
+scope must come from the client-supplied `workspace` tool input, and
+introduction tools register supplied agent or skill metadata directly without
+requiring server-side pre-registration files.
+
+Runtime logging should use Pino with leveled logs. Local console logs should be
+human-readable by default, with JSON available through `LOR_LOG_FORMAT=json`.
+All logs must go to stderr so stdout remains reserved for stdio MCP protocol
+messages. Logging should cover startup, HTTP request/session lifecycle, and MCP
+tool calls while avoiding raw request bodies, response bodies, prompts, and
+catalog payloads.
 
 MCP tools should use Zod schemas for input validation. Tool modules should adapt
 MCP requests into catalog/session domain calls and return MCP-compatible
@@ -114,7 +121,8 @@ The initial `deno.json` should include tasks equivalent to:
 
 Runtime permissions should stay explicit. The HTTP serve task should bind only
 to local loopback by default and should not expose a public network listener.
-Storage permissions should cover the configured local database.
+Storage permissions should cover the configured local database. Env permissions
+should include logging overrides such as `LOR_LOG_LEVEL` and `LOR_LOG_FORMAT`.
 
 Source files should use import aliases from `deno.json` instead of direct npm
 specifier strings scattered through the codebase. The MCP SDK and Zod imports
