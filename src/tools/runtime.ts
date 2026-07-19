@@ -16,6 +16,7 @@ export async function createDefaultRuntime(): Promise<ToolRuntime> {
   return {
     service: new CatalogService({
       repository,
+      skillRoots: config.skillRoots,
     }),
     close: () => repository.close(),
   };

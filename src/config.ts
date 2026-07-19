@@ -3,6 +3,7 @@ import { dirname, join } from "@std/path";
 
 export interface LorConfig {
   dbPath: string;
+  skillRoots: string[];
 }
 
 export interface LorServeConfig {
@@ -40,9 +41,11 @@ export function loadConfig(
   const dataDir = join(cwd, ".lor-mcp");
   const dbPath = optionalEnv(env, "LOR_DB_PATH") ??
     join(dataDir, "catalog.db");
+  const skillRoots = parseSkillRoots(env, cwd);
 
   return {
     dbPath,
+    skillRoots,
   };
 }
 
@@ -97,11 +100,31 @@ export async function prepareConfigStorage(
 function readDenoEnv(): Env {
   return {
     LOR_DB_PATH: Deno.env.get("LOR_DB_PATH"),
+    LOR_SKILL_ROOTS: Deno.env.get("LOR_SKILL_ROOTS"),
     LOR_HOST: Deno.env.get("LOR_HOST"),
     LOR_PORT: Deno.env.get("LOR_PORT"),
     LOR_LOG_LEVEL: Deno.env.get("LOR_LOG_LEVEL"),
     LOR_LOG_FORMAT: Deno.env.get("LOR_LOG_FORMAT"),
   };
+}
+
+function parseSkillRoots(env: Env, cwd: string): string[] {
+  const explicit = optionalEnv(env, "LOR_SKILL_ROOTS");
+  const roots = explicit
+    ? explicit.split(",").map((root) => root.trim()).filter(Boolean)
+    : defaultSkillRoots(env, cwd);
+
+  return [...new Set(roots)];
+}
+
+function defaultSkillRoots(env: Env, cwd: string): string[] {
+  const roots = [join(cwd, ".temp", "skills")];
+  const home = optionalEnv(env, "HOME");
+  if (home) {
+    roots.push(join(home, ".codex", "skills"));
+    roots.push(join(home, ".agents", "skills"));
+  }
+  return roots;
 }
 
 function optionalEnv(env: Env, name: string): string | undefined {

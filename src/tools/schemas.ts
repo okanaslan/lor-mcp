@@ -145,6 +145,17 @@ export const applySkillUpdateInputSchema = z.object({
   confirm: z.literal(true),
 });
 
+export const previewSkillFileSyncInputSchema = z.object({
+  workspace: workspaceSchema,
+  skillName: z.string().trim().min(1),
+  proposalId: z.string().trim().min(1),
+});
+
+export const applySkillFileSyncInputSchema = previewSkillFileSyncInputSchema
+  .extend({
+    confirm: z.literal(true),
+  });
+
 export const removeCatalogEntryInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema,
@@ -264,6 +275,12 @@ export type ProposeSkillUpdateToolInput = z.infer<
 >;
 export type ApplySkillUpdateToolInput = z.infer<
   typeof applySkillUpdateInputSchema
+>;
+export type PreviewSkillFileSyncToolInput = z.infer<
+  typeof previewSkillFileSyncInputSchema
+>;
+export type ApplySkillFileSyncToolInput = z.infer<
+  typeof applySkillFileSyncInputSchema
 >;
 export type RemoveCatalogEntryToolInput = z.infer<
   typeof removeCatalogEntryInputSchema

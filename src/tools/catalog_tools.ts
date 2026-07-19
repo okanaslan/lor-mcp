@@ -1,6 +1,8 @@
 import type { McpServer } from "@mcp/server";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 import {
+  applySkillFileSyncInputSchema,
+  type ApplySkillFileSyncToolInput,
   applySkillUpdateInputSchema,
   type ApplySkillUpdateToolInput,
   checkCatalogHealthInputSchema,
@@ -25,6 +27,8 @@ import {
   type ListCatalogEntriesToolInput,
   prepareAgentHandoffInputSchema,
   type PrepareAgentHandoffToolInput,
+  previewSkillFileSyncInputSchema,
+  type PreviewSkillFileSyncToolInput,
   proposeSkillUpdateInputSchema,
   type ProposeSkillUpdateToolInput,
   registerWorkspaceAliasInputSchema,
@@ -275,6 +279,68 @@ export function registerCatalogTools(
           return okResult(
             result,
             `Applied update ${result.proposal.proposalId} for ${result.after.displayName}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "preview_skill_file_sync",
+    {
+      description:
+        "Preview writing approved registered skill context into a local SKILL.md managed section.",
+      inputSchema: previewSkillFileSyncInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: PreviewSkillFileSyncToolInput) =>
+      withLoggedRuntime(
+        "preview_skill_file_sync",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.previewSkillFileSync(input);
+          return okResult(
+            result,
+            `Previewed local sync for ${result.skillName}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "apply_skill_file_sync",
+    {
+      description:
+        "Write approved registered skill context into a local SKILL.md managed section after explicit confirmation.",
+      inputSchema: applySkillFileSyncInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    (input: ApplySkillFileSyncToolInput) =>
+      withLoggedRuntime(
+        "apply_skill_file_sync",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.applySkillFileSync(input);
+          return okResult(
+            result,
+            result.written
+              ? `Synced local skill file for ${result.skillName}.`
+              : `Local skill file already matched ${result.skillName}.`,
           );
         },
       ),
@@ -580,6 +646,12 @@ function safeInputFields(input: unknown): LogFields {
   }
   if (typeof input.agentEntryKey === "string") {
     fields.agentEntryKey = input.agentEntryKey;
+  }
+  if (typeof input.skillName === "string") {
+    fields.skillName = input.skillName;
+  }
+  if (typeof input.proposalId === "string") {
+    fields.proposalId = input.proposalId;
   }
   if (typeof input.alias === "string") {
     fields.alias = input.alias;

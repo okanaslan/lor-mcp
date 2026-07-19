@@ -27,10 +27,23 @@ export async function createInitializedRepository(): Promise<
 export async function createCatalogService(): Promise<{
   repo: SqliteCatalogRepository;
   service: CatalogService;
+}>;
+export async function createCatalogService(options: {
+  skillRoots?: readonly string[];
+}): Promise<{
+  repo: SqliteCatalogRepository;
+  service: CatalogService;
+}>;
+export async function createCatalogService(options: {
+  skillRoots?: readonly string[];
+} = {}): Promise<{
+  repo: SqliteCatalogRepository;
+  service: CatalogService;
 }> {
   const repo = await createInitializedRepository();
   const service = new CatalogService({
     repository: repo,
+    skillRoots: options.skillRoots,
     now: () => FIXED_NOW,
   });
   return { repo, service };

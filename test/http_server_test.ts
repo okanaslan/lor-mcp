@@ -1,4 +1,5 @@
 import { assert, assertEquals, assertExists } from "@std/assert";
+import { join } from "@std/path";
 import { createHttpMcpHandler } from "@src/http_server.ts";
 import { createCatalogService } from "@test/helpers/catalog_fixtures.ts";
 import { CapturingLogger } from "@test/helpers/logging.ts";
@@ -63,6 +64,8 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "update_catalog_entry",
       "propose_skill_update",
       "apply_skill_update",
+      "preview_skill_file_sync",
+      "apply_skill_file_sync",
       "remove_catalog_entry",
       "export_catalog",
       "import_catalog",
@@ -196,6 +199,88 @@ Deno.test("HTTP MCP handler calls propose_skill_update and apply_skill_update", 
       applyBody.result.structuredContent.data.after.skillContext.whenToUse,
       "Use for Deno MCP backend work.",
     );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls preview_skill_file_sync and apply_skill_file_sync", async () => {
+  const { root, file } = await createHttpSkillFile("backend-skill");
+  const { repo, service } = await createCatalogService({ skillRoots: [root] });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve routing context.",
+      skillContext: {
+        whenToUse: "Use for Deno MCP backend work.",
+      },
+    });
+    await service.applySkillUpdate({
+      workspace: "LOR-MCP",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const previewResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "preview_skill_file_sync",
+        arguments: {
+          workspace: "LOR-MCP",
+          skillName: "backend-skill",
+          proposalId: proposal.proposal.proposalId,
+        },
+      },
+    });
+    const previewBody = await previewResponse.json();
+    const applyResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "apply_skill_file_sync",
+        arguments: {
+          workspace: "LOR-MCP",
+          skillName: "backend-skill",
+          proposalId: proposal.proposal.proposalId,
+          confirm: true,
+        },
+      },
+    });
+    const applyBody = await applyResponse.json();
+    const updated = await Deno.readTextFile(file);
+
+    assertEquals(previewResponse.status, 200);
+    assertEquals(previewBody.result.structuredContent.status, "ok");
+    assertEquals(
+      previewBody.result.structuredContent.data.renderedSection.includes(
+        "Use for Deno MCP backend work.",
+      ),
+      true,
+    );
+    assertEquals(applyResponse.status, 200);
+    assertEquals(applyBody.result.structuredContent.status, "ok");
+    assertEquals(applyBody.result.structuredContent.data.written, true);
+    assertEquals(updated.includes("## LOR Managed Context"), true);
   } finally {
     repo.close();
   }
@@ -715,4 +800,15 @@ function postMcp(
       body: JSON.stringify(body),
     }),
   );
+}
+
+async function createHttpSkillFile(
+  skillName: string,
+): Promise<{ root: string; file: string }> {
+  const root = await Deno.makeTempDir();
+  const skillDir = join(root, skillName);
+  await Deno.mkdir(skillDir, { recursive: true });
+  const file = join(skillDir, "SKILL.md");
+  await Deno.writeTextFile(file, "# Backend Skill\n");
+  return { root, file };
 }

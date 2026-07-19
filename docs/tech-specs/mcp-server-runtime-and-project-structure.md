@@ -62,6 +62,8 @@ tool registration, session helpers, and catalog domain logic:
 - `src/server.ts`: creates and configures the MCP server instance.
 - `src/tools/`: MCP tool registration modules.
 - `src/catalog/`: catalog domain logic independent from MCP transport.
+- `src/skills/`: local skill file sync helpers that are isolated from MCP
+  transport code.
 - `test/`: root-level Deno tests mirroring the source tree.
 - `test/helpers/`: shared fixtures and setup utilities for tests.
 
@@ -73,12 +75,12 @@ connect it to stdio, and report fatal startup failures to stderr. Neither
 entrypoint should contain catalog matching, storage, or tool-specific business
 logic.
 
-Server configuration should have local storage and transport defaults so Codex
-client configuration only needs the HTTP URL. Environment variables remain
-server-side overrides for storage, host, port, and logging. Catalog workspace
-scope must come from the client-supplied `workspace` tool input, and
-introduction tools register supplied agent or skill metadata directly without
-requiring server-side pre-registration files.
+Server configuration should have local storage, local skill roots, and transport
+defaults so Codex client configuration only needs the HTTP URL. Environment
+variables remain server-side overrides for storage, skill roots, host, port, and
+logging. Catalog workspace scope must come from the client-supplied `workspace`
+tool input, and introduction tools register supplied agent or skill metadata
+directly without requiring server-side pre-registration files.
 
 Local development may load server-side overrides from an ignored `.env` file
 using Deno's task-level `--env-file` flag, for example
@@ -127,7 +129,13 @@ The initial `deno.json` should include tasks equivalent to:
 Runtime permissions should stay explicit. The HTTP serve task should bind only
 to local loopback by default and should not expose a public network listener.
 Storage permissions should cover the configured local database. Env permissions
-should include logging overrides such as `LOR_LOG_LEVEL` and `LOR_LOG_FORMAT`.
+should include logging overrides such as `LOR_LOG_LEVEL` and `LOR_LOG_FORMAT`
+and local skill sync overrides such as `LOR_SKILL_ROOTS`.
+
+Local skill sync should resolve `SKILL.md` files only from server-owned skill
+roots. The default roots are `.temp/skills`, `~/.codex/skills`, and
+`~/.agents/skills`; `LOR_SKILL_ROOTS` may override those roots with a
+comma-separated list. Tool input must not include local file paths.
 
 Source files should use import aliases from `deno.json` instead of direct npm
 specifier strings scattered through the codebase. The MCP SDK and Zod imports
@@ -190,3 +198,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   client configuration only needs the MCP URL.
 - 2026-07-13: Keep catalog workspace scope in client-supplied tool input instead
   of server configuration.
+- 2026-07-19: Add server-owned local skill roots for approval-gated local
+  `SKILL.md` sync.

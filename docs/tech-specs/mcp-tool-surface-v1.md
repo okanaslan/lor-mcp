@@ -5,9 +5,11 @@
 Implemented for the current v1 runtime. This tech spec defines the first usable
 MCP tool set for Local Orchestration Router (LOR). The v1 surface supports
 introducing agents and skills, inspecting, updating, removing, clearing,
-exporting, and importing the catalog, registering workspace aliases, preparing
-manual agent handoff prompts, generating empty-chat starter prompts, checking
-stored catalog health metadata, and finding a matching catalog entry for a task.
+exporting, and importing the catalog, registering workspace aliases, managing
+stored skill context updates, syncing approved skill context to local skill
+files, preparing manual agent handoff prompts, generating empty-chat starter
+prompts, checking stored catalog health metadata, and finding a matching catalog
+entry for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -48,7 +50,7 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register fourteen MCP tools with snake_case names:
+V1 should register eighteen MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -57,6 +59,10 @@ V1 should register fourteen MCP tools with snake_case names:
 - `register_workspace_alias`
 - `get_catalog_entry_detail`
 - `update_catalog_entry`
+- `propose_skill_update`
+- `apply_skill_update`
+- `preview_skill_file_sync`
+- `apply_skill_file_sync`
 - `remove_catalog_entry`
 - `export_catalog`
 - `import_catalog`
@@ -204,6 +210,53 @@ errors.
 may return validation, session/setup, not-found, or storage errors. It must
 reject empty update patches and must not allow changing the stable entry key.
 
+`propose_skill_update` input:
+
+- `workspace`
+- `skillName`
+- `reason`
+- optional `skillContext`
+- optional `metadata`
+
+`propose_skill_update` output data should include the persisted proposal plus
+before and after preview entries. It may return validation, not-found,
+session/setup, or storage errors. It must not mutate the registered skill entry
+or local skill files.
+
+`apply_skill_update` input:
+
+- `workspace`
+- `proposalId`
+- `confirm`: literal `true`
+
+`apply_skill_update` output data should include the applied proposal plus before
+and after entries. It may return validation, not-found, session/setup, or
+storage errors. It mutates stored catalog skill context only.
+
+`preview_skill_file_sync` input:
+
+- `workspace`
+- `skillName`
+- `proposalId`
+
+`preview_skill_file_sync` output data should include the resolved workspace,
+skill name, proposal ID, target file name, managed section name, whether the
+section already exists, whether the file would change, and the rendered managed
+section. It must not write local files. The proposal must already be applied and
+belong to the requested skill.
+
+`apply_skill_file_sync` input:
+
+- `workspace`
+- `skillName`
+- `proposalId`
+- `confirm`: literal `true`
+
+`apply_skill_file_sync` output data should include the same preview fields plus
+`written`. It writes only the LOR-managed section in the resolved local
+`SKILL.md` file. It must resolve files from server-configured skill roots and
+must not accept arbitrary file paths.
+
 `remove_catalog_entry` input:
 
 - `workspace`
@@ -334,6 +387,9 @@ When this tech spec is implemented as code, verification should include:
 - Generate prompt returns deterministic starter prompts for supported roles and
   does not write to catalog storage.
 - Match returns `no_match` and `conflict` as structured non-error outcomes.
+- Preview skill file sync does not mutate `SKILL.md`.
+- Apply skill file sync requires `confirm: true`, an applied proposal, and a
+  skill file resolved from configured skill roots.
 - Registered aliases resolve to the same canonical workspace for introduce,
   list, detail, match, update, remove, clear, export, import, health, and
   handoff tools.
@@ -380,3 +436,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
 - 2026-07-19: Add `register_workspace_alias` and canonical workspace resolution
   to prevent catalog splits caused by path, trailing-slash, and folder-name
   workspace variants.
+- 2026-07-19: Add approval-gated registered skill context updates and local
+  skill file sync through `preview_skill_file_sync` and `apply_skill_file_sync`.

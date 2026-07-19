@@ -1,5 +1,6 @@
 import {
   type AgentCatalogEntry,
+  type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type CatalogEntry,
   type CatalogEntryUpdate,
@@ -30,12 +31,16 @@ import {
   type RemoveCatalogEntryResult,
   type SkillCatalogEntry,
   type SkillContext,
+  type SkillFileSyncApplyResult,
+  type SkillFileSyncInput,
+  type SkillFileSyncPreview,
   type SkillMetadataUpdate,
   type SkillUpdateProposal,
   type SkillUpdateProposalResult,
   type VerificationMetadata,
 } from "@src/catalog/types.ts";
 import {
+  validateApplySkillFileSync,
   validateApplySkillUpdate,
   validateCatalogEntryUpdate,
   validateCatalogExportFilter,
@@ -47,22 +52,29 @@ import {
   validatePrepareAgentHandoff,
   validateProposeSkillUpdate,
   validateRegisterWorkspaceAlias,
+  validateSkillFileSyncInput,
   validateWorkspace,
 } from "@src/catalog/validation.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
 import { LorError } from "@src/errors.ts";
+import { LocalSkillSync } from "@src/skills/local_skill_sync.ts";
 
 interface CatalogServiceOptions {
   repository: CatalogRepository;
+  skillRoots?: readonly string[];
   now?: () => string;
 }
 
 export class CatalogService {
   readonly #repository: CatalogRepository;
+  readonly #localSkillSync: LocalSkillSync;
   readonly #now: () => string;
 
   constructor(options: CatalogServiceOptions) {
     this.#repository = options.repository;
+    this.#localSkillSync = new LocalSkillSync({
+      skillRoots: options.skillRoots ?? [],
+    });
     this.#now = options.now ?? (() => new Date().toISOString());
   }
 
@@ -248,6 +260,49 @@ export class CatalogService {
     }
 
     return { proposal: applied, before: existing, after };
+  }
+
+  async previewSkillFileSync(
+    input: SkillFileSyncInput,
+  ): Promise<SkillFileSyncPreview> {
+    const validated = validateSkillFileSyncInput(input);
+    const { workspace, proposal, entry } = await this.resolveSkillSyncSource(
+      validated,
+    );
+    const preview = await this.#localSkillSync.preview(entry);
+
+    return {
+      workspace,
+      skillName: proposal.skillName,
+      proposalId: proposal.proposalId,
+      targetFile: preview.targetFile,
+      sectionName: preview.sectionName,
+      sectionExists: preview.sectionExists,
+      wouldChange: preview.wouldChange,
+      renderedSection: preview.renderedSection,
+    };
+  }
+
+  async applySkillFileSync(
+    input: ApplySkillFileSyncInput,
+  ): Promise<SkillFileSyncApplyResult> {
+    const validated = validateApplySkillFileSync(input);
+    const { workspace, proposal, entry } = await this.resolveSkillSyncSource(
+      validated,
+    );
+    const result = await this.#localSkillSync.apply(entry);
+
+    return {
+      workspace,
+      skillName: proposal.skillName,
+      proposalId: proposal.proposalId,
+      targetFile: result.targetFile,
+      sectionName: result.sectionName,
+      sectionExists: result.sectionExists,
+      wouldChange: result.wouldChange,
+      renderedSection: result.renderedSection,
+      written: result.written,
+    };
   }
 
   async removeCatalogEntry(
@@ -490,6 +545,55 @@ export class CatalogService {
       validateWorkspace(workspace),
       { now },
     );
+  }
+
+  private async resolveSkillSyncSource(
+    input: SkillFileSyncInput,
+  ): Promise<{
+    workspace: string;
+    proposal: SkillUpdateProposal;
+    entry: SkillCatalogEntry;
+  }> {
+    const workspace = await this.resolveWorkspace(input.workspace);
+    const proposal = await this.#repository.getSkillUpdateProposal(
+      workspace,
+      input.proposalId,
+    );
+    if (!proposal) {
+      throw new LorError(
+        "not_found",
+        "Skill update proposal was not found.",
+      );
+    }
+    if (proposal.skillName !== input.skillName) {
+      throw new LorError(
+        "validation_error",
+        "proposalId does not belong to the requested skill.",
+        { field: "proposalId" },
+      );
+    }
+    if (proposal.status !== "applied") {
+      throw new LorError(
+        "validation_error",
+        "Skill update proposal must be applied before local skill sync.",
+        { field: "proposalId" },
+      );
+    }
+
+    const entry = await this.#repository.getEntry(workspace, {
+      workspace,
+      entryType: "skill",
+      entryKey: input.skillName,
+    });
+    if (!entry || entry.entryType !== "skill") {
+      throw new LorError(
+        "not_found",
+        "Skill was not found.",
+        { entryType: "skill" },
+      );
+    }
+
+    return { workspace, proposal, entry };
   }
 
   private async findImportConflicts(

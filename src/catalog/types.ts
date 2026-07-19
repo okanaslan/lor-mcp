@@ -152,6 +152,31 @@ export interface SkillUpdateProposalResult {
   after: SkillCatalogEntry;
 }
 
+export interface SkillFileSyncInput {
+  workspace: string;
+  skillName: string;
+  proposalId: string;
+}
+
+export interface ApplySkillFileSyncInput extends SkillFileSyncInput {
+  confirm: true;
+}
+
+export interface SkillFileSyncPreview {
+  workspace: string;
+  skillName: string;
+  proposalId: string;
+  targetFile: "SKILL.md";
+  sectionName: "lor-managed-skill-context";
+  sectionExists: boolean;
+  wouldChange: boolean;
+  renderedSection: string;
+}
+
+export interface SkillFileSyncApplyResult extends SkillFileSyncPreview {
+  written: boolean;
+}
+
 export interface RemoveCatalogEntryResult extends EntryLookup {
   removed: true;
 }

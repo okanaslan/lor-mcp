@@ -1,7 +1,7 @@
 {
   "tasks": {
-    "run": "deno run --allow-env=LOR_DB_PATH,LOR_LOG_LEVEL,LOR_LOG_FORMAT,DENO_SQLITE_PATH,DENO_SQLITE_LOCAL,DENO_DIR,HOME,NODE_V8_COVERAGE,TERM,NO_COLOR,FORCE_COLOR,CLICOLOR,CLICOLOR_FORCE,CI,GITHUB_ACTIONS,GITLAB_CI,CIRCLECI --allow-sys=hostname --allow-read --allow-write --allow-ffi --allow-net=github.com,release-assets.githubusercontent.com src/main.ts",
-    "serve": "deno run --unstable-no-legacy-abort --allow-env=LOR_DB_PATH,LOR_HOST,LOR_PORT,LOR_LOG_LEVEL,LOR_LOG_FORMAT,DENO_SQLITE_PATH,DENO_SQLITE_LOCAL,DENO_DIR,HOME,NODE_V8_COVERAGE,TERM,NO_COLOR,FORCE_COLOR,CLICOLOR,CLICOLOR_FORCE,CI,GITHUB_ACTIONS,GITLAB_CI,CIRCLECI --allow-sys=hostname --allow-read --allow-write --allow-ffi --allow-net=127.0.0.1,github.com,release-assets.githubusercontent.com src/http_main.ts",
+    "run": "deno run --allow-env=LOR_DB_PATH,LOR_SKILL_ROOTS,LOR_LOG_LEVEL,LOR_LOG_FORMAT,DENO_SQLITE_PATH,DENO_SQLITE_LOCAL,DENO_DIR,HOME,NODE_V8_COVERAGE,TERM,NO_COLOR,FORCE_COLOR,CLICOLOR,CLICOLOR_FORCE,CI,GITHUB_ACTIONS,GITLAB_CI,CIRCLECI --allow-sys=hostname --allow-read --allow-write --allow-ffi --allow-net=github.com,release-assets.githubusercontent.com src/main.ts",
+    "serve": "deno run --unstable-no-legacy-abort --allow-env=LOR_DB_PATH,LOR_SKILL_ROOTS,LOR_HOST,LOR_PORT,LOR_LOG_LEVEL,LOR_LOG_FORMAT,DENO_SQLITE_PATH,DENO_SQLITE_LOCAL,DENO_DIR,HOME,NODE_V8_COVERAGE,TERM,NO_COLOR,FORCE_COLOR,CLICOLOR,CLICOLOR_FORCE,CI,GITHUB_ACTIONS,GITLAB_CI,CIRCLECI --allow-sys=hostname --allow-read --allow-write --allow-ffi --allow-net=127.0.0.1,github.com,release-assets.githubusercontent.com src/http_main.ts",
     "check": "deno check src test",
     "test": "deno test --allow-env --allow-sys=hostname --allow-read --allow-write --allow-ffi --allow-net=github.com,release-assets.githubusercontent.com",
     "lint": "deno lint",

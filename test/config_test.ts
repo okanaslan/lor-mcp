@@ -12,9 +12,14 @@ Deno.test("loadConfig trims explicit LOR database path setting", () => {
 
 Deno.test("loadConfig uses server-owned storage defaults without env settings", () => {
   const cwd = "/workspaces/LOR-MCP";
-  const config = loadConfig({}, { cwd });
+  const config = loadConfig({ HOME: "/Users/tester" }, { cwd });
 
   assertEquals(config.dbPath, join(cwd, ".lor-mcp", "catalog.db"));
+  assertEquals(config.skillRoots, [
+    join(cwd, ".temp", "skills"),
+    "/Users/tester/.codex/skills",
+    "/Users/tester/.agents/skills",
+  ]);
 });
 
 Deno.test("loadConfig lets explicit database path override default", () => {
@@ -24,6 +29,15 @@ Deno.test("loadConfig lets explicit database path override default", () => {
   }, { cwd });
 
   assertEquals(config.dbPath, "/tmp/custom/catalog.db");
+});
+
+Deno.test("loadConfig lets explicit skill roots override defaults", () => {
+  const config = loadConfig({
+    HOME: "/Users/tester",
+    LOR_SKILL_ROOTS: " /tmp/skills-a, /tmp/skills-b, /tmp/skills-a ",
+  }, { cwd: "/workspaces/LOR-MCP" });
+
+  assertEquals(config.skillRoots, ["/tmp/skills-a", "/tmp/skills-b"]);
 });
 
 Deno.test("loadServeConfig uses local HTTP defaults", () => {

@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
+  applySkillFileSyncInputSchema,
   applySkillUpdateInputSchema,
   checkCatalogHealthInputSchema,
   clearWorkspaceCatalogInputSchema,
@@ -7,6 +8,7 @@ import {
   generateAgentPromptInputSchema,
   importCatalogInputSchema,
   prepareAgentHandoffInputSchema,
+  previewSkillFileSyncInputSchema,
   proposeSkillUpdateInputSchema,
   registerWorkspaceAliasInputSchema,
   removeCatalogEntryInputSchema,
@@ -172,6 +174,42 @@ Deno.test("skill update schemas require proposal content and confirmation", () =
     applySkillUpdateInputSchema.safeParse({
       workspace: "LOR-MCP",
       proposalId: "proposal-1",
+    }).success,
+    false,
+  );
+});
+
+Deno.test("skill file sync schemas require proposal and confirmation", () => {
+  assertEquals(
+    previewSkillFileSyncInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      proposalId: "proposal-1",
+    }).success,
+    true,
+  );
+  assertEquals(
+    previewSkillFileSyncInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      proposalId: "proposal-1",
+    }).success,
+    false,
+  );
+  assertEquals(
+    applySkillFileSyncInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      proposalId: "proposal-1",
+      confirm: true,
+    }).success,
+    true,
+  );
+  assertEquals(
+    applySkillFileSyncInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      proposalId: "proposal-1",
+      confirm: false,
     }).success,
     false,
   );

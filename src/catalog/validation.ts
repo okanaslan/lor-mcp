@@ -1,4 +1,5 @@
 import {
+  type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type CatalogEntryUpdate,
   type CatalogExportEntry,
@@ -14,6 +15,7 @@ import {
   type ProposeSkillUpdateInput,
   type RegisterWorkspaceAliasInput,
   type SkillContext,
+  type SkillFileSyncInput,
   type SkillMetadataUpdate,
 } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
@@ -231,6 +233,33 @@ export function validateApplySkillUpdate(
   return {
     workspace: requireWorkspace(input.workspace),
     proposalId: requireString(input.proposalId, "proposalId"),
+    confirm: true,
+  };
+}
+
+export function validateSkillFileSyncInput(
+  input: SkillFileSyncInput,
+): SkillFileSyncInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    skillName: requireString(input.skillName, "skillName"),
+    proposalId: requireString(input.proposalId, "proposalId"),
+  };
+}
+
+export function validateApplySkillFileSync(
+  input: ApplySkillFileSyncInput,
+): ApplySkillFileSyncInput {
+  if (input.confirm !== true) {
+    throw new LorError(
+      "validation_error",
+      "confirm must be true.",
+      { field: "confirm" },
+    );
+  }
+
+  return {
+    ...validateSkillFileSyncInput(input),
     confirm: true,
   };
 }

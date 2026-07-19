@@ -45,6 +45,8 @@ flowchart RL
   updateEntry --> proposeSkillUpdate["propose_skill_update"]
   proposeSkillUpdate --> applySkillUpdate["apply_skill_update"]
   applySkillUpdate --> catalog
+  applySkillUpdate --> previewSkillFileSync["preview_skill_file_sync"]
+  previewSkillFileSync --> applySkillFileSync["apply_skill_file_sync"]
   listEntries --> findMatch["find_matching_catalog_entry"]
   findMatch --> detail["get_catalog_entry_detail"]
   detail --> handoff["prepare_agent_handoff"]
@@ -81,6 +83,7 @@ url = "http://127.0.0.1:8765/mcp"
 Server-owned storage defaults are used when no environment variables are set:
 
 - SQLite database: `.lor-mcp/catalog.db`.
+- Skill roots: `.temp/skills`, `~/.codex/skills`, and `~/.agents/skills`.
 
 Catalog tools require a `workspace` input supplied by the client. LOR normalizes
 path-shaped workspace values and resolves registered aliases before reading or
@@ -92,6 +95,8 @@ canonical workspace path.
 Optional server-side environment overrides:
 
 - `LOR_DB_PATH`: local SQLite database path.
+- `LOR_SKILL_ROOTS`: comma-separated local skill roots for approved `SKILL.md`
+  sync.
 - `LOR_HOST`: local HTTP host, default `127.0.0.1`.
 - `LOR_PORT`: local HTTP port, default `8765`.
 - `LOR_LOG_LEVEL`: log level, default `info`.

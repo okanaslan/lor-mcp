@@ -15,6 +15,7 @@ Implemented in the first runnable v1 slice:
   `codex mcp add lor-mcp --url
   http://127.0.0.1:8765/mcp`.
 - Server-owned local defaults for SQLite storage under `.lor-mcp/`.
+- Server-owned local skill roots for approval-gated `SKILL.md` sync.
 - SQLite-backed durable catalog storage scoped by resolved canonical
   client-supplied `workspace`.
 - Workspace alias resolution for path, trailing-slash, and registered
@@ -29,6 +30,8 @@ Implemented in the first runnable v1 slice:
   - `update_catalog_entry`
   - `propose_skill_update`
   - `apply_skill_update`
+  - `preview_skill_file_sync`
+  - `apply_skill_file_sync`
   - `remove_catalog_entry`
   - `export_catalog`
   - `import_catalog`
@@ -79,6 +82,9 @@ Latest implementation verification:
   v1 partial metadata updates.
 - [Registered Skill Context Updates](feature-specs/registered-skill-context-updates.md):
   Implemented for v1 approval-gated stored skill context updates.
+- [Local Skill Sync](feature-specs/local-skill-sync.md): Implemented for v1
+  approval-gated sync from applied stored skill context into local `SKILL.md`
+  managed sections.
 - [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Implemented for
   v1 single-entry hard delete.
 - [Skill / Agent Existence Verification](feature-specs/existence-verification.md):
@@ -100,7 +106,5 @@ Latest implementation verification:
   workspace alias resolution, and the Streamable HTTP runtime.
 - Decide whether future health refresh should probe external evidence sources
   and update stored verification metadata.
-- Decide whether approved LOR skill context should sync to local `SKILL.md`
-  files through a separate future workflow.
 - Decide whether conflict handling needs a dedicated follow-up beyond the basic
   equally scored agent conflict reporting in v1 matching.

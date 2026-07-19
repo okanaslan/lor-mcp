@@ -18,8 +18,8 @@ It updates LOR catalog data only and does not read, write, or sync local
 
 ## 3. Non-Goals
 
-- Edit local `SKILL.md` files.
-- Sync local skill files with LOR catalog data.
+- Edit local `SKILL.md` files directly in the stored-context update flow.
+- Sync local skill files with LOR catalog data before a proposal is applied.
 - Generate skill improvements with an LLM inside LOR.
 - Change agent handoff metadata.
 
@@ -81,14 +81,14 @@ Skill update proposals include:
 
 ## 9. Open Questions
 
-- Should a future feature sync approved LOR skill context back to local
-  `SKILL.md` files?
 - Should old pending proposals expire or be manually removed?
 
 ## 10. Decision Log
 
-- 2026-07-19: Update stored LOR skill context only; local skill file sync is
-  deferred.
+- 2026-07-19: Update stored LOR skill context only in this flow; local skill
+  file sync is handled by a separate approval-gated feature.
 - 2026-07-19: Use explicit `propose_skill_update` and `apply_skill_update` tools
   for preview and approval.
 - 2026-07-19: Persist proposals in SQLite so approval can survive reconnects.
+- 2026-07-19: Add Local Skill Sync as a separate follow-up workflow for writing
+  applied skill context into local `SKILL.md` files.

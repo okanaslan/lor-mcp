@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
+import { join } from "@std/path";
 import {
   createCatalogService,
   FIXED_NOW,
@@ -594,6 +595,212 @@ Deno.test("CatalogService skill update proposals do not cross workspaces", async
   }
 });
 
+Deno.test("CatalogService previews skill file sync only for applied proposals", async () => {
+  const { root, file } = await createSkillFileForService("backend-skill");
+  const { repo, service } = await createCatalogService({ skillRoots: [root] });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve skill context.",
+      skillContext: {
+        whenToUse: "Use for backend API changes.",
+      },
+    });
+
+    await assertRejects(
+      () =>
+        service.previewSkillFileSync({
+          workspace: "LOR-MCP",
+          skillName: "backend-skill",
+          proposalId: proposal.proposal.proposalId,
+        }),
+      Error,
+      "must be applied",
+    );
+
+    await service.applySkillUpdate({
+      workspace: "LOR-MCP",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+    const preview = await service.previewSkillFileSync({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      proposalId: proposal.proposal.proposalId,
+    });
+    const fileContent = await Deno.readTextFile(file);
+
+    assertEquals(preview.workspace, "LOR-MCP");
+    assertEquals(preview.skillName, "backend-skill");
+    assertEquals(preview.targetFile, "SKILL.md");
+    assertEquals(preview.sectionExists, false);
+    assertEquals(preview.wouldChange, true);
+    assertEquals(
+      preview.renderedSection.includes("Use for backend API changes."),
+      true,
+    );
+    assertEquals(fileContent, "# Backend Skill\n");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService applies skill file sync with confirmation", async () => {
+  const { root, file } = await createSkillFileForService("backend-skill");
+  const { repo, service } = await createCatalogService({ skillRoots: [root] });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve skill context.",
+      skillContext: {
+        whenToUse: "Use for backend API changes.",
+        constraints: ["Keep edits scoped."],
+      },
+    });
+    await service.applySkillUpdate({
+      workspace: "LOR-MCP",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+
+    await assertRejects(
+      () =>
+        service.applySkillFileSync({
+          workspace: "LOR-MCP",
+          skillName: "backend-skill",
+          proposalId: proposal.proposal.proposalId,
+          confirm: false as true,
+        }),
+      Error,
+      "confirm must be true",
+    );
+    const result = await service.applySkillFileSync({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+    const updated = await Deno.readTextFile(file);
+
+    assertEquals(result.written, true);
+    assertEquals(updated.includes("## LOR Managed Context"), true);
+    assertEquals(updated.includes("Use for backend API changes."), true);
+    assertEquals(updated.includes("- Keep edits scoped."), true);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns not_found for unresolved local skill files", async () => {
+  const root = await Deno.makeTempDir();
+  const { repo, service } = await createCatalogService({ skillRoots: [root] });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "missing-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Missing Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      skillName: "missing-skill",
+      reason: "Improve skill context.",
+      skillContext: {
+        whenToUse: "Use for backend API changes.",
+      },
+    });
+    await service.applySkillUpdate({
+      workspace: "LOR-MCP",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+
+    await assertRejects(
+      () =>
+        service.previewSkillFileSync({
+          workspace: "LOR-MCP",
+          skillName: "missing-skill",
+          proposalId: proposal.proposal.proposalId,
+        }),
+      Error,
+      "Skill file was not found",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService rejects proposal skill mismatches", async () => {
+  const { root } = await createSkillFileForService("backend-skill");
+  const { repo, service } = await createCatalogService({ skillRoots: [root] });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve skill context.",
+      skillContext: {
+        whenToUse: "Use for backend API changes.",
+      },
+    });
+    await service.applySkillUpdate({
+      workspace: "LOR-MCP",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+
+    await assertRejects(
+      () =>
+        service.previewSkillFileSync({
+          workspace: "LOR-MCP",
+          skillName: "other-skill",
+          proposalId: proposal.proposal.proposalId,
+        }),
+      Error,
+      "does not belong",
+    );
+    await assertRejects(
+      () =>
+        service.previewSkillFileSync({
+          workspace: "LOR-MCP",
+          skillName: "../backend-skill",
+          proposalId: proposal.proposal.proposalId,
+        }),
+      Error,
+      "does not belong",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService rejects empty catalog metadata updates", async () => {
   const { repo, service } = await createCatalogService();
   try {
@@ -1147,3 +1354,14 @@ Deno.test("CatalogService prepare handoff does not cross workspaces", async () =
     repo.close();
   }
 });
+
+async function createSkillFileForService(
+  skillName: string,
+): Promise<{ root: string; file: string }> {
+  const root = await Deno.makeTempDir();
+  const skillDir = join(root, skillName);
+  await Deno.mkdir(skillDir, { recursive: true });
+  const file = join(skillDir, "SKILL.md");
+  await Deno.writeTextFile(file, "# Backend Skill\n");
+  return { root, file };
+}
