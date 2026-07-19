@@ -1,4 +1,5 @@
 import {
+  type ApplySkillUpdateInput,
   type CatalogEntryUpdate,
   type CatalogExportEntry,
   type CatalogExportFilter,
@@ -10,7 +11,10 @@ import {
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type PrepareAgentHandoffInput,
+  type ProposeSkillUpdateInput,
   type RegisterWorkspaceAliasInput,
+  type SkillContext,
+  type SkillMetadataUpdate,
 } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
 import { requireWorkspace } from "@src/catalog/workspace.ts";
@@ -39,6 +43,9 @@ export function validateIntroduceSkill(
     displayName: requireString(input.displayName, "displayName"),
     primarySpecialty: requireString(input.primarySpecialty, "primarySpecialty"),
     specialtyTags: requireTags(input.specialtyTags),
+    skillContext: input.skillContext
+      ? validateSkillContext(input.skillContext, "skillContext")
+      : undefined,
   };
 }
 
@@ -183,6 +190,51 @@ export function validatePrepareAgentHandoff(
   };
 }
 
+export function validateProposeSkillUpdate(
+  input: ProposeSkillUpdateInput,
+): ProposeSkillUpdateInput {
+  const skillContext = input.skillContext
+    ? validateSkillContext(input.skillContext, "skillContext")
+    : undefined;
+  const metadata = input.metadata
+    ? validateSkillMetadataUpdate(input.metadata)
+    : undefined;
+
+  if (!skillContext && !metadata) {
+    throw new LorError(
+      "validation_error",
+      "At least one skillContext or metadata field is required.",
+      { field: "update" },
+    );
+  }
+
+  return {
+    workspace: requireWorkspace(input.workspace),
+    skillName: requireString(input.skillName, "skillName"),
+    reason: requireString(input.reason, "reason"),
+    skillContext,
+    metadata,
+  };
+}
+
+export function validateApplySkillUpdate(
+  input: ApplySkillUpdateInput,
+): ApplySkillUpdateInput {
+  if (input.confirm !== true) {
+    throw new LorError(
+      "validation_error",
+      "confirm must be true.",
+      { field: "confirm" },
+    );
+  }
+
+  return {
+    workspace: requireWorkspace(input.workspace),
+    proposalId: requireString(input.proposalId, "proposalId"),
+    confirm: true,
+  };
+}
+
 export function validateRegisterWorkspaceAlias(
   input: RegisterWorkspaceAliasInput,
 ): RegisterWorkspaceAliasInput {
@@ -264,6 +316,12 @@ function validateCatalogImportEntry(
       entry.skillName,
       `catalog.entries.${index}.skillName`,
     ),
+    skillContext: entry.skillContext
+      ? validateSkillContext(
+        entry.skillContext,
+        `catalog.entries.${index}.skillContext`,
+      )
+      : undefined,
   };
 }
 
@@ -340,7 +398,93 @@ function validateHandoff(handoff: HandoffMetadata): HandoffMetadata {
   };
 }
 
-function requireStringList(values: string[], field: string): string[] {
+function validateSkillContext(
+  context: SkillContext,
+  fieldPrefix: string,
+): SkillContext {
+  const normalized: SkillContext = {};
+
+  if (context.whenToUse !== undefined) {
+    normalized.whenToUse = requireString(
+      context.whenToUse,
+      `${fieldPrefix}.whenToUse`,
+    );
+  }
+  if (context.usageNotes !== undefined) {
+    normalized.usageNotes = requireString(
+      context.usageNotes,
+      `${fieldPrefix}.usageNotes`,
+    );
+  }
+  if (context.constraints !== undefined) {
+    normalized.constraints = requireStringList(
+      context.constraints,
+      `${fieldPrefix}.constraints`,
+    );
+  }
+  if (context.examplePrompts !== undefined) {
+    normalized.examplePrompts = requireStringList(
+      context.examplePrompts,
+      `${fieldPrefix}.examplePrompts`,
+    );
+  }
+
+  if (!hasSkillContextFields(normalized)) {
+    throw new LorError(
+      "validation_error",
+      `${fieldPrefix} must include at least one field.`,
+      { field: fieldPrefix },
+    );
+  }
+
+  return normalized;
+}
+
+function validateSkillMetadataUpdate(
+  metadata: SkillMetadataUpdate,
+): SkillMetadataUpdate | undefined {
+  const update: SkillMetadataUpdate = {};
+
+  if (metadata.projectName !== undefined) {
+    update.projectName = requireString(
+      metadata.projectName,
+      "metadata.projectName",
+    );
+  }
+  if (metadata.displayName !== undefined) {
+    update.displayName = requireString(
+      metadata.displayName,
+      "metadata.displayName",
+    );
+  }
+  if (metadata.primarySpecialty !== undefined) {
+    update.primarySpecialty = requireString(
+      metadata.primarySpecialty,
+      "metadata.primarySpecialty",
+    );
+  }
+  if (metadata.specialtyTags !== undefined) {
+    update.specialtyTags = requireTags(metadata.specialtyTags);
+  }
+
+  return hasSkillMetadataFields(update) ? update : undefined;
+}
+
+function hasSkillContextFields(context: SkillContext): boolean {
+  return context.whenToUse !== undefined ||
+    context.usageNotes !== undefined ||
+    context.constraints !== undefined ||
+    context.examplePrompts !== undefined;
+}
+
+function hasSkillMetadataFields(metadata: SkillMetadataUpdate): boolean {
+  return metadata.projectName !== undefined ||
+    metadata.displayName !== undefined ||
+    metadata.primarySpecialty !== undefined ||
+    metadata.specialtyTags !== undefined;
+}
+
+function requireStringList(values: readonly string[], field: string): string[] {
   if (!Array.isArray(values)) {
     throw new LorError("validation_error", `${field} is required.`, {
       field,

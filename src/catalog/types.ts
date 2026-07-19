@@ -18,6 +18,13 @@ export interface HandoffMetadata {
   constraints: string[];
 }
 
+export interface SkillContext {
+  whenToUse?: string;
+  usageNotes?: string;
+  constraints?: readonly string[];
+  examplePrompts?: readonly string[];
+}
+
 export interface BaseCatalogEntry extends VerificationMetadata {
   workspace: string;
   entryType: EntryType;
@@ -39,6 +46,7 @@ export interface AgentCatalogEntry extends BaseCatalogEntry {
 export interface SkillCatalogEntry extends BaseCatalogEntry {
   entryType: "skill";
   skillName: string;
+  skillContext?: SkillContext;
 }
 
 export type CatalogEntry = AgentCatalogEntry | SkillCatalogEntry;
@@ -60,6 +68,7 @@ export interface IntroduceSkillInput {
   displayName: string;
   primarySpecialty: string;
   specialtyTags: readonly string[];
+  skillContext?: SkillContext;
 }
 
 export interface ListEntriesFilter {
@@ -102,6 +111,47 @@ export interface CatalogEntryUpdate extends EntryLookup {
   specialtyTags?: readonly string[];
 }
 
+export interface SkillMetadataUpdate {
+  projectName?: string;
+  displayName?: string;
+  primarySpecialty?: string;
+  specialtyTags?: readonly string[];
+}
+
+export type SkillUpdateProposalStatus = "pending" | "applied";
+
+export interface ProposeSkillUpdateInput {
+  workspace: string;
+  skillName: string;
+  reason: string;
+  skillContext?: SkillContext;
+  metadata?: SkillMetadataUpdate;
+}
+
+export interface ApplySkillUpdateInput {
+  workspace: string;
+  proposalId: string;
+  confirm: true;
+}
+
+export interface SkillUpdateProposal {
+  proposalId: string;
+  workspace: string;
+  skillName: string;
+  reason: string;
+  proposedSkillContext?: SkillContext;
+  proposedMetadata?: SkillMetadataUpdate;
+  status: SkillUpdateProposalStatus;
+  createdAt: string;
+  appliedAt?: string;
+}
+
+export interface SkillUpdateProposalResult {
+  proposal: SkillUpdateProposal;
+  before: SkillCatalogEntry;
+  after: SkillCatalogEntry;
+}
+
 export interface RemoveCatalogEntryResult extends EntryLookup {
   removed: true;
 }
@@ -131,6 +181,7 @@ export interface CatalogExportSkillEntry extends VerificationMetadata {
   displayName: string;
   primarySpecialty: string;
   specialtyTags: readonly string[];
+  skillContext?: SkillContext;
 }
 
 export type CatalogExportEntry =
@@ -277,6 +328,7 @@ export interface MatchCandidate {
   projectName: string;
   primarySpecialty: string;
   specialtyTags: readonly string[];
+  skillContext?: SkillContext;
   score: number;
   matchedFields: string[];
   matchedSignals: string[];
@@ -316,6 +368,21 @@ export interface CatalogRepository {
       now: string;
     },
   ): Promise<SkillCatalogEntry>;
+  createSkillUpdateProposal(
+    input: SkillUpdateProposal,
+  ): Promise<SkillUpdateProposal>;
+  getSkillUpdateProposal(
+    workspace: string,
+    proposalId: string,
+  ): Promise<SkillUpdateProposal | undefined>;
+  applySkillUpdateProposal(
+    workspace: string,
+    proposalId: string,
+    input: {
+      entry: SkillCatalogEntry;
+      appliedAt: string;
+    },
+  ): Promise<SkillUpdateProposal | undefined>;
   listEntries(
     workspace: string,
     filter: ListEntriesFilter,

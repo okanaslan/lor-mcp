@@ -29,6 +29,22 @@ export const introduceSkillInputSchema = z.object({
   displayName: z.string().trim().min(1),
   primarySpecialty: z.string().trim().min(1),
   specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  skillContext: z.object({
+    whenToUse: z.string().trim().min(1).optional(),
+    usageNotes: z.string().trim().min(1).optional(),
+    constraints: z.array(z.string().trim().min(1)).min(1).optional(),
+    examplePrompts: z.array(z.string().trim().min(1)).min(1).optional(),
+  }).refine(
+    (context) =>
+      context.whenToUse !== undefined ||
+      context.usageNotes !== undefined ||
+      context.constraints !== undefined ||
+      context.examplePrompts !== undefined,
+    {
+      message: "skillContext must include at least one field.",
+      path: ["skillContext"],
+    },
+  ).optional(),
 });
 
 export const listCatalogEntriesInputSchema = z.object({
@@ -75,6 +91,60 @@ export const updateCatalogEntryInputSchema = z.object({
   },
 );
 
+const skillContextSchema = z.object({
+  whenToUse: z.string().trim().min(1).optional(),
+  usageNotes: z.string().trim().min(1).optional(),
+  constraints: z.array(z.string().trim().min(1)).min(1).optional(),
+  examplePrompts: z.array(z.string().trim().min(1)).min(1).optional(),
+}).refine(
+  (context) =>
+    context.whenToUse !== undefined ||
+    context.usageNotes !== undefined ||
+    context.constraints !== undefined ||
+    context.examplePrompts !== undefined,
+  {
+    message: "skillContext must include at least one field.",
+    path: ["skillContext"],
+  },
+);
+
+const skillMetadataUpdateSchema = z.object({
+  projectName: z.string().trim().min(1).optional(),
+  displayName: z.string().trim().min(1).optional(),
+  primarySpecialty: z.string().trim().min(1).optional(),
+  specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
+}).refine(
+  (metadata) =>
+    metadata.projectName !== undefined ||
+    metadata.displayName !== undefined ||
+    metadata.primarySpecialty !== undefined ||
+    metadata.specialtyTags !== undefined,
+  {
+    message: "metadata must include at least one field.",
+    path: ["metadata"],
+  },
+);
+
+export const proposeSkillUpdateInputSchema = z.object({
+  workspace: workspaceSchema,
+  skillName: z.string().trim().min(1),
+  reason: z.string().trim().min(1),
+  skillContext: skillContextSchema.optional(),
+  metadata: skillMetadataUpdateSchema.optional(),
+}).refine(
+  (input) => input.skillContext !== undefined || input.metadata !== undefined,
+  {
+    message: "At least one skillContext or metadata field is required.",
+    path: ["update"],
+  },
+);
+
+export const applySkillUpdateInputSchema = z.object({
+  workspace: workspaceSchema,
+  proposalId: z.string().trim().min(1),
+  confirm: z.literal(true),
+});
+
 export const removeCatalogEntryInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema,
@@ -114,6 +184,7 @@ const exportSkillEntrySchema = z.object({
   verificationSource: z.string().trim().min(1),
   verifiedAt: z.string().trim().min(1),
   verificationMessage: z.string().trim().min(1).optional(),
+  skillContext: skillContextSchema.optional(),
 });
 
 export const importCatalogInputSchema = z.object({
@@ -187,6 +258,12 @@ export type GetCatalogEntryDetailToolInput = z.infer<
 >;
 export type UpdateCatalogEntryToolInput = z.infer<
   typeof updateCatalogEntryInputSchema
+>;
+export type ProposeSkillUpdateToolInput = z.infer<
+  typeof proposeSkillUpdateInputSchema
+>;
+export type ApplySkillUpdateToolInput = z.infer<
+  typeof applySkillUpdateInputSchema
 >;
 export type RemoveCatalogEntryToolInput = z.infer<
   typeof removeCatalogEntryInputSchema

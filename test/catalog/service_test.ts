@@ -367,6 +367,233 @@ Deno.test("CatalogService updates editable catalog metadata", async () => {
   }
 });
 
+Deno.test("CatalogService proposes skill update without mutating skill", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      skillContext: {
+        whenToUse: "Use for backend tasks.",
+      },
+    });
+
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Add project-specific context.",
+      skillContext: {
+        usageNotes: "Check existing tools before adding new ones.",
+      },
+      metadata: {
+        displayName: "LOR Backend Skill",
+      },
+    });
+    const unchanged = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+
+    assertEquals(proposal.proposal.status, "pending");
+    assertEquals(proposal.before.displayName, "Backend Skill");
+    assertEquals(proposal.after.displayName, "LOR Backend Skill");
+    assertEquals(proposal.after.skillContext, {
+      whenToUse: "Use for backend tasks.",
+      usageNotes: "Check existing tools before adding new ones.",
+    });
+    if (unchanged?.entryType !== "skill") {
+      throw new Error("Expected skill.");
+    }
+    assertEquals(unchanged.displayName, "Backend Skill");
+    assertEquals(unchanged.skillContext, {
+      whenToUse: "Use for backend tasks.",
+    });
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService applies skill update with confirmation", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve routing metadata.",
+      skillContext: {
+        whenToUse: "Use for Deno MCP backend changes.",
+        constraints: ["Do not edit local skill files."],
+      },
+      metadata: {
+        primarySpecialty: "Deno MCP backend",
+        specialtyTags: ["deno", "mcp", "backend"],
+      },
+    });
+
+    const applied = await service.applySkillUpdate({
+      workspace: "LOR-MCP",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+    const detail = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+
+    assertEquals(applied.proposal.status, "applied");
+    assertEquals(applied.proposal.appliedAt, FIXED_NOW);
+    assertEquals(applied.after.primarySpecialty, "Deno MCP backend");
+    assertEquals(applied.after.specialtyTags, ["deno", "mcp", "backend"]);
+    if (detail?.entryType !== "skill") {
+      throw new Error("Expected skill.");
+    }
+    assertEquals(
+      detail.skillContext?.whenToUse,
+      "Use for Deno MCP backend changes.",
+    );
+    assertEquals(detail.skillContext?.constraints, [
+      "Do not edit local skill files.",
+    ]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService validates skill update proposals and application", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    await assertRejects(
+      () =>
+        service.proposeSkillUpdate({
+          workspace: "LOR-MCP",
+          skillName: "missing-skill",
+          reason: "Improve context.",
+          skillContext: { whenToUse: "Backend work." },
+        }),
+      Error,
+      "not_found",
+    );
+    await assertRejects(
+      () =>
+        service.proposeSkillUpdate({
+          workspace: "LOR-MCP",
+          skillName: "backend-skill",
+          reason: "Improve context.",
+        }),
+      Error,
+      "At least one skillContext or metadata field is required",
+    );
+    await assertRejects(
+      () =>
+        service.applySkillUpdate({
+          workspace: "LOR-MCP",
+          proposalId: "missing-proposal",
+          confirm: true,
+        }),
+      Error,
+      "not_found",
+    );
+
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve context.",
+      skillContext: { whenToUse: "Backend work." },
+    });
+    await service.applySkillUpdate({
+      workspace: "LOR-MCP",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+    await assertRejects(
+      () =>
+        service.applySkillUpdate({
+          workspace: "LOR-MCP",
+          proposalId: proposal.proposal.proposalId,
+          confirm: true,
+        }),
+      Error,
+      "already been applied",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService skill update proposals do not cross workspaces", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "workspace-a",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSkill({
+      workspace: "workspace-b",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Other Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "workspace-a",
+      skillName: "backend-skill",
+      reason: "Improve context.",
+      skillContext: { whenToUse: "Workspace A work." },
+    });
+
+    await assertRejects(
+      () =>
+        service.applySkillUpdate({
+          workspace: "workspace-b",
+          proposalId: proposal.proposal.proposalId,
+          confirm: true,
+        }),
+      Error,
+      "not_found",
+    );
+    const workspaceB = await service.getEntryDetail({
+      workspace: "workspace-b",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+
+    if (workspaceB?.entryType !== "skill") {
+      throw new Error("Expected skill.");
+    }
+    assertEquals(workspaceB.skillContext, undefined);
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService rejects empty catalog metadata updates", async () => {
   const { repo, service } = await createCatalogService();
   try {

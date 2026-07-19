@@ -1,6 +1,8 @@
 import type { McpServer } from "@mcp/server";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 import {
+  applySkillUpdateInputSchema,
+  type ApplySkillUpdateToolInput,
   checkCatalogHealthInputSchema,
   type CheckCatalogHealthToolInput,
   clearWorkspaceCatalogInputSchema,
@@ -23,6 +25,8 @@ import {
   type ListCatalogEntriesToolInput,
   prepareAgentHandoffInputSchema,
   type PrepareAgentHandoffToolInput,
+  proposeSkillUpdateInputSchema,
+  type ProposeSkillUpdateToolInput,
   registerWorkspaceAliasInputSchema,
   type RegisterWorkspaceAliasToolInput,
   removeCatalogEntryInputSchema,
@@ -212,6 +216,66 @@ export function registerCatalogTools(
         async (runtime) => {
           const entry = await runtime.service.updateCatalogEntry(input);
           return okResult(entry, `Updated ${entry.displayName}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "propose_skill_update",
+    {
+      description:
+        "Propose an approval-gated update to stored context for a registered skill.",
+      inputSchema: proposeSkillUpdateInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    (input: ProposeSkillUpdateToolInput) =>
+      withLoggedRuntime(
+        "propose_skill_update",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.proposeSkillUpdate(input);
+          return okResult(
+            result,
+            `Proposed update ${result.proposal.proposalId} for ${result.after.displayName}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "apply_skill_update",
+    {
+      description:
+        "Apply a pending registered skill update proposal after explicit confirmation.",
+      inputSchema: applySkillUpdateInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    (input: ApplySkillUpdateToolInput) =>
+      withLoggedRuntime(
+        "apply_skill_update",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.applySkillUpdate(input);
+          return okResult(
+            result,
+            `Applied update ${result.proposal.proposalId} for ${result.after.displayName}.`,
+          );
         },
       ),
   );

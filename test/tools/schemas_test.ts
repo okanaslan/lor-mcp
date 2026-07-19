@@ -1,11 +1,13 @@
 import { assertEquals } from "@std/assert";
 import {
+  applySkillUpdateInputSchema,
   checkCatalogHealthInputSchema,
   clearWorkspaceCatalogInputSchema,
   exportCatalogInputSchema,
   generateAgentPromptInputSchema,
   importCatalogInputSchema,
   prepareAgentHandoffInputSchema,
+  proposeSkillUpdateInputSchema,
   registerWorkspaceAliasInputSchema,
   removeCatalogEntryInputSchema,
   updateCatalogEntryInputSchema,
@@ -122,6 +124,54 @@ Deno.test("updateCatalogEntryInputSchema requires an editable field", () => {
       entryType: "agent",
       entryKey: "agent-1",
       specialtyTags: [],
+    }).success,
+    false,
+  );
+});
+
+Deno.test("skill update schemas require proposal content and confirmation", () => {
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve routing context.",
+      skillContext: {
+        whenToUse: "Backend MCP changes.",
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve routing metadata.",
+      metadata: {
+        specialtyTags: ["deno", "mcp"],
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve context.",
+    }).success,
+    false,
+  );
+  assertEquals(
+    applySkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      proposalId: "proposal-1",
+      confirm: true,
+    }).success,
+    true,
+  );
+  assertEquals(
+    applySkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      proposalId: "proposal-1",
     }).success,
     false,
   );

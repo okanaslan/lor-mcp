@@ -61,6 +61,8 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "register_workspace_alias",
       "get_catalog_entry_detail",
       "update_catalog_entry",
+      "propose_skill_update",
+      "apply_skill_update",
       "remove_catalog_entry",
       "export_catalog",
       "import_catalog",
@@ -120,6 +122,80 @@ Deno.test("HTTP MCP handler calls update_catalog_entry", async () => {
       "deno",
       "mcp",
     ]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls propose_skill_update and apply_skill_update", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const proposeResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "propose_skill_update",
+        arguments: {
+          workspace: "LOR-MCP",
+          skillName: "backend-skill",
+          reason: "Improve routing context.",
+          skillContext: {
+            whenToUse: "Use for Deno MCP backend work.",
+          },
+          metadata: {
+            displayName: "LOR Backend Skill",
+          },
+        },
+      },
+    });
+    const proposeBody = await proposeResponse.json();
+    const proposalId =
+      proposeBody.result.structuredContent.data.proposal.proposalId;
+    const applyResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "apply_skill_update",
+        arguments: {
+          workspace: "LOR-MCP",
+          proposalId,
+          confirm: true,
+        },
+      },
+    });
+    const applyBody = await applyResponse.json();
+
+    assertEquals(proposeResponse.status, 200);
+    assertEquals(proposeBody.result.structuredContent.status, "ok");
+    assertEquals(
+      proposeBody.result.structuredContent.data.after.displayName,
+      "LOR Backend Skill",
+    );
+    assertEquals(applyResponse.status, 200);
+    assertEquals(applyBody.result.structuredContent.status, "ok");
+    assertEquals(
+      applyBody.result.structuredContent.data.after.skillContext.whenToUse,
+      "Use for Deno MCP backend work.",
+    );
   } finally {
     repo.close();
   }

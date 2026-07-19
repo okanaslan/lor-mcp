@@ -42,6 +42,9 @@ flowchart RL
   listEntries --> removeEntry["remove_catalog_entry"]
   removeEntry --> clearCatalog["clear_workspace_catalog"]
   listEntries --> updateEntry["update_catalog_entry"]
+  updateEntry --> proposeSkillUpdate["propose_skill_update"]
+  proposeSkillUpdate --> applySkillUpdate["apply_skill_update"]
+  applySkillUpdate --> catalog
   listEntries --> findMatch["find_matching_catalog_entry"]
   findMatch --> detail["get_catalog_entry_detail"]
   detail --> handoff["prepare_agent_handoff"]

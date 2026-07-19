@@ -260,6 +260,227 @@ Deno.test("SqliteCatalogRepository round-trips stored verification status", asyn
   }
 });
 
+Deno.test("SqliteCatalogRepository round-trips skill context", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedSkill(repo, "workspace-a", "backend-skill", {
+      skillContext: {
+        whenToUse: "Use for backend routing work.",
+        usageNotes: "Prefer focused API changes.",
+        constraints: ["Do not edit local skill files."],
+        examplePrompts: ["Improve MCP tool validation."],
+      },
+    });
+
+    const skill = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+
+    if (skill?.entryType !== "skill") {
+      throw new Error("Expected skill.");
+    }
+    assertEquals(skill.skillContext, {
+      whenToUse: "Use for backend routing work.",
+      usageNotes: "Prefer focused API changes.",
+      constraints: ["Do not edit local skill files."],
+      examplePrompts: ["Improve MCP tool validation."],
+    });
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository persists skill update proposals across restarts", async () => {
+  const dir = await Deno.makeTempDir();
+  const dbPath = join(dir, "catalog.db");
+  const firstRepo = new SqliteCatalogRepository(dbPath);
+  await firstRepo.initialize();
+  try {
+    await seedSkill(firstRepo, "workspace-a", "backend-skill");
+    await firstRepo.createSkillUpdateProposal({
+      proposalId: "proposal-1",
+      workspace: "workspace-a",
+      skillName: "backend-skill",
+      reason: "Add routing guidance.",
+      proposedSkillContext: {
+        whenToUse: "Use for backend API work.",
+      },
+      proposedMetadata: {
+        specialtyTags: ["backend", "api"],
+      },
+      status: "pending",
+      createdAt: FIXED_NOW,
+    });
+  } finally {
+    firstRepo.close();
+  }
+
+  const secondRepo = new SqliteCatalogRepository(dbPath);
+  await secondRepo.initialize();
+  try {
+    const proposal = await secondRepo.getSkillUpdateProposal(
+      "workspace-a",
+      "proposal-1",
+    );
+
+    assertEquals(proposal?.status, "pending");
+    assertEquals(
+      proposal?.proposedSkillContext?.whenToUse,
+      "Use for backend API work.",
+    );
+    assertEquals(proposal?.proposedMetadata?.specialtyTags, ["backend", "api"]);
+  } finally {
+    secondRepo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository applies skill update proposals", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedSkill(repo, "workspace-a", "backend-skill");
+    await repo.createSkillUpdateProposal({
+      proposalId: "proposal-1",
+      workspace: "workspace-a",
+      skillName: "backend-skill",
+      reason: "Add routing guidance.",
+      proposedSkillContext: {
+        usageNotes: "Use after checking existing catalog entries.",
+      },
+      status: "pending",
+      createdAt: FIXED_NOW,
+    });
+
+    const applied = await repo.applySkillUpdateProposal(
+      "workspace-a",
+      "proposal-1",
+      {
+        appliedAt: "2026-07-12T01:00:00.000Z",
+        entry: {
+          workspace: "workspace-a",
+          entryType: "skill",
+          entryKey: "backend-skill",
+          skillName: "backend-skill",
+          projectName: "Local Orchestration Router (LOR)",
+          displayName: "Backend Skill",
+          primarySpecialty: "backend api",
+          specialtyTags: ["backend", "api"],
+          skillContext: {
+            usageNotes: "Use after checking existing catalog entries.",
+          },
+          verificationStatus: "verified",
+          verificationSource: "test",
+          verifiedAt: FIXED_NOW,
+          createdAt: FIXED_NOW,
+          updatedAt: "2026-07-12T01:00:00.000Z",
+        },
+      },
+    );
+    const skill = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+    const secondApply = await repo.applySkillUpdateProposal(
+      "workspace-a",
+      "proposal-1",
+      {
+        appliedAt: "2026-07-12T02:00:00.000Z",
+        entry: skill as never,
+      },
+    );
+
+    assertEquals(applied?.status, "applied");
+    assertEquals(applied?.appliedAt, "2026-07-12T01:00:00.000Z");
+    if (skill?.entryType !== "skill") {
+      throw new Error("Expected skill.");
+    }
+    assertEquals(skill.specialtyTags, ["backend", "api"]);
+    assertEquals(
+      skill.skillContext?.usageNotes,
+      "Use after checking existing catalog entries.",
+    );
+    assertEquals(secondApply, undefined);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository migrates existing skills to skill context schema", async () => {
+  const dir = await Deno.makeTempDir();
+  const dbPath = join(dir, "catalog.db");
+  const { Database } = await import("@db/sqlite");
+  const db = new Database(dbPath);
+  db.exec(`
+    CREATE TABLE schema_migrations (
+      version INTEGER PRIMARY KEY,
+      appliedAt TEXT NOT NULL
+    );
+    CREATE TABLE workspace_aliases (
+      alias TEXT PRIMARY KEY,
+      canonicalWorkspace TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+    CREATE TABLE introduced_agents (
+      workspace TEXT NOT NULL,
+      codexSessionId TEXT NOT NULL,
+      projectName TEXT NOT NULL,
+      displayName TEXT NOT NULL,
+      primarySpecialty TEXT NOT NULL,
+      specialtyTags TEXT NOT NULL,
+      handoff TEXT,
+      verificationStatus TEXT NOT NULL,
+      verificationSource TEXT NOT NULL,
+      verifiedAt TEXT NOT NULL,
+      verificationMessage TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      PRIMARY KEY (workspace, codexSessionId)
+    );
+    CREATE TABLE introduced_skills (
+      workspace TEXT NOT NULL,
+      skillName TEXT NOT NULL,
+      projectName TEXT NOT NULL,
+      displayName TEXT NOT NULL,
+      primarySpecialty TEXT NOT NULL,
+      specialtyTags TEXT NOT NULL,
+      verificationStatus TEXT NOT NULL,
+      verificationSource TEXT NOT NULL,
+      verifiedAt TEXT NOT NULL,
+      verificationMessage TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      PRIMARY KEY (workspace, skillName)
+    );
+    INSERT INTO introduced_skills (
+      workspace, skillName, projectName, displayName, primarySpecialty,
+      specialtyTags, verificationStatus, verificationSource, verifiedAt,
+      verificationMessage, createdAt, updatedAt
+    ) VALUES (
+      'workspace-a', 'backend-skill', 'Local Orchestration Router (LOR)',
+      'Backend Skill', 'backend api', '["api"]', 'verified', 'test',
+      '${FIXED_NOW}', NULL, '${FIXED_NOW}', '${FIXED_NOW}'
+    );
+  `);
+  db.close();
+
+  const migrated = new SqliteCatalogRepository(dbPath);
+  await migrated.initialize();
+  try {
+    const skill = await migrated.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+
+    assertEquals(skill?.entryKey, "backend-skill");
+  } finally {
+    migrated.close();
+  }
+});
+
 Deno.test("SqliteCatalogRepository clears agents and skills by workspace only", async () => {
   const repo = await createInitializedRepository();
   try {

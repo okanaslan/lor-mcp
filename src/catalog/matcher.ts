@@ -110,6 +110,7 @@ function scoreEntry(
     projectName: entry.projectName,
     primarySpecialty: entry.primarySpecialty,
     specialtyTags: entry.specialtyTags,
+    skillContext: entry.entryType === "skill" ? entry.skillContext : undefined,
     score,
     matchedFields,
     matchedSignals,

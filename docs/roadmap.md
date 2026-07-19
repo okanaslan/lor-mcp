@@ -27,6 +27,8 @@ Implemented in the first runnable v1 slice:
   - `register_workspace_alias`
   - `get_catalog_entry_detail`
   - `update_catalog_entry`
+  - `propose_skill_update`
+  - `apply_skill_update`
   - `remove_catalog_entry`
   - `export_catalog`
   - `import_catalog`
@@ -75,6 +77,8 @@ Latest implementation verification:
   metadata for later agent registration.
 - [Update Catalog Entry](feature-specs/update-catalog-entry.md): Implemented for
   v1 partial metadata updates.
+- [Registered Skill Context Updates](feature-specs/registered-skill-context-updates.md):
+  Implemented for v1 approval-gated stored skill context updates.
 - [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Implemented for
   v1 single-entry hard delete.
 - [Skill / Agent Existence Verification](feature-specs/existence-verification.md):
@@ -96,5 +100,7 @@ Latest implementation verification:
   workspace alias resolution, and the Streamable HTTP runtime.
 - Decide whether future health refresh should probe external evidence sources
   and update stored verification metadata.
+- Decide whether approved LOR skill context should sync to local `SKILL.md`
+  files through a separate future workflow.
 - Decide whether conflict handling needs a dedicated follow-up beyond the basic
   equally scored agent conflict reporting in v1 matching.

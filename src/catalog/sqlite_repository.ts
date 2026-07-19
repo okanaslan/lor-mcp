@@ -13,6 +13,7 @@ import type {
   RegisterWorkspaceAliasInput,
   RegisterWorkspaceAliasResult,
   SkillCatalogEntry,
+  SkillUpdateProposal,
   VerificationMetadata,
 } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
@@ -45,12 +46,25 @@ interface SkillRow {
   displayName: string;
   primarySpecialty: string;
   specialtyTags: string;
+  skillContext: string | null;
   verificationStatus: string;
   verificationSource: string;
   verifiedAt: string;
   verificationMessage: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface SkillUpdateProposalRow {
+  proposalId: string;
+  workspace: string;
+  skillName: string;
+  reason: string;
+  proposedSkillContext: string | null;
+  proposedMetadata: string | null;
+  status: string;
+  createdAt: string;
+  appliedAt: string | null;
 }
 
 interface WorkspaceAliasRow {
@@ -74,8 +88,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
       this.#db.exec("PRAGMA synchronous = NORMAL");
       this.#db.exec(SCHEMA_SQL);
       migrateLegacyNamespaceColumns(this.#db);
+      migrateSkillContextColumn(this.#db);
       backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 3);
+      recordSchemaVersion(this.#db, 4);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -154,16 +169,17 @@ export class SqliteCatalogRepository implements CatalogRepository {
       db.exec(
         `INSERT INTO introduced_skills (
           workspace, skillName, projectName, displayName,
-          primarySpecialty, specialtyTags, verificationStatus,
+          primarySpecialty, specialtyTags, skillContext, verificationStatus,
           verificationSource, verifiedAt, verificationMessage, createdAt,
           updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         workspace,
         input.skillName,
         input.projectName,
         input.displayName,
         input.primarySpecialty,
         JSON.stringify(input.specialtyTags),
+        input.skillContext ? JSON.stringify(input.skillContext) : null,
         input.verification.verificationStatus,
         input.verification.verificationSource,
         input.verification.verifiedAt,
@@ -181,6 +197,96 @@ export class SqliteCatalogRepository implements CatalogRepository {
         entryKey: input.skillName,
       });
       return created as SkillCatalogEntry;
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
+  createSkillUpdateProposal(
+    input: SkillUpdateProposal,
+  ): Promise<SkillUpdateProposal> {
+    const db = this.requireDb();
+    try {
+      db.exec(
+        `INSERT INTO skill_update_proposals (
+          proposalId, workspace, skillName, reason, proposedSkillContext,
+          proposedMetadata, status, createdAt, appliedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        input.proposalId,
+        input.workspace,
+        input.skillName,
+        input.reason,
+        input.proposedSkillContext
+          ? JSON.stringify(input.proposedSkillContext)
+          : null,
+        input.proposedMetadata ? JSON.stringify(input.proposedMetadata) : null,
+        input.status,
+        input.createdAt,
+        input.appliedAt ?? null,
+      );
+      return Promise.resolve(input);
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
+  getSkillUpdateProposal(
+    workspace: string,
+    proposalId: string,
+  ): Promise<SkillUpdateProposal | undefined> {
+    const row = this.requireDb().prepare<SkillUpdateProposalRow>(
+      `SELECT * FROM skill_update_proposals
+       WHERE workspace = ? AND proposalId = ?`,
+    ).get(workspace, proposalId);
+    return Promise.resolve(row ? mapSkillUpdateProposalRow(row) : undefined);
+  }
+
+  applySkillUpdateProposal(
+    workspace: string,
+    proposalId: string,
+    input: {
+      entry: SkillCatalogEntry;
+      appliedAt: string;
+    },
+  ): Promise<SkillUpdateProposal | undefined> {
+    const db = this.requireDb();
+    const apply = db.transaction(() => {
+      const proposal = this.getSkillUpdateProposalSync(workspace, proposalId);
+      if (!proposal || proposal.status !== "pending") {
+        return undefined;
+      }
+
+      db.exec(
+        `UPDATE introduced_skills
+         SET projectName = ?, displayName = ?, primarySpecialty = ?,
+           specialtyTags = ?, skillContext = ?, updatedAt = ?
+         WHERE workspace = ? AND skillName = ?`,
+        input.entry.projectName,
+        input.entry.displayName,
+        input.entry.primarySpecialty,
+        JSON.stringify(input.entry.specialtyTags),
+        input.entry.skillContext
+          ? JSON.stringify(input.entry.skillContext)
+          : null,
+        input.appliedAt,
+        workspace,
+        input.entry.skillName,
+      );
+      db.exec(
+        `UPDATE skill_update_proposals
+         SET status = ?, appliedAt = ?
+         WHERE workspace = ? AND proposalId = ?`,
+        "applied",
+        input.appliedAt,
+        workspace,
+        proposalId,
+      );
+
+      return this.getSkillUpdateProposalSync(workspace, proposalId);
+    });
+
+    try {
+      return Promise.resolve(apply());
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -317,6 +423,17 @@ export class SqliteCatalogRepository implements CatalogRepository {
        WHERE workspace = ? AND skillName = ?`,
     ).get(workspace, lookup.entryKey);
     return row ? mapSkillRow(row) : undefined;
+  }
+
+  private getSkillUpdateProposalSync(
+    workspace: string,
+    proposalId: string,
+  ): SkillUpdateProposal | undefined {
+    const row = this.requireDb().prepare<SkillUpdateProposalRow>(
+      `SELECT * FROM skill_update_proposals
+       WHERE workspace = ? AND proposalId = ?`,
+    ).get(workspace, proposalId);
+    return row ? mapSkillUpdateProposalRow(row) : undefined;
   }
 
   clearEntries(
@@ -585,12 +702,33 @@ function mapSkillRow(row: SkillRow): SkillCatalogEntry {
     displayName: row.displayName,
     primarySpecialty: row.primarySpecialty,
     specialtyTags: parseTags(row.specialtyTags),
+    skillContext: row.skillContext ? JSON.parse(row.skillContext) : undefined,
     verificationStatus: parseVerificationStatus(row.verificationStatus),
     verificationSource: row.verificationSource,
     verifiedAt: row.verifiedAt,
     verificationMessage: row.verificationMessage ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+function mapSkillUpdateProposalRow(
+  row: SkillUpdateProposalRow,
+): SkillUpdateProposal {
+  return {
+    proposalId: row.proposalId,
+    workspace: row.workspace,
+    skillName: row.skillName,
+    reason: row.reason,
+    proposedSkillContext: row.proposedSkillContext
+      ? JSON.parse(row.proposedSkillContext)
+      : undefined,
+    proposedMetadata: row.proposedMetadata
+      ? JSON.parse(row.proposedMetadata)
+      : undefined,
+    status: row.status === "applied" ? "applied" : "pending",
+    createdAt: row.createdAt,
+    appliedAt: row.appliedAt ?? undefined,
   };
 }
 
@@ -617,6 +755,17 @@ interface TableColumn {
 function migrateLegacyNamespaceColumns(db: Database): void {
   renameLegacyNamespaceColumn(db, "introduced_agents");
   renameLegacyNamespaceColumn(db, "introduced_skills");
+}
+
+function migrateSkillContextColumn(db: Database): void {
+  const columns = db.prepare<TableColumn>(
+    "PRAGMA table_info(introduced_skills)",
+  )
+    .all();
+  const columnNames = new Set(columns.map((column) => column.name));
+  if (!columnNames.has("skillContext")) {
+    db.exec("ALTER TABLE introduced_skills ADD COLUMN skillContext TEXT");
+  }
 }
 
 function renameLegacyNamespaceColumn(db: Database, tableName: string): void {
@@ -731,6 +880,7 @@ CREATE TABLE IF NOT EXISTS introduced_skills (
   displayName TEXT NOT NULL,
   primarySpecialty TEXT NOT NULL,
   specialtyTags TEXT NOT NULL,
+  skillContext TEXT,
   verificationStatus TEXT NOT NULL,
   verificationSource TEXT NOT NULL,
   verifiedAt TEXT NOT NULL,
@@ -738,5 +888,20 @@ CREATE TABLE IF NOT EXISTS introduced_skills (
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   PRIMARY KEY (workspace, skillName)
+);
+
+CREATE TABLE IF NOT EXISTS skill_update_proposals (
+  proposalId TEXT PRIMARY KEY,
+  workspace TEXT NOT NULL,
+  skillName TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  proposedSkillContext TEXT,
+  proposedMetadata TEXT,
+  status TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  appliedAt TEXT,
+  FOREIGN KEY (workspace, skillName)
+    REFERENCES introduced_skills(workspace, skillName)
+    ON DELETE CASCADE
 );
 `;

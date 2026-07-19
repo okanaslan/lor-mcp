@@ -68,6 +68,7 @@ export async function seedSkill(
     displayName: overrides.displayName ?? `Skill ${skillName}`,
     primarySpecialty: overrides.primarySpecialty ?? "backend api",
     specialtyTags: overrides.specialtyTags ?? ["api"],
+    skillContext: overrides.skillContext,
     verification: overrides.verification ?? verification,
     now: overrides.now ?? FIXED_NOW,
   });

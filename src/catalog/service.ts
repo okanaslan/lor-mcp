@@ -1,5 +1,6 @@
 import {
   type AgentCatalogEntry,
+  type ApplySkillUpdateInput,
   type CatalogEntry,
   type CatalogEntryUpdate,
   type CatalogExport,
@@ -23,12 +24,19 @@ import {
   type MatchResult,
   type PrepareAgentHandoffInput,
   type PrepareAgentHandoffResult,
+  type ProposeSkillUpdateInput,
   type RegisterWorkspaceAliasInput,
   type RegisterWorkspaceAliasResult,
   type RemoveCatalogEntryResult,
+  type SkillCatalogEntry,
+  type SkillContext,
+  type SkillMetadataUpdate,
+  type SkillUpdateProposal,
+  type SkillUpdateProposalResult,
   type VerificationMetadata,
 } from "@src/catalog/types.ts";
 import {
+  validateApplySkillUpdate,
   validateCatalogEntryUpdate,
   validateCatalogExportFilter,
   validateCatalogHealthFilter,
@@ -37,6 +45,7 @@ import {
   validateIntroduceAgent,
   validateIntroduceSkill,
   validatePrepareAgentHandoff,
+  validateProposeSkillUpdate,
   validateRegisterWorkspaceAlias,
   validateWorkspace,
 } from "@src/catalog/validation.ts";
@@ -144,6 +153,103 @@ export class CatalogService {
     return updated;
   }
 
+  async proposeSkillUpdate(
+    input: ProposeSkillUpdateInput,
+  ): Promise<SkillUpdateProposalResult> {
+    const validated = validateProposeSkillUpdate(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const existing = await this.#repository.getEntry(workspace, {
+      workspace,
+      entryType: "skill",
+      entryKey: validated.skillName,
+    });
+    if (!existing || existing.entryType !== "skill") {
+      throw new LorError(
+        "not_found",
+        "Skill was not found.",
+        { entryType: "skill" },
+      );
+    }
+
+    const now = this.#now();
+    const after = mergeSkillUpdate(existing, {
+      skillContext: validated.skillContext,
+      metadata: validated.metadata,
+      updatedAt: now,
+    });
+    const proposal: SkillUpdateProposal = {
+      proposalId: crypto.randomUUID(),
+      workspace,
+      skillName: validated.skillName,
+      reason: validated.reason,
+      proposedSkillContext: validated.skillContext,
+      proposedMetadata: validated.metadata,
+      status: "pending",
+      createdAt: now,
+    };
+
+    const created = await this.#repository.createSkillUpdateProposal(proposal);
+    return { proposal: created, before: existing, after };
+  }
+
+  async applySkillUpdate(
+    input: ApplySkillUpdateInput,
+  ): Promise<SkillUpdateProposalResult> {
+    const validated = validateApplySkillUpdate(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const proposal = await this.#repository.getSkillUpdateProposal(
+      workspace,
+      validated.proposalId,
+    );
+    if (!proposal) {
+      throw new LorError(
+        "not_found",
+        "Skill update proposal was not found.",
+      );
+    }
+    if (proposal.status !== "pending") {
+      throw new LorError(
+        "validation_error",
+        "Skill update proposal has already been applied.",
+        { field: "proposalId" },
+      );
+    }
+
+    const existing = await this.#repository.getEntry(workspace, {
+      workspace,
+      entryType: "skill",
+      entryKey: proposal.skillName,
+    });
+    if (!existing || existing.entryType !== "skill") {
+      throw new LorError(
+        "not_found",
+        "Skill was not found.",
+        { entryType: "skill" },
+      );
+    }
+
+    const appliedAt = this.#now();
+    const after = mergeSkillUpdate(existing, {
+      skillContext: proposal.proposedSkillContext,
+      metadata: proposal.proposedMetadata,
+      updatedAt: appliedAt,
+    });
+    const applied = await this.#repository.applySkillUpdateProposal(
+      workspace,
+      proposal.proposalId,
+      { entry: after, appliedAt },
+    );
+    if (!applied) {
+      throw new LorError(
+        "validation_error",
+        "Skill update proposal has already been applied.",
+        { field: "proposalId" },
+      );
+    }
+
+    return { proposal: applied, before: existing, after };
+  }
+
   async removeCatalogEntry(
     lookup: EntryLookup,
   ): Promise<RemoveCatalogEntryResult> {
@@ -247,6 +353,7 @@ export class CatalogService {
           displayName: entry.displayName,
           primarySpecialty: entry.primarySpecialty,
           specialtyTags: entry.specialtyTags,
+          skillContext: entry.skillContext,
           verification: {
             verificationStatus: entry.verificationStatus,
             verificationSource: entry.verificationSource,
@@ -462,6 +569,41 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
     ...base,
     entryType: "skill",
     skillName: entry.skillName,
+    skillContext: entry.skillContext,
+  };
+}
+
+function mergeSkillUpdate(
+  entry: SkillCatalogEntry,
+  input: {
+    skillContext?: SkillContext;
+    metadata?: SkillMetadataUpdate;
+    updatedAt: string;
+  },
+): SkillCatalogEntry {
+  return {
+    ...entry,
+    projectName: input.metadata?.projectName ?? entry.projectName,
+    displayName: input.metadata?.displayName ?? entry.displayName,
+    primarySpecialty: input.metadata?.primarySpecialty ??
+      entry.primarySpecialty,
+    specialtyTags: input.metadata?.specialtyTags ?? entry.specialtyTags,
+    skillContext: mergeSkillContext(entry.skillContext, input.skillContext),
+    updatedAt: input.updatedAt,
+  };
+}
+
+function mergeSkillContext(
+  current: SkillContext | undefined,
+  update: SkillContext | undefined,
+): SkillContext | undefined {
+  if (!update) {
+    return current;
+  }
+
+  return {
+    ...current,
+    ...update,
   };
 }
 
