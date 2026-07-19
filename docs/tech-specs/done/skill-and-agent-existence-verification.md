@@ -8,15 +8,15 @@ step for Local Orchestration Router (LOR).
 
 ## 2. Context
 
-Local Orchestration Router (LOR) v1 runs as a Deno TypeScript MCP server over local Streamable
-HTTP, with stdio retained as a fallback. Users and agents connect through MCP
-and should not need filesystem access to the server's local state in order to
-introduce a catalog entry.
+Local Orchestration Router (LOR) v1 runs as a Deno TypeScript MCP server over
+local Streamable HTTP, with stdio retained as a fallback. Users and agents
+connect through MCP and should not need filesystem access to the server's local
+state in order to introduce a catalog entry.
 
 Earlier drafts required `introduce_agent` and `introduce_skill` to prove the
-target already existed in server-local evidence sources. That creates a
-circular setup problem: users must manually configure the same thing they are
-trying to introduce.
+target already existed in server-local evidence sources. That creates a circular
+setup problem: users must manually configure the same thing they are trying to
+introduce.
 
 ## 3. Goals
 

@@ -3,7 +3,8 @@
 ## 1. Summary
 
 Draft. This tech spec defines the v1 MCP response envelope, error model,
-`isError` behavior, and SDK `outputSchema` usage for Local Orchestration Router (LOR) tools.
+`isError` behavior, and SDK `outputSchema` usage for Local Orchestration Router
+(LOR) tools.
 
 The goal is to keep every tool response predictable for Codex agents while
 keeping error output safe, concise, and workspace-isolated.

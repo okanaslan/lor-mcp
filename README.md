@@ -23,7 +23,8 @@ development fallback. Product and technical planning remain documented under
 - `docs/roadmap.md`: feature spec roadmap.
 - `docs/feature-specs/`: feature specification drafts and template.
 - `docs/use-cases/`: use case scenario drafts and template.
-- `docs/tech-specs/`: technical design drafts and template.
+- `docs/tech-specs/`: technical specs, with completed specs under `done/`,
+  future specs under `future/`, and `template.md` for new specs.
 
 ## MCP Tool Map
 

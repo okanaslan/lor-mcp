@@ -108,3 +108,7 @@ Latest implementation verification:
   and update stored verification metadata.
 - Decide whether conflict handling needs a dedicated follow-up beyond the basic
   equally scored agent conflict reporting in v1 matching.
+- Track late-future HTTP authorization discovery in
+  [Future HTTP Authorization Discovery](tech-specs/future/http-authorization-discovery.md);
+  the current local server remains unauthenticated and should not return fake
+  OAuth/OIDC discovery metadata.

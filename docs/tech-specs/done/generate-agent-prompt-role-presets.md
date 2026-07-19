@@ -137,8 +137,8 @@ The MCP tool should use the same response envelope as the existing catalog
 tools. Successful responses should use `status: "ok"` and place the generated
 payload under `data`.
 
-`docs/tech-specs/mcp-tool-surface-v1.md` should include `generate_agent_prompt`
-in the active MCP surface while preserving the manual delivery boundary.
+`mcp-tool-surface-v1.md` should include `generate_agent_prompt` in the active
+MCP surface while preserving the manual delivery boundary.
 
 ## 8. Risks and Tradeoffs
 

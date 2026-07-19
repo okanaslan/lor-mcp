@@ -94,6 +94,11 @@ messages. Logging should cover startup, HTTP request/session lifecycle, and MCP
 tool calls while avoiding raw request bodies, response bodies, prompts, and
 catalog payloads.
 
+Future HTTP authorization discovery is tracked separately in
+[Future HTTP Authorization Discovery](../future/http-authorization-discovery.md).
+The current local runtime should not add OAuth or OpenID Connect discovery
+endpoints until real authorization is implemented.
+
 MCP tools should use Zod schemas for input validation. Tool modules should adapt
 MCP requests into catalog/session domain calls and return MCP-compatible
 responses. Domain modules should avoid importing transport-specific APIs unless
@@ -200,3 +205,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   of server configuration.
 - 2026-07-19: Add server-owned local skill roots for approval-gated local
   `SKILL.md` sync.
+- 2026-07-19: Track future HTTP OAuth/OIDC discovery separately and keep the
+  current local runtime unauthenticated.
