@@ -5,7 +5,7 @@ Orchestration Router (LOR) MCP Server.
 
 ## Current Implementation
 
-Implemented in the first runnable v1 slice:
+Implemented in the runnable local v1:
 
 - Deno TypeScript MCP server.
 - Local Streamable HTTP server through `deno task serve`, exposed at
@@ -44,6 +44,18 @@ Implemented in the first runnable v1 slice:
 - Deterministic local fuzzy matching with registered skill context signals,
   structured match explanations, and conflict reporting.
 - Structured MCP response envelopes with output schemas and stable error codes.
+- Dispatch boundary: LOR prepares agent handoff prompts and stores
+  `codexSessionId`; Codex-native thread tools send the prompt to reachable
+  registered sessions.
+
+Current `LOR-MCP` catalog snapshot as of 2026-07-20:
+
+- Resolved workspace: `/Users/ablo/Developer/GitHub/okanaslan/Agentic-Router`.
+- Registered agents: 2.
+- Registered skills: 22.
+- Current registered agents:
+  - `LOR MCP Coordinator Agent`
+  - `LOR MCP Backend Implementation Agent`
 
 Latest implementation verification:
 
@@ -104,6 +116,9 @@ Latest implementation verification:
 
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
+- Formalize the Codex-native dispatch pattern for registered agents. LOR can
+  resolve and prepare handoff prompts today, while Codex thread tools perform
+  the actual send/read loop.
 - Decide whether future health refresh should probe external evidence sources
   and update stored verification metadata.
 - Decide whether conflict handling needs a dedicated follow-up beyond the basic

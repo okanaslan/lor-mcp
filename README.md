@@ -1,14 +1,32 @@
 # Local Orchestration Router (LOR) MCP Server
 
 Local Orchestration Router (LOR) is a local MCP server that acts as a catalog
-for Codex agents and skills. It will let a configured workspace introduce known
-agents and skills, store their routing metadata, and help a current Codex agent
-find relevant catalog entries for a task.
+for Codex agents and skills. It lets a configured workspace register known
+agents and skills, store routing metadata, find relevant catalog entries for a
+task, prepare agent handoff prompts, and improve registered skill context over
+time.
 
-The first implementation is a Deno TypeScript MCP server that can run as a local
+The current implementation is a Deno TypeScript MCP server that runs as a local
 Streamable HTTP server for Codex, with stdio kept as a compatibility and
-development fallback. Product and technical planning remain documented under
-`docs/`.
+development fallback. Product specs, use cases, and technical decisions remain
+documented under `docs/`.
+
+## Current Status
+
+LOR is implemented as a runnable local v1 MCP server.
+
+- Runtime: Deno TypeScript.
+- Primary transport: local Streamable HTTP at `http://127.0.0.1:8765/mcp`.
+- Fallback transport: stdio through `deno task run`.
+- Storage: server-owned local SQLite database under `.lor-mcp/` by default.
+- Catalog scope: caller-supplied `workspace`, resolved through canonical
+  workspace paths and registered aliases.
+- Matching: deterministic local fuzzy scoring with structured explanations,
+  conflict reporting, and registered skill context signals.
+- Skill improvement: approval-gated stored skill context updates, with optional
+  approval-gated sync into a LOR-managed `SKILL.md` section.
+- Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
+  tools remain responsible for sending work to registered Codex sessions.
 
 ## Project Goals
 
@@ -16,6 +34,8 @@ development fallback. Product and technical planning remain documented under
 - Support task-based lookup for relevant agents and skills.
 - Return structured MCP tool responses that Codex agents can consume reliably.
 - Keep catalog data durable, local, and isolated by client-supplied workspace.
+- Keep local skill-file writes explicit, previewed, and limited to managed
+  sections.
 
 ## Documentation
 
@@ -53,6 +73,44 @@ flowchart RL
   detail --> handoff["prepare_agent_handoff"]
   handoff --> generatePrompt["generate_agent_prompt"]
 ```
+
+## Daily Usage
+
+Use LOR in two loops: routing and catalog improvement.
+
+Before starting meaningful work, ask the active Codex agent to route through
+LOR:
+
+```text
+Before starting, use LOR MCP with workspace `<workspace>` to find relevant
+agents or skills for this task. Fetch details for promising results. If another
+agent is a better fit, prepare a handoff prompt and send it through the
+registered Codex session when reachable.
+```
+
+Common routing flow:
+
+1. `find_matching_catalog_entry`
+2. `get_catalog_entry_detail`
+3. `prepare_agent_handoff` when another registered agent should receive work
+4. Codex-native thread communication using the registered `codexSessionId`
+
+Common catalog improvement flow:
+
+1. `propose_skill_update` to preview better stored skill context.
+2. `apply_skill_update` with `confirm: true` after review.
+3. `preview_skill_file_sync` when the approved context should be written into
+   the local skill file.
+4. `apply_skill_file_sync` with `confirm: true` after reviewing the rendered
+   managed section.
+
+Catalog maintenance tools:
+
+- `list_catalog_entries`
+- `check_catalog_health`
+- `update_catalog_entry`
+- `remove_catalog_entry`
+- `clear_workspace_catalog`
 
 ## Runtime
 
@@ -97,7 +155,8 @@ Optional server-side environment overrides:
 
 - `LOR_DB_PATH`: local SQLite database path.
 - `LOR_SKILL_ROOTS`: comma-separated local skill roots for approved `SKILL.md`
-  sync.
+  sync. LOR resolves `skillName/SKILL.md` under these roots and does not accept
+  arbitrary skill file paths through MCP tool input.
 - `LOR_HOST`: local HTTP host, default `127.0.0.1`.
 - `LOR_PORT`: local HTTP port, default `8765`.
 - `LOR_LOG_LEVEL`: log level, default `info`.
