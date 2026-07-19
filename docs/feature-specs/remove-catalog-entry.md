@@ -22,8 +22,8 @@ from the requested workspace.
 ## 4. Functional Requirements
 
 - The server must accept an entry type and entry identifier.
-- The request must include the client workspace folder name or stable workspace
-  slug.
+- The request must include the client workspace path, registered alias, or
+  stable workspace slug.
 - The server must remove only entries scoped to the requested workspace.
 - The server must support removing introduced agents and introduced skills.
 - The server must return a success result when an entry is removed.

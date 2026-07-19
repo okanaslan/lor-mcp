@@ -10,14 +10,16 @@ import {
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type PrepareAgentHandoffInput,
+  type RegisterWorkspaceAliasInput,
 } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
+import { requireWorkspace } from "@src/catalog/workspace.ts";
 
 export function validateIntroduceAgent(
   input: IntroduceAgentInput,
 ): IntroduceAgentInput {
   return {
-    workspace: requireString(input.workspace, "workspace"),
+    workspace: requireWorkspace(input.workspace),
     codexSessionId: requireString(input.codexSessionId, "codexSessionId"),
     projectName: requireString(input.projectName, "projectName"),
     displayName: requireString(input.displayName, "displayName"),
@@ -31,7 +33,7 @@ export function validateIntroduceSkill(
   input: IntroduceSkillInput,
 ): IntroduceSkillInput {
   return {
-    workspace: requireString(input.workspace, "workspace"),
+    workspace: requireWorkspace(input.workspace),
     skillName: requireString(input.skillName, "skillName"),
     projectName: requireString(input.projectName, "projectName"),
     displayName: requireString(input.displayName, "displayName"),
@@ -41,14 +43,14 @@ export function validateIntroduceSkill(
 }
 
 export function validateWorkspace(workspace: string): string {
-  return requireString(workspace, "workspace");
+  return requireWorkspace(workspace);
 }
 
 export function validateCatalogEntryUpdate(
   input: CatalogEntryUpdate,
 ): CatalogEntryUpdate {
   const update: CatalogEntryUpdate = {
-    workspace: requireString(input.workspace, "workspace"),
+    workspace: requireWorkspace(input.workspace),
     entryType: requireEntryType(input.entryType),
     entryKey: requireString(input.entryKey, "entryKey"),
   };
@@ -82,7 +84,7 @@ export function validateCatalogEntryUpdate(
 
 export function validateEntryLookup(input: EntryLookup): EntryLookup {
   return {
-    workspace: requireString(input.workspace, "workspace"),
+    workspace: requireWorkspace(input.workspace),
     entryType: requireEntryType(input.entryType),
     entryKey: requireString(input.entryKey, "entryKey"),
   };
@@ -93,7 +95,7 @@ export function validateCatalogExportFilter(
 ): CatalogExportFilter {
   const projectName = input.projectName?.trim();
   return {
-    workspace: requireString(input.workspace, "workspace"),
+    workspace: requireWorkspace(input.workspace),
     entryType: input.entryType === undefined
       ? undefined
       : requireEntryType(input.entryType),
@@ -115,7 +117,7 @@ export function validateCatalogHealthFilter(
   }
 
   return {
-    workspace: requireString(input.workspace, "workspace"),
+    workspace: requireWorkspace(input.workspace),
     entryType: input.entryType === undefined
       ? undefined
       : requireEntryType(input.entryType),
@@ -127,7 +129,7 @@ export function validateCatalogHealthFilter(
 export function validateCatalogImportInput(
   input: CatalogImportInput,
 ): CatalogImportInput & { conflictStrategy: CatalogImportConflictStrategy } {
-  const workspace = requireString(input.workspace, "workspace");
+  const workspace = requireWorkspace(input.workspace);
   const conflictStrategy = input.conflictStrategy ?? "skip";
   if (conflictStrategy !== "skip" && conflictStrategy !== "fail") {
     throw new LorError(
@@ -174,10 +176,28 @@ export function validatePrepareAgentHandoff(
 ): PrepareAgentHandoffInput {
   const context = input.context?.trim();
   return {
-    workspace: requireString(input.workspace, "workspace"),
+    workspace: requireWorkspace(input.workspace),
     agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
     task: requireString(input.task, "task"),
     context: context || undefined,
+  };
+}
+
+export function validateRegisterWorkspaceAlias(
+  input: RegisterWorkspaceAliasInput,
+): RegisterWorkspaceAliasInput {
+  if (input.confirm !== undefined && input.confirm !== true) {
+    throw new LorError(
+      "validation_error",
+      "confirm must be true when provided.",
+      { field: "confirm" },
+    );
+  }
+
+  return {
+    workspace: requireWorkspace(input.workspace),
+    alias: requireWorkspace(input.alias, "alias"),
+    confirm: input.confirm,
   };
 }
 

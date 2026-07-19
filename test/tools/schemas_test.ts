@@ -6,6 +6,7 @@ import {
   generateAgentPromptInputSchema,
   importCatalogInputSchema,
   prepareAgentHandoffInputSchema,
+  registerWorkspaceAliasInputSchema,
   removeCatalogEntryInputSchema,
   updateCatalogEntryInputSchema,
 } from "@src/tools/schemas.ts";
@@ -27,6 +28,38 @@ Deno.test("clearWorkspaceCatalogInputSchema requires confirm true", () => {
   assertEquals(
     clearWorkspaceCatalogInputSchema.safeParse({
       workspace: "LOR-MCP",
+      confirm: false,
+    }).success,
+    false,
+  );
+});
+
+Deno.test("registerWorkspaceAliasInputSchema requires workspace and alias", () => {
+  assertEquals(
+    registerWorkspaceAliasInputSchema.safeParse({
+      workspace: "/Users/ablo/repo/Agentic-Router",
+      alias: "Agentic-Router",
+    }).success,
+    true,
+  );
+  assertEquals(
+    registerWorkspaceAliasInputSchema.safeParse({
+      workspace: "/Users/ablo/repo/Agentic-Router",
+      alias: "Agentic-Router",
+      confirm: true,
+    }).success,
+    true,
+  );
+  assertEquals(
+    registerWorkspaceAliasInputSchema.safeParse({
+      workspace: "/Users/ablo/repo/Agentic-Router",
+    }).success,
+    false,
+  );
+  assertEquals(
+    registerWorkspaceAliasInputSchema.safeParse({
+      workspace: "/Users/ablo/repo/Agentic-Router",
+      alias: "Agentic-Router",
       confirm: false,
     }).success,
     false,

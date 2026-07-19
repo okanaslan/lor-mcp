@@ -58,6 +58,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "introduce_skill",
       "list_catalog_entries",
       "clear_workspace_catalog",
+      "register_workspace_alias",
       "get_catalog_entry_detail",
       "update_catalog_entry",
       "remove_catalog_entry",
@@ -119,6 +120,44 @@ Deno.test("HTTP MCP handler calls update_catalog_entry", async () => {
       "deno",
       "mcp",
     ]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls register_workspace_alias", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const response = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "register_workspace_alias",
+        arguments: {
+          workspace: "/workspaces/LOR-MCP",
+          alias: "LOR-MCP",
+        },
+      },
+    });
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body.result.structuredContent.status, "ok");
+    assertEquals(body.result.structuredContent.data, {
+      workspace: "/workspaces/LOR-MCP",
+      alias: "LOR-MCP",
+      created: true,
+      reassigned: false,
+    });
   } finally {
     repo.close();
   }

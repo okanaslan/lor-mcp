@@ -43,7 +43,8 @@ verify another Codex agent.
 
 Input:
 
-- `workspace`: client workspace folder name or stable workspace slug.
+- `workspace`: client workspace path, registered alias, or stable workspace
+  slug.
 - `agentEntryKey`: target agent catalog entry key.
 - `task`: task to hand off.
 - `context`: optional supporting context text.

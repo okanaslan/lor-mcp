@@ -33,6 +33,7 @@ flowchart RL
 
   introduceAgent["introduce_agent"] --> catalog
   introduceSkill["introduce_skill"] --> catalog
+  registerAlias["register_workspace_alias"] --> catalog
   catalog --> checkHealth["check_catalog_health"]
   catalog --> exportCatalog["export_catalog"]
   exportCatalog --> importCatalog["import_catalog"]
@@ -78,9 +79,12 @@ Server-owned storage defaults are used when no environment variables are set:
 
 - SQLite database: `.lor-mcp/catalog.db`.
 
-Catalog tools require a `workspace` input supplied by the client. Use the client
-workspace folder name, such as `LOR-MCP`, unless the caller has a more stable
-workspace slug.
+Catalog tools require a `workspace` input supplied by the client. LOR normalizes
+path-shaped workspace values and resolves registered aliases before reading or
+writing catalog rows. For example, `/Users/me/project`, `/Users/me/project/`,
+and a registered `project` alias can point at the same canonical workspace. Use
+`register_workspace_alias` when a folder name or older slug should resolve to a
+canonical workspace path.
 
 Optional server-side environment overrides:
 

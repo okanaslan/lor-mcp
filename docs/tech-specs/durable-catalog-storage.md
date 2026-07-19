@@ -2,8 +2,9 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines v1 durable storage for Local Orchestration Router (LOR) catalog
-records using SQLite in a configured local database file.
+Draft. This tech spec defines v1 durable storage for Local Orchestration Router
+(LOR) catalog records and workspace aliases using SQLite in a configured local
+database file.
 
 The storage layer must persist introduced agents and skills across MCP
 reconnects and server restarts while keeping records isolated by the
@@ -11,15 +12,16 @@ client-supplied workspace.
 
 ## 2. Context
 
-Local Orchestration Router (LOR) v1 is a Deno TypeScript MCP server with local Streamable HTTP as
-the primary Codex connection mode and stdio as a fallback. Session identity and
-catalog scoping use a workspace as the durable catalog scope.
+Local Orchestration Router (LOR) v1 is a Deno TypeScript MCP server with local
+Streamable HTTP as the primary Codex connection mode and stdio as a fallback.
+Session identity and catalog scoping use a workspace as the durable catalog
+scope.
 
 The catalog storage layer must support introducing agents and skills,
 workspace-local duplicate checks, listing, detail lookup, matching,
-workspace-scoped clearing, update, remove, import/export, and catalog health
-checks. The storage design should keep catalog domain logic independent from MCP
-transport code.
+workspace-scoped clearing, workspace alias resolution, update, remove,
+import/export, and catalog health checks. The storage design should keep catalog
+domain logic independent from MCP transport code.
 
 ## 3. Goals
 
@@ -41,9 +43,9 @@ transport code.
 
 ## 5. Proposed Design
 
-Local Orchestration Router (LOR) v1 should use SQLite as the durable local storage engine. The
-server defaults to `.lor-mcp/catalog.db` under the workspace and opens or
-creates the SQLite database at that path. `LOR_DB_PATH` remains a
+Local Orchestration Router (LOR) v1 should use SQLite as the durable local
+storage engine. The server defaults to `.lor-mcp/catalog.db` under the workspace
+and opens or creates the SQLite database at that path. `LOR_DB_PATH` remains a
 server-side override.
 
 The Deno implementation should use the Deno-compatible `jsr:@db/sqlite` driver
@@ -58,9 +60,12 @@ The v1 schema should use separate catalog tables:
 
 - `introduced_agents`: stores introduced Codex agents.
 - `introduced_skills`: stores introduced Codex skills.
+- `workspace_aliases`: maps normalized alternate workspace strings to canonical
+  workspace values.
 
 Each table must include the client-supplied `workspace`. All catalog reads and
-writes must filter by `workspace`.
+writes must resolve aliases first and filter by the resolved canonical
+`workspace`.
 
 `introduced_agents` should store:
 
@@ -88,7 +93,20 @@ writes must filter by `workspace`.
 schema simple while preserving the option to normalize tags later if matching or
 filtering requires it.
 
-Workspace-local unique constraints must prevent duplicates:
+`workspace_aliases` should store:
+
+- `alias`
+- `canonicalWorkspace`
+- `createdAt`
+- `updatedAt`
+
+The `alias` column is the primary key. Repository startup should create
+self-aliases for existing stored workspace values and, for unambiguous absolute
+path workspaces, a basename alias. Startup must not merge or delete historical
+catalog rows.
+
+Workspace-local unique constraints must prevent duplicates after alias
+resolution:
 
 - Agents: unique `(workspace, codexSessionId)`.
 - Skills: unique `(workspace, skillName)`.
@@ -125,18 +143,22 @@ All writes, updates, deletes, and import batches should use transactions. All
 parameterized queries should use prepared statements.
 
 The storage setup path should create the default local data directory when
-server-owned defaults are used. If `LOR_DB_PATH` is set explicitly
-but cannot be opened, storage setup should fail clearly.
+server-owned defaults are used. If `LOR_DB_PATH` is set explicitly but cannot be
+opened, storage setup should fail clearly.
 
 Deno run and serve permissions must include environment access for
-`LOR_DB_PATH`, read/write access to the configured database path, and
-the native or FFI permissions required by the selected SQLite driver.
+`LOR_DB_PATH`, read/write access to the configured database path, and the native
+or FFI permissions required by the selected SQLite driver.
 
 Combined catalog operations such as list, match, export, and health checks will
 need to read from both `introduced_agents` and `introduced_skills` and merge the
 results into a catalog-level representation. Workspace clear operations should
 delete from one or both tables inside one transaction and return deleted row
 counts for the requested workspace only.
+
+Alias registration should be idempotent when an alias already points at the same
+canonical workspace. Reassigning an existing alias to another canonical
+workspace must require explicit confirmation.
 
 ## 8. Risks and Tradeoffs
 
@@ -165,6 +187,9 @@ When this tech spec is implemented as code, verification should include:
 - Clearing one workspace preserves entries stored for other workspaces.
 - Import writes use transactions enough to avoid partially corrupted records on
   storage failure.
+- Workspace aliases resolve path, trailing-slash, and registered folder-name
+  variants to the same canonical workspace without crossing unrelated
+  workspaces.
 
 For this documentation change, verification is limited to reading back the spec,
 checking the docs tree, running `git diff --check`, and checking git status.
@@ -180,8 +205,7 @@ checking the docs tree, running `git diff --check`, and checking git status.
 ## 11. Decision Log
 
 - 2026-07-12: Use SQLite as the v1 durable catalog storage engine.
-- 2026-07-12: Use `LOR_DB_PATH` as the configured SQLite database
-  file path.
+- 2026-07-12: Use `LOR_DB_PATH` as the configured SQLite database file path.
 - 2026-07-12: Use `workspace` on every catalog table for storage isolation.
 - 2026-07-12: Use separate `introduced_agents` and `introduced_skills` tables.
 - 2026-07-12: Store `specialtyTags` as JSON text for v1.
@@ -194,3 +218,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   migration for existing local databases.
 - 2026-07-13: Add transaction-backed workspace clear behavior for agents,
   skills, or both.
+- 2026-07-19: Add `workspace_aliases`, schema version 3, and alias resolution
+  before catalog reads and writes.

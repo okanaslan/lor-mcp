@@ -5,9 +5,9 @@
 Implemented for the current v1 runtime. This tech spec defines the first usable
 MCP tool set for Local Orchestration Router (LOR). The v1 surface supports
 introducing agents and skills, inspecting, updating, removing, clearing,
-exporting, and importing the catalog, preparing manual agent handoff prompts,
-generating empty-chat starter prompts, checking stored catalog health metadata,
-and finding a matching catalog entry for a task.
+exporting, and importing the catalog, registering workspace aliases, preparing
+manual agent handoff prompts, generating empty-chat starter prompts, checking
+stored catalog health metadata, and finding a matching catalog entry for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -48,12 +48,13 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register thirteen MCP tools with snake_case names:
+V1 should register fourteen MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
 - `list_catalog_entries`
 - `clear_workspace_catalog`
+- `register_workspace_alias`
 - `get_catalog_entry_detail`
 - `update_catalog_entry`
 - `remove_catalog_entry`
@@ -68,8 +69,9 @@ Each tool should be registered with the MCP SDK `registerTool` API and a Zod
 `inputSchema`. Tool handlers should validate the client-supplied `workspace`
 input, then call catalog domain or repository functions.
 
-Tool inputs must include `workspace`. The value should be the client workspace
-folder name or another stable client-chosen workspace slug.
+Tool inputs must include `workspace`. LOR normalizes path-shaped workspace
+values and resolves registered aliases before catalog reads and writes.
+Responses should return the resolved canonical workspace.
 
 Tool inputs must not include `connectionId`, `mcpSessionId`, or `LOR_DB_PATH`.
 Those values are server configuration and protocol context, not
@@ -165,6 +167,18 @@ may return validation, session/setup, or storage errors.
 optional entry type filter, deleted agent count, deleted skill count, and total
 deleted count. It may return validation, session/setup, or storage errors.
 Clearing an empty workspace should return zero counts.
+
+`register_workspace_alias` input:
+
+- `workspace`
+- `alias`
+- optional `confirm`: literal `true`, required only when reassigning an existing
+  alias to a different canonical workspace
+
+`register_workspace_alias` output data should include the resolved canonical
+workspace, normalized alias, whether the alias was created, and whether it was
+reassigned. It may return validation, session/setup, or storage errors. Aliasing
+a workspace to itself is valid and idempotent.
 
 `get_catalog_entry_detail` input:
 
@@ -320,6 +334,9 @@ When this tech spec is implemented as code, verification should include:
 - Generate prompt returns deterministic starter prompts for supported roles and
   does not write to catalog storage.
 - Match returns `no_match` and `conflict` as structured non-error outcomes.
+- Registered aliases resolve to the same canonical workspace for introduce,
+  list, detail, match, update, remove, clear, export, import, health, and
+  handoff tools.
 - Error responses use stable `status: error` envelopes and expected codes.
 
 For this documentation change, verification is limited to reading back the spec,
@@ -360,3 +377,6 @@ checking the docs tree, running `git diff --check`, and checking git status.
   JSON backup and restore flows.
 - 2026-07-17: Add `check_catalog_health` for read-only metadata-derived catalog
   health reporting.
+- 2026-07-19: Add `register_workspace_alias` and canonical workspace resolution
+  to prevent catalog splits caused by path, trailing-slash, and folder-name
+  workspace variants.

@@ -3,8 +3,8 @@
 ## 1. Summary
 
 Implemented for v1. This feature lets a user introduce an existing Codex skill
-to the Local Orchestration Router (LOR) MCP Server by recording its skill name and routing
-metadata in durable storage scoped to the workspace.
+to the Local Orchestration Router (LOR) MCP Server by recording its skill name
+and routing metadata in durable storage scoped to the workspace.
 
 ## 2. Goals
 
@@ -23,8 +23,8 @@ metadata in durable storage scoped to the workspace.
 
 - The server must accept an introduce-skill request for an existing Codex skill.
 - The request must include the skill name for the existing Codex skill.
-- The request must include the client workspace folder name or stable
-  workspace slug.
+- The request must include the client workspace path, registered alias, or
+  stable workspace slug.
 - The request must include the project name the skill is focused on.
 - The request must include a human-readable display name.
 - The request must include one primary specialty.
@@ -37,16 +37,16 @@ metadata in durable storage scoped to the workspace.
   workspaces.
 - The server must persist accepted skill records in durable storage.
 - The server must scope persisted skill records by workspace.
-- The server must prevent one workspace from accessing another
-  workspace's introduced skill records.
+- The server must prevent one workspace from accessing another workspace's
+  introduced skill records.
 - Fetching, listing, searching, and routing introduced skills must be handled by
   separate feature specs.
 
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that a user has an
-existing Codex skill and wants to make it available to the Local Orchestration Router (LOR)
-catalog for future routing decisions.
+existing Codex skill and wants to make it available to the Local Orchestration
+Router (LOR) catalog for future routing decisions.
 
 ## 6. Data Model
 
@@ -69,8 +69,7 @@ persistence implementation.
 
 - Missing required fields must return a validation error.
 - Missing or invalid MCP readiness context must return a session error.
-- Duplicate skill names within the same workspace must return a duplicate
-  error.
+- Duplicate skill names within the same workspace must return a duplicate error.
 - Durable storage failures must return a storage error and must not report the
   skill as introduced.
 
@@ -100,7 +99,7 @@ persistence implementation.
 - 2026-07-11: Keep persistent storage abstract and defer database selection.
 - 2026-07-11: Keep fetching, listing, searching, and routing skills as separate
   feature specs.
-- 2026-07-13: Use the client-supplied workspace as the durable storage scope
-  and keep MCP session state as protocol readiness context.
+- 2026-07-13: Use the client-supplied workspace as the durable storage scope and
+  keep MCP session state as protocol readiness context.
 - 2026-07-13: Implement `introduce_skill` as non-blocking registration with
   `mcp_introduction` verification metadata.

@@ -15,12 +15,16 @@ Implemented in the first runnable v1 slice:
   `codex mcp add lor-mcp --url
   http://127.0.0.1:8765/mcp`.
 - Server-owned local defaults for SQLite storage under `.lor-mcp/`.
-- SQLite-backed durable catalog storage scoped by client-supplied `workspace`.
+- SQLite-backed durable catalog storage scoped by resolved canonical
+  client-supplied `workspace`.
+- Workspace alias resolution for path, trailing-slash, and registered
+  folder-name variants.
 - V1 MCP tools:
   - `introduce_agent`
   - `introduce_skill`
   - `list_catalog_entries`
   - `clear_workspace_catalog`
+  - `register_workspace_alias`
   - `get_catalog_entry_detail`
   - `update_catalog_entry`
   - `remove_catalog_entry`
@@ -60,6 +64,8 @@ Latest implementation verification:
   v1 catalog inspection.
 - [Clear Workspace Catalog](feature-specs/clear-workspace-catalog.md):
   Implemented for v1 workspace catalog reset with explicit confirmation.
+- [Register Workspace Alias](feature-specs/register-workspace-alias.md):
+  Implemented for v1 canonical workspace resolution and explicit alias repair.
 - [Get Catalog Entry Detail](feature-specs/get-catalog-entry-detail.md):
   Implemented for v1 detail lookup.
 - [Prepare Agent Handoff](feature-specs/prepare-agent-handoff.md): Implemented
@@ -86,8 +92,8 @@ Latest implementation verification:
 
 ## Next
 
-- Keep feature specs aligned with client-supplied `workspace` scoping and the
-  Streamable HTTP runtime.
+- Keep feature specs aligned with client-supplied canonical `workspace` scoping,
+  workspace alias resolution, and the Streamable HTTP runtime.
 - Decide whether future health refresh should probe external evidence sources
   and update stored verification metadata.
 - Decide whether conflict handling needs a dedicated follow-up beyond the basic

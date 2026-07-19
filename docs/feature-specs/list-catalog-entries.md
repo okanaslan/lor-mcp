@@ -20,8 +20,8 @@ available in the requested workspace.
 
 ## 4. Functional Requirements
 
-- The request must include the client workspace folder name or stable
-  workspace slug.
+- The request must include the client workspace path, registered alias, or
+  stable workspace slug.
 - The server must list catalog entries scoped to the requested workspace.
 - The list must include both introduced agents and introduced skills by default.
 - The caller may filter by entry type.

@@ -23,6 +23,8 @@ import {
   type ListCatalogEntriesToolInput,
   prepareAgentHandoffInputSchema,
   type PrepareAgentHandoffToolInput,
+  registerWorkspaceAliasInputSchema,
+  type RegisterWorkspaceAliasToolInput,
   removeCatalogEntryInputSchema,
   type RemoveCatalogEntryToolInput,
   toolOutputSchema,
@@ -139,6 +141,29 @@ export function registerCatalogTools(
           return okResult(
             result,
             `Cleared ${result.deletedTotal} catalog entries.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "register_workspace_alias",
+    {
+      description: "Register an alternate name for a workspace catalog.",
+      inputSchema: registerWorkspaceAliasInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: RegisterWorkspaceAliasToolInput) =>
+      withLoggedRuntime(
+        "register_workspace_alias",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.registerWorkspaceAlias(input);
+          return okResult(
+            result,
+            `Registered workspace alias ${result.alias}.`,
           );
         },
       ),
@@ -491,6 +516,9 @@ function safeInputFields(input: unknown): LogFields {
   }
   if (typeof input.agentEntryKey === "string") {
     fields.agentEntryKey = input.agentEntryKey;
+  }
+  if (typeof input.alias === "string") {
+    fields.alias = input.alias;
   }
   return fields;
 }

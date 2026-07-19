@@ -10,10 +10,17 @@ import type {
   IntroduceAgentInput,
   IntroduceSkillInput,
   ListEntriesFilter,
+  RegisterWorkspaceAliasInput,
+  RegisterWorkspaceAliasResult,
   SkillCatalogEntry,
   VerificationMetadata,
 } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
+import {
+  isAbsoluteWorkspacePath,
+  normalizeWorkspace,
+  workspaceBasename,
+} from "@src/catalog/workspace.ts";
 
 interface AgentRow {
   workspace: string;
@@ -46,6 +53,13 @@ interface SkillRow {
   updatedAt: string;
 }
 
+interface WorkspaceAliasRow {
+  alias: string;
+  canonicalWorkspace: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export class SqliteCatalogRepository implements CatalogRepository {
   #db: Database | undefined;
 
@@ -60,7 +74,8 @@ export class SqliteCatalogRepository implements CatalogRepository {
       this.#db.exec("PRAGMA synchronous = NORMAL");
       this.#db.exec(SCHEMA_SQL);
       migrateLegacyNamespaceColumns(this.#db);
-      recordSchemaVersion(this.#db, 2);
+      backfillWorkspaceAliases(this.#db);
+      recordSchemaVersion(this.#db, 3);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -340,6 +355,70 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  registerWorkspaceAlias(
+    input: RegisterWorkspaceAliasInput & { now: string },
+  ): Promise<RegisterWorkspaceAliasResult> {
+    try {
+      const alias = normalizeWorkspace(input.alias);
+      const canonicalWorkspace = this.resolveAliasTargetWorkspace(
+        normalizeWorkspace(input.workspace),
+      );
+      const existing = this.getWorkspaceAlias(alias);
+
+      if (!existing) {
+        this.insertWorkspaceAlias(alias, canonicalWorkspace, input.now);
+        return Promise.resolve({
+          workspace: canonicalWorkspace,
+          alias,
+          created: true,
+          reassigned: false,
+        });
+      }
+
+      if (existing.canonicalWorkspace === canonicalWorkspace) {
+        return Promise.resolve({
+          workspace: canonicalWorkspace,
+          alias,
+          created: false,
+          reassigned: false,
+        });
+      }
+
+      if (input.confirm !== true) {
+        throw new LorError(
+          "validation_error",
+          "alias already exists for another workspace.",
+          { field: "confirm" },
+        );
+      }
+
+      this.requireDb().exec(
+        `UPDATE workspace_aliases
+       SET canonicalWorkspace = ?, updatedAt = ?
+       WHERE alias = ?`,
+        canonicalWorkspace,
+        input.now,
+        alias,
+      );
+
+      return Promise.resolve({
+        workspace: canonicalWorkspace,
+        alias,
+        created: false,
+        reassigned: true,
+      });
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  resolveWorkspace(
+    workspace: string,
+    options: { now: string },
+  ): Promise<string> {
+    return Promise.resolve(this.resolveWorkspaceSync(workspace, options.now));
+  }
+
   close(): void {
     this.#db?.close();
     this.#db = undefined;
@@ -405,6 +484,64 @@ export class SqliteCatalogRepository implements CatalogRepository {
       `SELECT COUNT(*) AS count FROM introduced_skills
        WHERE workspace = ?`,
     ).get(workspace)?.count ?? 0;
+  }
+
+  private resolveWorkspaceSync(workspace: string, now: string): string {
+    const normalized = normalizeWorkspace(workspace);
+    const existingAlias = this.getWorkspaceAlias(normalized);
+    if (existingAlias) {
+      return existingAlias.canonicalWorkspace;
+    }
+
+    this.ensureWorkspaceAlias(normalized, normalized, now);
+
+    if (!isAbsoluteWorkspacePath(normalized)) {
+      return normalized;
+    }
+
+    const basename = workspaceBasename(normalized);
+    if (basename && !this.getWorkspaceAlias(basename)) {
+      this.ensureWorkspaceAlias(basename, normalized, now);
+    }
+    return normalized;
+  }
+
+  private resolveAliasTargetWorkspace(workspace: string): string {
+    return this.getWorkspaceAlias(workspace)?.canonicalWorkspace ?? workspace;
+  }
+
+  private getWorkspaceAlias(alias: string): WorkspaceAliasRow | undefined {
+    return this.requireDb().prepare<WorkspaceAliasRow>(
+      `SELECT * FROM workspace_aliases WHERE alias = ?`,
+    ).get(alias);
+  }
+
+  private ensureWorkspaceAlias(
+    alias: string,
+    canonicalWorkspace: string,
+    now: string,
+  ): boolean {
+    if (this.getWorkspaceAlias(alias)) {
+      return false;
+    }
+    this.insertWorkspaceAlias(alias, canonicalWorkspace, now);
+    return true;
+  }
+
+  private insertWorkspaceAlias(
+    alias: string,
+    canonicalWorkspace: string,
+    now: string,
+  ): void {
+    this.requireDb().exec(
+      `INSERT INTO workspace_aliases (
+        alias, canonicalWorkspace, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?)`,
+      alias,
+      canonicalWorkspace,
+      now,
+      now,
+    );
   }
 
   private requireDb(): Database {
@@ -502,6 +639,54 @@ function recordSchemaVersion(db: Database, version: number): void {
   );
 }
 
+function backfillWorkspaceAliases(db: Database): void {
+  const now = new Date().toISOString();
+  const workspaces = db.prepare<{ workspace: string }>(`
+    SELECT workspace FROM introduced_agents
+    UNION
+    SELECT workspace FROM introduced_skills
+  `).all().map((row) => row.workspace);
+  const absoluteByBasename = new Map<string, string[]>();
+
+  for (const workspace of workspaces) {
+    const alias = normalizeWorkspace(workspace);
+    insertWorkspaceAliasIfMissing(db, alias, workspace, now);
+
+    if (isAbsoluteWorkspacePath(alias)) {
+      const basename = workspaceBasename(alias);
+      if (basename) {
+        const values = absoluteByBasename.get(basename) ?? [];
+        values.push(workspace);
+        absoluteByBasename.set(basename, values);
+      }
+    }
+  }
+
+  for (const [alias, candidates] of absoluteByBasename.entries()) {
+    const uniqueCandidates = [...new Set(candidates)];
+    if (uniqueCandidates.length === 1) {
+      insertWorkspaceAliasIfMissing(db, alias, uniqueCandidates[0], now);
+    }
+  }
+}
+
+function insertWorkspaceAliasIfMissing(
+  db: Database,
+  alias: string,
+  canonicalWorkspace: string,
+  now: string,
+): void {
+  db.exec(
+    `INSERT OR IGNORE INTO workspace_aliases (
+      alias, canonicalWorkspace, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?)`,
+    alias,
+    canonicalWorkspace,
+    now,
+    now,
+  );
+}
+
 function mapStorageError(error: unknown): LorError {
   if (error instanceof LorError) {
     return error;
@@ -513,6 +698,13 @@ const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version INTEGER PRIMARY KEY,
   appliedAt TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workspace_aliases (
+  alias TEXT PRIMARY KEY,
+  canonicalWorkspace TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS introduced_agents (

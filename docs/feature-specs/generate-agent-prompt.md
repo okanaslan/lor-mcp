@@ -15,8 +15,8 @@ session ID exists.
 - Support a broad initial set of deterministic built-in role presets.
 - Return suggested `introduce_agent` metadata for later catalog registration.
 - Keep prompt generation workspace-aware without persisting generated prompts.
-- Make manual delivery explicit so callers do not assume Local Orchestration Router (LOR) created
-  or contacted another agent.
+- Make manual delivery explicit so callers do not assume Local Orchestration
+  Router (LOR) created or contacted another agent.
 
 ## 3. Non-Goals
 
@@ -70,7 +70,8 @@ session ID exists.
 
 Conceptual input fields:
 
-- `workspace`: client workspace folder name or stable workspace slug.
+- `workspace`: client workspace path, registered alias, or stable workspace
+  slug.
 - `role`: selected built-in role preset.
 - `projectName`: optional project name to include in the generated prompt and
   suggested metadata.
@@ -87,8 +88,8 @@ Conceptual output fields:
 - `displayName`: suggested agent display name.
 - `suggestedAgentMetadata`: suggested metadata for later `introduce_agent`
   registration.
-- `delivery`: manual delivery instructions that state Local Orchestration Router (LOR) does not
-  create or message Codex chats.
+- `delivery`: manual delivery instructions that state Local Orchestration Router
+  (LOR) does not create or message Codex chats.
 
 Suggested agent metadata should include:
 

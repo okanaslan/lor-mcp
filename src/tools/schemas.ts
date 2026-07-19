@@ -43,6 +43,12 @@ export const clearWorkspaceCatalogInputSchema = z.object({
   entryType: entryTypeSchema.optional(),
 });
 
+export const registerWorkspaceAliasInputSchema = z.object({
+  workspace: workspaceSchema,
+  alias: workspaceSchema,
+  confirm: z.literal(true).optional(),
+});
+
 export const getCatalogEntryDetailInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema,
@@ -172,6 +178,9 @@ export type ListCatalogEntriesToolInput = z.infer<
 >;
 export type ClearWorkspaceCatalogToolInput = z.infer<
   typeof clearWorkspaceCatalogInputSchema
+>;
+export type RegisterWorkspaceAliasToolInput = z.infer<
+  typeof registerWorkspaceAliasInputSchema
 >;
 export type GetCatalogEntryDetailToolInput = z.infer<
   typeof getCatalogEntryDetailInputSchema

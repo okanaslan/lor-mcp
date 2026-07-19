@@ -61,6 +61,211 @@ Deno.test("CatalogService introduces skills without skill root pre-registration"
   }
 });
 
+Deno.test("CatalogService resolves workspace aliases across catalog operations", async () => {
+  const { repo, service } = await createCatalogService();
+  const workspace = "/Users/ablo/Developer/GitHub/okanaslan/Agentic-Router";
+  try {
+    await service.introduceAgent({
+      workspace: `${workspace}/`,
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const listed = await service.listEntries({ workspace: "Agentic-Router" });
+    const detail = await service.getEntryDetail({
+      workspace: "Agentic-Router",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+    const match = await service.findMatchingEntries({
+      workspace: "Agentic-Router",
+      task: "backend api change",
+    });
+    const updated = await service.updateCatalogEntry({
+      workspace: "Agentic-Router",
+      entryType: "agent",
+      entryKey: "agent-1",
+      displayName: "Canonical Backend Agent",
+    });
+    const health = await service.checkCatalogHealth({
+      workspace: "Agentic-Router",
+    });
+    const catalog = await service.exportCatalog({
+      workspace: "Agentic-Router",
+    });
+    const removed = await service.removeCatalogEntry({
+      workspace: "Agentic-Router",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+    const afterRemove = await service.listEntries({ workspace });
+
+    assertEquals(listed.map((entry) => entry.workspace), [workspace]);
+    assertEquals(detail?.workspace, workspace);
+    assertEquals(match.status, "ok");
+    assertEquals(updated.displayName, "Canonical Backend Agent");
+    assertEquals(health.workspace, workspace);
+    assertEquals(health.summary.agents, 1);
+    assertEquals(catalog.workspace, workspace);
+    assertEquals(catalog.entries.length, 1);
+    assertEquals(removed.workspace, workspace);
+    assertEquals(afterRemove, []);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService applies duplicate checks across aliases", async () => {
+  const { repo, service } = await createCatalogService();
+  const workspace = "/Users/ablo/Developer/GitHub/okanaslan/Agentic-Router";
+  try {
+    await service.introduceAgent({
+      workspace,
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    await assertRejects(
+      () =>
+        service.introduceAgent({
+          workspace: "Agentic-Router",
+          codexSessionId: "agent-1",
+          projectName: "Local Orchestration Router (LOR)",
+          displayName: "Backend Agent",
+          primarySpecialty: "backend api",
+          specialtyTags: ["api"],
+        }),
+      Error,
+      "duplicate_entry",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService imports into resolved workspace aliases", async () => {
+  const { repo, service } = await createCatalogService();
+  const workspace = "/Users/ablo/Developer/GitHub/okanaslan/Agentic-Router";
+  try {
+    await service.registerWorkspaceAlias({
+      workspace,
+      alias: "Agentic-Router",
+    });
+    const source = await service.exportCatalog({ workspace: "empty" });
+    source.entries = [{
+      entryType: "skill",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      verificationStatus: "verified",
+      verificationSource: "catalog_export",
+      verifiedAt: FIXED_NOW,
+    }];
+
+    const result = await service.importCatalog({
+      workspace: "Agentic-Router",
+      catalog: source,
+    });
+    const entries = await service.listEntries({ workspace });
+
+    assertEquals(result.workspace, workspace);
+    assertEquals(result.importedCount, 1);
+    assertEquals(entries.map((entry) => entry.entryKey), ["backend-skill"]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService requires confirmation before reassigning aliases", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const first = await service.registerWorkspaceAlias({
+      workspace: "/workspaces/one/Agentic-Router",
+      alias: "Agentic-Router",
+    });
+    await assertRejects(
+      () =>
+        service.registerWorkspaceAlias({
+          workspace: "/workspaces/two/Agentic-Router",
+          alias: "Agentic-Router",
+        }),
+      Error,
+      "alias already exists",
+    );
+    const reassigned = await service.registerWorkspaceAlias({
+      workspace: "/workspaces/two/Agentic-Router",
+      alias: "Agentic-Router",
+      confirm: true,
+    });
+
+    assertEquals(first.created, true);
+    assertEquals(first.reassigned, false);
+    assertEquals(reassigned.workspace, "/workspaces/two/Agentic-Router");
+    assertEquals(reassigned.created, false);
+    assertEquals(reassigned.reassigned, true);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService resolves aliases for clear and handoff operations", async () => {
+  const { repo, service } = await createCatalogService();
+  const workspace = "/Users/ablo/Developer/GitHub/okanaslan/Agentic-Router";
+  try {
+    await service.introduceAgent({
+      workspace,
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      handoff: {
+        whenToUse: "Backend API changes",
+        handoffPromptTemplate: "Handle {task} in {projectName}",
+        requiredContext: ["task"],
+        expectedOutput: "Patch summary",
+        constraints: ["Stay scoped"],
+      },
+    });
+    await service.introduceSkill({
+      workspace,
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const handoff = await service.prepareAgentHandoff({
+      workspace: "Agentic-Router",
+      agentEntryKey: "agent-1",
+      task: "fix workspace aliasing",
+    });
+    const cleared = await service.clearWorkspaceCatalog({
+      workspace: "Agentic-Router",
+      entryType: "skill",
+      confirm: true,
+    });
+    const remaining = await service.listEntries({ workspace });
+
+    assertEquals(handoff.workspace, workspace);
+    assertEquals(handoff.usedStoredHandoff, true);
+    assertEquals(cleared.workspace, workspace);
+    assertEquals(cleared.deletedSkills, 1);
+    assertEquals(remaining.map((entry) => entry.entryKey), ["agent-1"]);
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService requires confirmation before clearing workspace catalog", async () => {
   const { repo, service } = await createCatalogService();
   try {

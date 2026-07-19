@@ -2,8 +2,9 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets Local Orchestration Router (LOR) evaluate a user request
-and return matching introduced agents and skills from the requested workspace.
+Implemented for v1. This feature lets Local Orchestration Router (LOR) evaluate
+a user request and return matching introduced agents and skills from the
+requested workspace.
 
 ## 2. Goals
 
@@ -21,15 +22,15 @@ and return matching introduced agents and skills from the requested workspace.
 ## 4. Functional Requirements
 
 - The server must accept a matching request that describes the user task.
-- The request must include the client workspace folder name or stable
-  workspace slug.
+- The request must include the client workspace path, registered alias, or
+  stable workspace slug.
 - The server must match only catalog entries scoped to the requested workspace.
 - The server must consider project name, display name, primary specialty, and
   specialty tags.
 - The server may consider future metadata such as descriptions or usage notes
   when available.
-- The server must return ranked matching agents and skills when relevant
-  entries exist.
+- The server must return ranked matching agents and skills when relevant entries
+  exist.
 - The server must return a no-match result when no introduced entry is relevant.
 - The server must defer equal-match resolution to the Conflict Handling feature.
 - The server must not return entries from another workspace.
@@ -37,8 +38,8 @@ and return matching introduced agents and skills from the requested workspace.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that a user asks which
-introduced agent or skill should handle a task, and Local Orchestration Router (LOR) chooses the
-best matching catalog entry.
+introduced agent or skill should handle a task, and Local Orchestration Router
+(LOR) chooses the best matching catalog entry.
 
 ## 6. Data Model
 
@@ -66,8 +67,7 @@ Conceptual `CatalogMatchResult` fields:
 ## 8. Security and Permissions
 
 - Matching must only inspect catalog entries in the requested workspace.
-- No-match and conflict responses must not reveal entries from other
-  workspaces.
+- No-match and conflict responses must not reveal entries from other workspaces.
 
 ## 9. Open Questions
 

@@ -82,6 +82,19 @@ export interface ClearWorkspaceCatalogResult {
   deletedTotal: number;
 }
 
+export interface RegisterWorkspaceAliasInput {
+  workspace: string;
+  alias: string;
+  confirm?: true;
+}
+
+export interface RegisterWorkspaceAliasResult {
+  workspace: string;
+  alias: string;
+  created: boolean;
+  reassigned: boolean;
+}
+
 export interface CatalogEntryUpdate extends EntryLookup {
   projectName?: string;
   displayName?: string;
@@ -311,6 +324,13 @@ export interface CatalogRepository {
     workspace: string,
     input: ClearWorkspaceCatalogInput,
   ): Promise<ClearWorkspaceCatalogResult>;
+  registerWorkspaceAlias(
+    input: RegisterWorkspaceAliasInput & { now: string },
+  ): Promise<RegisterWorkspaceAliasResult>;
+  resolveWorkspace(
+    workspace: string,
+    options: { now: string },
+  ): Promise<string>;
   updateEntry(
     workspace: string,
     input: CatalogEntryUpdate & { now: string },

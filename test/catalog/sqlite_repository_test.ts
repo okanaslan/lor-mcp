@@ -52,6 +52,159 @@ Deno.test("SqliteCatalogRepository enforces workspace-local duplicates", async (
   }
 });
 
+Deno.test("SqliteCatalogRepository resolves trailing slash path aliases", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    const workspace = await repo.resolveWorkspace(
+      "/workspaces/LOR-MCP/",
+      { now: FIXED_NOW },
+    );
+    const resolved = await repo.resolveWorkspace("/workspaces/LOR-MCP", {
+      now: FIXED_NOW,
+    });
+
+    assertEquals(workspace, "/workspaces/LOR-MCP");
+    assertEquals(resolved, "/workspaces/LOR-MCP");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository auto-creates basename aliases for unclaimed absolute paths", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    const workspace = await repo.resolveWorkspace(
+      "/workspaces/LOR-MCP",
+      { now: FIXED_NOW },
+    );
+    const alias = await repo.resolveWorkspace("LOR-MCP", { now: FIXED_NOW });
+
+    assertEquals(workspace, "/workspaces/LOR-MCP");
+    assertEquals(alias, "/workspaces/LOR-MCP");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository backfills aliases for existing workspace rows", async () => {
+  const dir = await Deno.makeTempDir();
+  const dbPath = join(dir, "catalog.db");
+  const firstRepo = new SqliteCatalogRepository(dbPath);
+  await firstRepo.initialize();
+  try {
+    await seedAgent(firstRepo, "/workspaces/LOR-MCP", "agent-1");
+  } finally {
+    firstRepo.close();
+  }
+
+  const secondRepo = new SqliteCatalogRepository(dbPath);
+  await secondRepo.initialize();
+  try {
+    const workspace = await secondRepo.resolveWorkspace("LOR-MCP", {
+      now: FIXED_NOW,
+    });
+    const entries = await secondRepo.listEntries(workspace, { workspace });
+
+    assertEquals(workspace, "/workspaces/LOR-MCP");
+    assertEquals(entries.map((entry) => entry.entryKey), ["agent-1"]);
+  } finally {
+    secondRepo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository does not auto-reassign claimed basename aliases", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await repo.resolveWorkspace("/workspaces/one/LOR-MCP", { now: FIXED_NOW });
+    await repo.resolveWorkspace("/workspaces/two/LOR-MCP", { now: FIXED_NOW });
+
+    const alias = await repo.resolveWorkspace("LOR-MCP", { now: FIXED_NOW });
+
+    assertEquals(alias, "/workspaces/one/LOR-MCP");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository does not auto-claim a basename used as a slug workspace", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    const slug = await repo.resolveWorkspace("LOR-MCP", { now: FIXED_NOW });
+    const path = await repo.resolveWorkspace("/workspaces/LOR-MCP", {
+      now: FIXED_NOW,
+    });
+    const alias = await repo.resolveWorkspace("LOR-MCP", { now: FIXED_NOW });
+
+    assertEquals(slug, "LOR-MCP");
+    assertEquals(path, "/workspaces/LOR-MCP");
+    assertEquals(alias, "LOR-MCP");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository registers workspace aliases for entry reads", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    const result = await repo.registerWorkspaceAlias({
+      workspace: "/workspaces/LOR-MCP",
+      alias: "LOR-MCP",
+      now: FIXED_NOW,
+    });
+    const workspace = await repo.resolveWorkspace("LOR-MCP", {
+      now: FIXED_NOW,
+    });
+    await seedAgent(repo, workspace, "agent-1");
+    const entries = await repo.listEntries(workspace, { workspace });
+
+    assertEquals(result, {
+      workspace: "/workspaces/LOR-MCP",
+      alias: "LOR-MCP",
+      created: true,
+      reassigned: false,
+    });
+    assertEquals(entries.map((entry) => entry.entryKey), ["agent-1"]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository requires confirmation to reassign aliases", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await repo.registerWorkspaceAlias({
+      workspace: "/workspaces/one/LOR-MCP",
+      alias: "LOR-MCP",
+      now: FIXED_NOW,
+    });
+    await assertRejects(
+      () =>
+        repo.registerWorkspaceAlias({
+          workspace: "/workspaces/two/LOR-MCP",
+          alias: "LOR-MCP",
+          now: FIXED_NOW,
+        }),
+      Error,
+      "alias already exists",
+    );
+    const reassigned = await repo.registerWorkspaceAlias({
+      workspace: "/workspaces/two/LOR-MCP",
+      alias: "LOR-MCP",
+      confirm: true,
+      now: FIXED_NOW,
+    });
+
+    assertEquals(reassigned, {
+      workspace: "/workspaces/two/LOR-MCP",
+      alias: "LOR-MCP",
+      created: false,
+      reassigned: true,
+    });
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("SqliteCatalogRepository round-trips stored verification status", async () => {
   const repo = await createInitializedRepository();
   try {

@@ -21,8 +21,8 @@ introduced agent or skill from the requested workspace.
 ## 4. Functional Requirements
 
 - The server must accept an entry type and entry identifier.
-- The request must include the client workspace folder name or stable
-  workspace slug.
+- The request must include the client workspace path, registered alias, or
+  stable workspace slug.
 - The server must search only entries scoped to the requested workspace.
 - The server must return the full stored metadata for the matching entry.
 - The server must return a not-found result when the entry does not exist in the

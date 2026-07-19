@@ -23,8 +23,8 @@ session ID and routing metadata in durable storage scoped to the workspace.
 
 - The server must accept an introduce-agent request for an existing Codex agent.
 - The request must include the Codex session ID for the existing Codex agent.
-- The request must include the client workspace folder name or stable workspace
-  slug.
+- The request must include the client workspace path, registered alias, or
+  stable workspace slug.
 - The request must include the project name the agent is focused on.
 - The request must include a human-readable display name.
 - The request must include one primary specialty.

@@ -23,6 +23,8 @@ import {
   type MatchResult,
   type PrepareAgentHandoffInput,
   type PrepareAgentHandoffResult,
+  type RegisterWorkspaceAliasInput,
+  type RegisterWorkspaceAliasResult,
   type RemoveCatalogEntryResult,
   type VerificationMetadata,
 } from "@src/catalog/types.ts";
@@ -35,6 +37,7 @@ import {
   validateIntroduceAgent,
   validateIntroduceSkill,
   validatePrepareAgentHandoff,
+  validateRegisterWorkspaceAlias,
   validateWorkspace,
 } from "@src/catalog/validation.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
@@ -59,8 +62,10 @@ export class CatalogService {
   ): Promise<CatalogEntry> {
     const validated = validateIntroduceAgent(input);
     const now = this.#now();
-    return await this.#repository.createAgent(validated.workspace, {
+    const workspace = await this.resolveWorkspace(validated.workspace, now);
+    return await this.#repository.createAgent(workspace, {
       ...validated,
+      workspace,
       verification: introductionVerification(now),
       now,
     });
@@ -71,8 +76,10 @@ export class CatalogService {
   ): Promise<CatalogEntry> {
     const validated = validateIntroduceSkill(input);
     const now = this.#now();
-    return await this.#repository.createSkill(validated.workspace, {
+    const workspace = await this.resolveWorkspace(validated.workspace, now);
+    return await this.#repository.createSkill(workspace, {
       ...validated,
+      workspace,
       verification: introductionVerification(now),
       now,
     });
@@ -81,7 +88,7 @@ export class CatalogService {
   async listEntries(
     filter: ListEntriesFilter,
   ): Promise<CatalogEntry[]> {
-    const workspace = validateWorkspace(filter.workspace);
+    const workspace = await this.resolveWorkspace(filter.workspace);
     return await this.#repository.listEntries(workspace, {
       ...filter,
       workspace,
@@ -91,7 +98,7 @@ export class CatalogService {
   async clearWorkspaceCatalog(
     input: ClearWorkspaceCatalogInput,
   ): Promise<ClearWorkspaceCatalogResult> {
-    const workspace = validateWorkspace(input.workspace);
+    const workspace = await this.resolveWorkspace(input.workspace);
     if (input.confirm !== true) {
       throw new LorError(
         "validation_error",
@@ -110,7 +117,7 @@ export class CatalogService {
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined> {
     const validated = validateEntryLookup(lookup);
-    const workspace = validateWorkspace(validated.workspace);
+    const workspace = await this.resolveWorkspace(validated.workspace);
     return await this.#repository.getEntry(workspace, {
       ...validated,
       workspace,
@@ -121,8 +128,10 @@ export class CatalogService {
     input: CatalogEntryUpdate,
   ): Promise<CatalogEntry> {
     const validated = validateCatalogEntryUpdate(input);
-    const updated = await this.#repository.updateEntry(validated.workspace, {
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const updated = await this.#repository.updateEntry(workspace, {
       ...validated,
+      workspace,
       now: this.#now(),
     });
     if (!updated) {
@@ -139,9 +148,10 @@ export class CatalogService {
     lookup: EntryLookup,
   ): Promise<RemoveCatalogEntryResult> {
     const validated = validateEntryLookup(lookup);
+    const workspace = await this.resolveWorkspace(validated.workspace);
     const removed = await this.#repository.removeEntry(
-      validated.workspace,
-      validated,
+      workspace,
+      { ...validated, workspace },
     );
     if (!removed) {
       throw new LorError(
@@ -150,15 +160,16 @@ export class CatalogService {
         { entryType: validated.entryType },
       );
     }
-    return { ...validated, removed: true };
+    return { ...validated, workspace, removed: true };
   }
 
   async exportCatalog(
     filter: CatalogExportFilter,
   ): Promise<CatalogExport> {
     const validated = validateCatalogExportFilter(filter);
-    const entries = await this.#repository.listEntries(validated.workspace, {
-      workspace: validated.workspace,
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const entries = await this.#repository.listEntries(workspace, {
+      workspace,
       entryType: validated.entryType,
       projectName: validated.projectName,
     });
@@ -166,7 +177,7 @@ export class CatalogService {
     return {
       version: 1,
       exportedAt: this.#now(),
-      workspace: validated.workspace,
+      workspace,
       filters: {
         entryType: validated.entryType,
         projectName: validated.projectName,
@@ -179,10 +190,12 @@ export class CatalogService {
     input: CatalogImportInput,
   ): Promise<CatalogImportResult> {
     const validated = validateCatalogImportInput(input);
-    const duplicateIssues = await this.findImportConflicts(validated);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const resolvedInput = { ...validated, workspace };
+    const duplicateIssues = await this.findImportConflicts(resolvedInput);
     if (validated.conflictStrategy === "fail" && duplicateIssues.length > 0) {
       return {
-        workspace: validated.workspace,
+        workspace,
         version: validated.catalog.version,
         conflictStrategy: validated.conflictStrategy,
         importedCount: 0,
@@ -195,10 +208,10 @@ export class CatalogService {
     let importedCount = 0;
     let skippedCount = 0;
     const now = this.#now();
-    for (let index = 0; index < validated.catalog.entries.length; index++) {
-      const entry = validated.catalog.entries[index];
-      const existing = await this.#repository.getEntry(validated.workspace, {
-        workspace: validated.workspace,
+    for (let index = 0; index < resolvedInput.catalog.entries.length; index++) {
+      const entry = resolvedInput.catalog.entries[index];
+      const existing = await this.#repository.getEntry(workspace, {
+        workspace,
         entryType: entry.entryType,
         entryKey: entry.entryType === "agent"
           ? entry.codexSessionId
@@ -210,8 +223,8 @@ export class CatalogService {
       }
 
       if (entry.entryType === "agent") {
-        await this.#repository.createAgent(validated.workspace, {
-          workspace: validated.workspace,
+        await this.#repository.createAgent(workspace, {
+          workspace,
           codexSessionId: entry.codexSessionId,
           projectName: entry.projectName,
           displayName: entry.displayName,
@@ -227,8 +240,8 @@ export class CatalogService {
           now,
         });
       } else {
-        await this.#repository.createSkill(validated.workspace, {
-          workspace: validated.workspace,
+        await this.#repository.createSkill(workspace, {
+          workspace,
           skillName: entry.skillName,
           projectName: entry.projectName,
           displayName: entry.displayName,
@@ -247,7 +260,7 @@ export class CatalogService {
     }
 
     return {
-      workspace: validated.workspace,
+      workspace,
       version: validated.catalog.version,
       conflictStrategy: validated.conflictStrategy,
       importedCount,
@@ -261,8 +274,9 @@ export class CatalogService {
     filter: CatalogHealthFilter,
   ): Promise<CatalogHealthReport> {
     const validated = validateCatalogHealthFilter(filter);
-    const entries = await this.#repository.listEntries(validated.workspace, {
-      workspace: validated.workspace,
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const entries = await this.#repository.listEntries(workspace, {
+      workspace,
       entryType: validated.entryType,
       projectName: validated.projectName,
     });
@@ -273,7 +287,7 @@ export class CatalogService {
 
     return {
       checkedAt: this.#now(),
-      workspace: validated.workspace,
+      workspace,
       filters: {
         entryType: validated.entryType,
         projectName: validated.projectName,
@@ -288,8 +302,9 @@ export class CatalogService {
     input: PrepareAgentHandoffInput,
   ): Promise<PrepareAgentHandoffResult> {
     const validated = validatePrepareAgentHandoff(input);
-    const entry = await this.#repository.getEntry(validated.workspace, {
-      workspace: validated.workspace,
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const entry = await this.#repository.getEntry(workspace, {
+      workspace,
       entryType: "agent",
       entryKey: validated.agentEntryKey,
     });
@@ -313,7 +328,7 @@ export class CatalogService {
       : renderGenericHandoffPrompt(entry, validated);
 
     return {
-      workspace: validated.workspace,
+      workspace,
       targetAgent: {
         entryKey: entry.entryKey,
         codexSessionId: entry.codexSessionId,
@@ -337,7 +352,7 @@ export class CatalogService {
   async findMatchingEntries(
     request: MatchRequest,
   ): Promise<MatchResult> {
-    const workspace = validateWorkspace(request.workspace);
+    const workspace = await this.resolveWorkspace(request.workspace);
     if (!request.task?.trim()) {
       throw new LorError("validation_error", "task is required.", {
         field: "task",
@@ -348,6 +363,26 @@ export class CatalogService {
       workspace,
     });
     return findCatalogMatches(entries, { ...request, workspace });
+  }
+
+  async registerWorkspaceAlias(
+    input: RegisterWorkspaceAliasInput,
+  ): Promise<RegisterWorkspaceAliasResult> {
+    const validated = validateRegisterWorkspaceAlias(input);
+    return await this.#repository.registerWorkspaceAlias({
+      ...validated,
+      now: this.#now(),
+    });
+  }
+
+  private async resolveWorkspace(
+    workspace: string,
+    now = this.#now(),
+  ): Promise<string> {
+    return await this.#repository.resolveWorkspace(
+      validateWorkspace(workspace),
+      { now },
+    );
   }
 
   private async findImportConflicts(

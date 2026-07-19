@@ -45,7 +45,8 @@ the renderer, and wrap the result in the existing structured response envelope.
 
 The tool input should include:
 
-- `workspace`: required client workspace folder name or stable workspace slug.
+- `workspace`: required client workspace path, registered alias, or stable
+  workspace slug.
 - `role`: required built-in role preset name.
 - `projectName`: optional project name for prompt and metadata text.
 - `task`: optional first task or role context.
