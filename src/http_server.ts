@@ -22,7 +22,7 @@ export function createHttpMcpHandler(
     const sessionId = request.headers.get("mcp-session-id") ?? undefined;
 
     const logResponse = (response: Response): Response => {
-      logger.info(
+      logHttpResponse(
         {
           event: "http_request",
           method: request.method,
@@ -158,6 +158,22 @@ export function createHttpMcpHandler(
       },
       "MCP session closed.",
     );
+  }
+
+  function logHttpResponse(
+    fields: Record<string, unknown>,
+    message: string,
+  ): void {
+    const status = typeof fields.status === "number" ? fields.status : 0;
+    if (status >= 500) {
+      logger.error(fields, message);
+      return;
+    }
+    if (status >= 400) {
+      logger.warn(fields, message);
+      return;
+    }
+    logger.debug(fields, message);
   }
 }
 

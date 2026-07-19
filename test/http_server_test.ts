@@ -393,6 +393,14 @@ Deno.test("HTTP MCP handler calls generate_agent_prompt", async () => {
       typeof log.fields.durationMs === "number"
     ),
   );
+  assert(
+    logger.logs.some((log) =>
+      log.level === "debug" &&
+      log.fields.event === "http_request" &&
+      log.fields.status === 200 &&
+      log.fields.sessionPresent === true
+    ),
+  );
   assertEquals(
     JSON.stringify(logger.logs).includes("secret prompt task"),
     false,
@@ -540,7 +548,7 @@ Deno.test("HTTP MCP handler rejects unknown session ids and deletes known sessio
   assertEquals(afterDeleteResponse.status, 404);
   assert(
     logger.logs.some((log) =>
-      log.level === "info" &&
+      log.level === "warn" &&
       log.fields.event === "http_request" &&
       log.fields.status === 404 &&
       log.fields.sessionPresent === true
