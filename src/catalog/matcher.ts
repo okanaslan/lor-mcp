@@ -7,7 +7,14 @@ import type {
 } from "@src/catalog/types.ts";
 
 interface FieldScore {
-  field: "primarySpecialty" | "specialtyTags" | "displayName" | "projectName";
+  field:
+    | "primarySpecialty"
+    | "specialtyTags"
+    | "skillContext.whenToUse"
+    | "displayName"
+    | "skillContext.examplePrompts"
+    | "skillContext.usageNotes"
+    | "projectName";
   score: number;
   signals: string[];
 }
@@ -84,6 +91,7 @@ function scoreEntry(
   const fieldScores = [
     scoreField("primarySpecialty", entry.primarySpecialty, queryTokens, 10),
     scoreField("specialtyTags", entry.specialtyTags.join(" "), queryTokens, 8),
+    ...scoreSkillContext(entry, queryTokens),
     scoreField("displayName", entry.displayName, queryTokens, 5),
     request.projectName
       ? undefined
@@ -146,11 +154,53 @@ function fieldLabel(field: FieldScore["field"]): string {
       return "primary specialty";
     case "specialtyTags":
       return "specialty tags";
+    case "skillContext.whenToUse":
+      return "skill context usage guidance";
     case "displayName":
       return "display name";
+    case "skillContext.examplePrompts":
+      return "skill context example prompts";
+    case "skillContext.usageNotes":
+      return "skill context usage notes";
     case "projectName":
       return "project name";
   }
+}
+
+function scoreSkillContext(
+  entry: CatalogEntry,
+  queryTokens: string[],
+): FieldScore[] {
+  if (entry.entryType !== "skill" || !entry.skillContext) {
+    return [];
+  }
+
+  return [
+    entry.skillContext.whenToUse
+      ? scoreField(
+        "skillContext.whenToUse",
+        entry.skillContext.whenToUse,
+        queryTokens,
+        7,
+      )
+      : undefined,
+    entry.skillContext.examplePrompts
+      ? scoreField(
+        "skillContext.examplePrompts",
+        entry.skillContext.examplePrompts.join(" "),
+        queryTokens,
+        5,
+      )
+      : undefined,
+    entry.skillContext.usageNotes
+      ? scoreField(
+        "skillContext.usageNotes",
+        entry.skillContext.usageNotes,
+        queryTokens,
+        3,
+      )
+      : undefined,
+  ].filter((score): score is FieldScore => score !== undefined);
 }
 
 function scoreField(

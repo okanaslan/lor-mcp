@@ -38,8 +38,8 @@ Implemented in the first runnable v1 slice:
   - `find_matching_catalog_entry`
 - Agent and skill introduction now acts as registration. The server no longer
   requires server-local pre-verification evidence before accepting new entries.
-- Deterministic local fuzzy matching with structured match explanations and
-  conflict reporting.
+- Deterministic local fuzzy matching with registered skill context signals,
+  structured match explanations, and conflict reporting.
 - Structured MCP response envelopes with output schemas and stable error codes.
 
 Latest implementation verification:

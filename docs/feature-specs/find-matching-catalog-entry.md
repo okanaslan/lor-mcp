@@ -27,8 +27,9 @@ requested workspace.
 - The server must match only catalog entries scoped to the requested workspace.
 - The server must consider project name, display name, primary specialty, and
   specialty tags.
-- The server may consider future metadata such as descriptions or usage notes
-  when available.
+- The server must consider registered skill context when present, including
+  `whenToUse`, `usageNotes`, and `examplePrompts`.
+- The server must not score `skillContext.constraints` in v1.
 - The server must return ranked matching agents and skills when relevant entries
   exist.
 - The server must return a no-match result when no introduced entry is relevant.
@@ -82,3 +83,4 @@ Conceptual `CatalogMatchResult` fields:
 - 2026-07-11: Keep detailed ranking policy open for later implementation.
 - 2026-07-13: Implement deterministic local fuzzy matching against the
   client-supplied workspace.
+- 2026-07-19: Implement skill-context-aware matching for registered skills.

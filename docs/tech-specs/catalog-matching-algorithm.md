@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines the v1 catalog matching algorithm as a
-lightweight deterministic fuzzy scorer.
+Draft. This tech spec defines the v1 catalog matching algorithm as a lightweight
+deterministic fuzzy scorer.
 
 V1 matching returns separate ranked agent and skill recommendations instead of
 forcing a single mixed catalog winner. The algorithm is local, predictable, and
@@ -12,8 +12,8 @@ testable without LLMs, embeddings, or a fuzzy-search dependency.
 ## 2. Context
 
 The v1 MCP tool surface exposes `find_matching_catalog_entry`. Durable storage
-uses separate agent and skill tables, and all matching must remain scoped to
-the requested workspace.
+uses separate agent and skill tables, and all matching must remain scoped to the
+requested workspace.
 
 The current Find Matching Catalog Entry feature spec describes returning a
 single best catalog entry. The intended v1 behavior is broader: return ranked
@@ -57,7 +57,7 @@ The matching query is built from:
 - `projectName`: optional project filter.
 - `preferredType`: optional entry type filter.
 
-Each agent and skill should be scored independently with the same field
+Each agent and skill should be scored independently with these shared field
 priorities:
 
 - `primarySpecialty`: strongest signal.
@@ -66,8 +66,25 @@ priorities:
 - `projectName`: hard filter when supplied as input, otherwise weak boost when
   task text matches it.
 
-The scorer should use token-level fuzzy matching without external
-dependencies:
+Registered skill entries also score optional stored skill context. The v1
+weights are:
+
+- `primarySpecialty`: 10.
+- `specialtyTags`: 8.
+- `skillContext.whenToUse`: 7.
+- `displayName`: 5.
+- `skillContext.examplePrompts`: 5.
+- `skillContext.usageNotes`: 3.
+- `projectName`: 2 when it is not supplied as a hard filter.
+
+This means stored skill context follows the same field priority rules:
+
+- `skillContext.whenToUse`: strong signal below `specialtyTags`.
+- `skillContext.examplePrompts`: medium signal near `displayName`.
+- `skillContext.usageNotes`: weak signal.
+- `skillContext.constraints`: not scored in v1.
+
+The scorer should use token-level fuzzy matching without external dependencies:
 
 - Exact token match scores highest.
 - Prefix match scores lower than exact match.
@@ -127,25 +144,24 @@ Matching should live in catalog domain code, not in MCP tool handlers or SQLite
 query code. Storage should return workspace-scoped candidate records, then the
 matcher should score them in memory for v1.
 
-Score values should be deterministic numeric values. The exact constants can be
-chosen during implementation, but they must preserve the field priority:
-primary specialty above tags, tags above display name, and project name as a
-filter or weak boost.
+Score values must stay deterministic and preserve the field priority: primary
+specialty above tags, tags above skill usage guidance, usage guidance above
+display name and examples, display name and examples above usage notes, and
+project name as a filter or weak boost.
 
 Candidates with zero score should not be returned. Returned candidates should
 include enough matched signal metadata for later routing recommendation
 explanation work.
 
 The tool name remains `find_matching_catalog_entry` for v1 even though the
-result contains ranked agent and skill lists. A later feature-spec update
-should align the product wording with this result shape.
+result contains ranked agent and skill lists. A later feature-spec update should
+align the product wording with this result shape.
 
 ## 8. Risks and Tradeoffs
 
 - Lightweight fuzzy matching may miss semantic matches that use different
   vocabulary.
-- Substring matching can produce weak false positives if thresholds are too
-  low.
+- Substring matching can produce weak false positives if thresholds are too low.
 - Separate ranked lists avoid hidden type precedence but require callers to
   interpret both agent and skill recommendations.
 - Without edit-distance tolerance, typos may reduce match quality.
@@ -163,19 +179,19 @@ When this tech spec is implemented as code, verification should include:
 - Multiple top agents are marked ambiguous instead of silently picking one.
 - Results never include entries outside the requested workspace.
 - Candidate metadata includes score, matched fields, and matched signals.
+- Skill context can influence skill ranking when `whenToUse`, `examplePrompts`,
+  or `usageNotes` match the task.
+- Skill context constraints do not create matches by themselves.
 
-For this documentation change, verification is limited to reading back the
-spec, checking the docs tree, running `git diff --check`, and checking git
-status.
+For this documentation change, verification is limited to reading back the spec,
+checking the docs tree, running `git diff --check`, and checking git status.
 
 ## 10. Open Questions
 
 - Should the Find Matching Catalog Entry feature spec be updated in the same
-  later pass to replace "single best entry" with ranked agent and skill
-  results?
+  later pass to replace "single best entry" with ranked agent and skill results?
 - Should future versions add edit-distance typo tolerance?
 - Should the skill result limit be caller-configurable?
-- What exact numeric score constants and thresholds should implementation use?
 
 ## 11. Decision Log
 
@@ -188,3 +204,5 @@ status.
 - 2026-07-12: Treat supplied `projectName` as a hard project filter.
 - 2026-07-12: Keep `find_matching_catalog_entry` as the v1 tool name while
   returning ranked agent and skill lists.
+- 2026-07-19: Include registered skill context in skill scoring, while keeping
+  constraints unscored.
