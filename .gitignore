@@ -1,2 +1,4 @@
+.env
+.env.local
 .agentic-router/
 .lor-mcp/

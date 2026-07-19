@@ -55,6 +55,12 @@ Run the local HTTP MCP server:
 deno task serve
 ```
 
+To load local settings from `.env`, run:
+
+```sh
+deno task --env-file=.env serve
+```
+
 Then connect Codex to the already-running server:
 
 ```sh
@@ -91,6 +97,7 @@ for protocol messages. Useful local logging commands:
 ```sh
 LOR_LOG_LEVEL=debug deno task serve
 LOR_LOG_FORMAT=json deno task serve
+deno task --env-file=.env serve
 deno task serve 2>&1 | tee /tmp/lor-mcp.log
 ```
 

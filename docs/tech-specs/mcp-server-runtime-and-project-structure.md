@@ -80,6 +80,11 @@ scope must come from the client-supplied `workspace` tool input, and
 introduction tools register supplied agent or skill metadata directly without
 requiring server-side pre-registration files.
 
+Local development may load server-side overrides from an ignored `.env` file
+using Deno's task-level `--env-file` flag, for example
+`deno task --env-file=.env serve`. The repository should track `.env.example`
+with safe local defaults and keep developer-specific `.env` files out of git.
+
 Runtime logging should use Pino with leveled logs. Local console logs should be
 human-readable by default, with JSON available through `LOR_LOG_FORMAT=json`.
 All logs must go to stderr so stdout remains reserved for stdio MCP protocol
