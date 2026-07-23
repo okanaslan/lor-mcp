@@ -21,12 +21,15 @@ workspace without copying registered agents.
 
 ## 4. Flow
 
-1. The user asks the active Codex agent to initialize the new workspace.
-2. The agent asks LOR to preview skills from a source workspace.
+1. The user asks the active Codex agent to initialize the new workspace from
+   useful skills in a source workspace.
+2. The agent calls `preview_workspace_catalog_sync` for the source and target
+   workspaces.
 3. LOR returns the skills that would be copied, duplicate skills that would be
    skipped, missing requested skills, and any generated starter prompt metadata.
 4. The user reviews the preview.
-5. After approval, the agent asks LOR to apply the workspace initialization.
+5. After approval, the agent calls `apply_workspace_catalog_sync` with
+   `confirm: true`.
 6. LOR copies selected skill catalog entries into the target workspace.
 7. The agent uses `generate_agent_prompt` for requested agent roles.
 8. The user starts new Codex chats with those prompts.
@@ -41,7 +44,7 @@ IDs exist.
 
 ## 6. Related Feature Specs
 
-- [Initialize Workspace](../feature-specs/initialize-workspace.md)
+- [Workspace Catalog Sync](../feature-specs/workspace-catalog-sync.md)
 - [Catalog Export](../feature-specs/catalog-export.md)
 - [Catalog Import](../feature-specs/catalog-import.md)
 - [Generate Agent Prompt](../feature-specs/generate-agent-prompt.md)
