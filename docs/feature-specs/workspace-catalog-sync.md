@@ -2,11 +2,11 @@
 
 ## 1. Summary
 
-Draft. This feature defines helper tools for syncing skill catalog entries from
-one LOR workspace catalog into another. Initializing an empty workspace is the
-primary use case, but the tools are general catalog sync/migration helpers that
-can be used any time a target workspace should receive selected skills from a
-source workspace.
+Implemented for v1. This feature defines helper tools for syncing skill catalog
+entries from one LOR workspace catalog into another. Initializing an empty
+workspace is the primary use case, but the tools are general catalog
+sync/migration helpers that can be used any time a target workspace should
+receive selected skills from a source workspace.
 
 V1 copies skill catalog entries only, then returns starter prompt metadata that
 can help the user create fresh workspace-specific Codex agents when needed.
@@ -56,6 +56,8 @@ can help the user create fresh workspace-specific Codex agents when needed.
   - missing requested skills
   - generated starter prompt metadata for requested roles
   - summary counts
+- The apply output must also include copied skill names and the internal import
+  result.
 - The implementation should reuse existing catalog export/import behavior where
   practical.
 
@@ -73,7 +75,7 @@ Conceptual `WorkspaceCatalogSyncPreview` fields:
 - `duplicateSkills`: skills already present in the target workspace.
 - `missingSkills`: requested skill names that were not found in the source
   workspace.
-- `agentPromptRoles`: requested starter prompt roles.
+- `requestedAgentPromptRoles`: requested starter prompt roles.
 - `generatedAgentPrompts`: generated prompt metadata for requested roles.
 - `summary`: counts for selected, copied, skipped, missing, and generated prompt
   items.
@@ -115,3 +117,6 @@ Conceptual `WorkspaceCatalogSyncPreview` fields:
 - 2026-07-23: Keep local skill-file sync separate from workspace catalog sync.
 - 2026-07-23: Generalize from workspace initialization to reusable
   sync/migration helper tools.
+- 2026-07-23: Implement v1 as `preview_workspace_catalog_sync` and
+  `apply_workspace_catalog_sync`, copying only non-duplicate skill entries into
+  the resolved target workspace.

@@ -2,6 +2,7 @@ import { assertEquals } from "@std/assert";
 import {
   applySkillFileSyncInputSchema,
   applySkillUpdateInputSchema,
+  applyWorkspaceCatalogSyncInputSchema,
   checkCatalogHealthInputSchema,
   clearWorkspaceCatalogInputSchema,
   exportCatalogInputSchema,
@@ -9,6 +10,7 @@ import {
   importCatalogInputSchema,
   prepareAgentHandoffInputSchema,
   previewSkillFileSyncInputSchema,
+  previewWorkspaceCatalogSyncInputSchema,
   proposeSkillUpdateInputSchema,
   registerWorkspaceAliasInputSchema,
   removeCatalogEntryInputSchema,
@@ -296,6 +298,65 @@ Deno.test("importCatalogInputSchema requires versioned catalog data", () => {
       workspace: "LOR-MCP",
       conflictStrategy: "overwrite",
       catalog: validCatalog,
+    }).success,
+    false,
+  );
+});
+
+Deno.test("workspace catalog sync schemas require source and target workspaces", () => {
+  assertEquals(
+    previewWorkspaceCatalogSyncInputSchema.safeParse({
+      sourceWorkspace: "source-workspace",
+      targetWorkspace: "target-workspace",
+      projectName: "Local Orchestration Router (LOR)",
+      skillNames: ["backend-skill"],
+      agentPromptRoles: ["backend"],
+    }).success,
+    true,
+  );
+  assertEquals(
+    previewWorkspaceCatalogSyncInputSchema.safeParse({
+      targetWorkspace: "target-workspace",
+    }).success,
+    false,
+  );
+  assertEquals(
+    previewWorkspaceCatalogSyncInputSchema.safeParse({
+      sourceWorkspace: "source-workspace",
+    }).success,
+    false,
+  );
+  assertEquals(
+    previewWorkspaceCatalogSyncInputSchema.safeParse({
+      sourceWorkspace: "source-workspace",
+      targetWorkspace: "target-workspace",
+      skillNames: [],
+    }).success,
+    false,
+  );
+});
+
+Deno.test("applyWorkspaceCatalogSyncInputSchema requires confirm true", () => {
+  assertEquals(
+    applyWorkspaceCatalogSyncInputSchema.safeParse({
+      sourceWorkspace: "source-workspace",
+      targetWorkspace: "target-workspace",
+      confirm: true,
+    }).success,
+    true,
+  );
+  assertEquals(
+    applyWorkspaceCatalogSyncInputSchema.safeParse({
+      sourceWorkspace: "source-workspace",
+      targetWorkspace: "target-workspace",
+    }).success,
+    false,
+  );
+  assertEquals(
+    applyWorkspaceCatalogSyncInputSchema.safeParse({
+      sourceWorkspace: "source-workspace",
+      targetWorkspace: "target-workspace",
+      confirm: false,
     }).success,
     false,
   );

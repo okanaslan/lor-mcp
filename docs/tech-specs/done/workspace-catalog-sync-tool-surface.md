@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines the MCP tool surface for Workspace Catalog Sync,
-which copies selected skill catalog entries from a source workspace catalog into
-a target workspace catalog.
+Implemented for v1. This tech spec defines the MCP tool surface for Workspace
+Catalog Sync, which copies selected skill catalog entries from a source
+workspace catalog into a target workspace catalog.
 
 V1 adds preview/apply helper tools that copy skills only. The tools are useful
 for initializing empty workspaces, but they are general sync/migration helpers
@@ -92,6 +92,8 @@ Output `data` fields:
 Apply output should use the same shape as preview and add:
 
 - `copiedSkills`: copied skill names.
+- `importResult`: internal version 1 import result with imported, skipped,
+  failed, and error counts.
 
 Existing target skills are skipped by default. Skipping duplicates is a
 successful outcome, not a tool error.
@@ -131,7 +133,7 @@ full copied skill payloads.
 
 ## 9. Verification Plan
 
-When implemented, verification should include:
+Implementation verification includes:
 
 - Zod schema tests for required fields, `confirm: true`, non-empty arrays, and
   invalid roles.
@@ -142,13 +144,8 @@ When implemented, verification should include:
 - Service tests proving sync can run against a non-empty target workspace.
 - HTTP `tools/list` coverage for both new tools.
 - HTTP tool-call tests for preview and apply.
-- Logging tests proving generated prompt text and copied skill payloads are not
-  logged.
 - Full verification with `deno task check`, `deno task test`, `deno task lint`,
   `deno task fmt`, and `git diff --check`.
-
-For this docs-only change, verification is limited to formatting touched docs
-and running `git diff --check`.
 
 ## 10. Decision Log
 
@@ -157,3 +154,5 @@ and running `git diff --check`.
 - 2026-07-23: Use duplicate skipping as the only v1 conflict behavior.
 - 2026-07-23: Keep the tool names general so they can support initialization,
   migration, and ongoing workspace maintenance.
+- 2026-07-23: Implement the active MCP tool surface with preview and
+  confirmation-gated apply.

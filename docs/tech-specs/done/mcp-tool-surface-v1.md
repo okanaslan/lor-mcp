@@ -50,7 +50,7 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register eighteen MCP tools with snake_case names:
+V1 should register twenty MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -66,6 +66,8 @@ V1 should register eighteen MCP tools with snake_case names:
 - `remove_catalog_entry`
 - `export_catalog`
 - `import_catalog`
+- `preview_workspace_catalog_sync`
+- `apply_workspace_catalog_sync`
 - `check_catalog_health`
 - `prepare_agent_handoff`
 - `generate_agent_prompt`
@@ -290,6 +292,33 @@ version, conflict strategy, imported count, skipped count, failed count, and
 entry-level errors. V1 skips existing workspace entries by default and reports
 them as failures when `conflictStrategy` is `fail`.
 
+`preview_workspace_catalog_sync` input:
+
+- `sourceWorkspace`
+- `targetWorkspace`
+- optional `projectName`
+- optional `skillNames`
+- optional `agentPromptRoles`
+
+`preview_workspace_catalog_sync` output data should include resolved source and
+target workspaces, selected skill entries to copy, duplicate target skills,
+missing requested skills, optional generated agent prompt metadata, and summary
+counts. It must not write to catalog storage or local skill files.
+
+`apply_workspace_catalog_sync` input:
+
+- `sourceWorkspace`
+- `targetWorkspace`
+- optional `projectName`
+- optional `skillNames`
+- optional `agentPromptRoles`
+- `confirm`: literal `true`
+
+`apply_workspace_catalog_sync` output data should include the recomputed preview
+fields, copied skill names, and the internal import result. It copies skills
+only, skips existing target skills, and never copies agents or `codexSessionId`
+values.
+
 `check_catalog_health` input:
 
 - `workspace`
@@ -438,3 +467,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   workspace variants.
 - 2026-07-19: Add approval-gated registered skill context updates and local
   skill file sync through `preview_skill_file_sync` and `apply_skill_file_sync`.
+- 2026-07-23: Add skill-only workspace catalog sync through
+  `preview_workspace_catalog_sync` and `apply_workspace_catalog_sync`.

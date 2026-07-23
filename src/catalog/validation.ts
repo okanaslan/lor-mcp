@@ -1,6 +1,7 @@
 import {
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
+  type ApplyWorkspaceCatalogSyncInput,
   type CatalogEntryUpdate,
   type CatalogExportEntry,
   type CatalogExportFilter,
@@ -17,6 +18,7 @@ import {
   type SkillContext,
   type SkillFileSyncInput,
   type SkillMetadataUpdate,
+  type WorkspaceCatalogSyncInput,
 } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
 import { requireWorkspace } from "@src/catalog/workspace.ts";
@@ -177,6 +179,39 @@ export function validateCatalogImportInput(
       },
       entries: input.catalog.entries.map(validateCatalogImportEntry),
     },
+  };
+}
+
+export function validateWorkspaceCatalogSyncInput(
+  input: WorkspaceCatalogSyncInput,
+): WorkspaceCatalogSyncInput {
+  return {
+    sourceWorkspace: requireWorkspace(input.sourceWorkspace, "sourceWorkspace"),
+    targetWorkspace: requireWorkspace(input.targetWorkspace, "targetWorkspace"),
+    projectName: input.projectName?.trim() || undefined,
+    skillNames: input.skillNames === undefined
+      ? undefined
+      : requireStringList(input.skillNames, "skillNames"),
+    agentPromptRoles: input.agentPromptRoles === undefined
+      ? undefined
+      : requireStringList(input.agentPromptRoles, "agentPromptRoles"),
+  };
+}
+
+export function validateApplyWorkspaceCatalogSync(
+  input: ApplyWorkspaceCatalogSyncInput,
+): ApplyWorkspaceCatalogSyncInput {
+  if (input.confirm !== true) {
+    throw new LorError(
+      "validation_error",
+      "confirm must be true.",
+      { field: "confirm" },
+    );
+  }
+
+  return {
+    ...validateWorkspaceCatalogSyncInput(input),
+    confirm: true,
   };
 }
 

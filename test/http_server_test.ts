@@ -69,6 +69,8 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "remove_catalog_entry",
       "export_catalog",
       "import_catalog",
+      "preview_workspace_catalog_sync",
+      "apply_workspace_catalog_sync",
       "check_catalog_health",
       "prepare_agent_handoff",
       "generate_agent_prompt",
@@ -434,6 +436,90 @@ Deno.test("HTTP MCP handler calls export_catalog and import_catalog", async () =
     assertEquals(importBody.result.structuredContent.status, "ok");
     assertEquals(importBody.result.structuredContent.data.importedCount, 1);
     assertEquals(entries.map((entry) => entry.entryKey), ["backend-skill"]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls workspace catalog sync tools", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const logger = new CapturingLogger();
+    await service.introduceSkill({
+      workspace: "source-workspace",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const handler = createHttpMcpHandler({
+      logger,
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const previewResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "preview_workspace_catalog_sync",
+        arguments: {
+          sourceWorkspace: "source-workspace",
+          targetWorkspace: "target-workspace",
+        },
+      },
+    });
+    const previewBody = await previewResponse.json();
+    const applyResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "apply_workspace_catalog_sync",
+        arguments: {
+          sourceWorkspace: "source-workspace",
+          targetWorkspace: "target-workspace",
+          confirm: true,
+        },
+      },
+    });
+    const applyBody = await applyResponse.json();
+    const targetEntries = await service.listEntries({
+      workspace: "target-workspace",
+    });
+
+    assertEquals(previewResponse.status, 200);
+    assertEquals(previewBody.result.structuredContent.status, "ok");
+    assertEquals(
+      previewBody.result.structuredContent.data.skillsToCopy[0].skillName,
+      "backend-skill",
+    );
+    assertEquals(applyResponse.status, 200);
+    assertEquals(applyBody.result.structuredContent.status, "ok");
+    assertEquals(
+      applyBody.result.structuredContent.data.importResult.importedCount,
+      1,
+    );
+    assertEquals(targetEntries.map((entry) => entry.entryKey), [
+      "backend-skill",
+    ]);
+    assert(
+      logger.logs.some((log) =>
+        log.level === "info" &&
+        log.fields.event === "mcp_tool_call" &&
+        log.fields.toolName === "apply_workspace_catalog_sync" &&
+        log.fields.sourceWorkspace === "source-workspace" &&
+        log.fields.targetWorkspace === "target-workspace" &&
+        log.fields.copiedSkills === 1
+      ),
+    );
+    assertEquals(JSON.stringify(logger.logs).includes("Backend Skill"), false);
   } finally {
     repo.close();
   }

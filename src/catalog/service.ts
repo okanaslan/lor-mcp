@@ -2,10 +2,12 @@ import {
   type AgentCatalogEntry,
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
+  type ApplyWorkspaceCatalogSyncInput,
   type CatalogEntry,
   type CatalogEntryUpdate,
   type CatalogExport,
   type CatalogExportFilter,
+  type CatalogExportSkillEntry,
   type CatalogHealthEntry,
   type CatalogHealthFilter,
   type CatalogHealthIssue,
@@ -38,10 +40,14 @@ import {
   type SkillUpdateProposal,
   type SkillUpdateProposalResult,
   type VerificationMetadata,
+  type WorkspaceCatalogSyncApplyResult,
+  type WorkspaceCatalogSyncInput,
+  type WorkspaceCatalogSyncPreview,
 } from "@src/catalog/types.ts";
 import {
   validateApplySkillFileSync,
   validateApplySkillUpdate,
+  validateApplyWorkspaceCatalogSync,
   validateCatalogEntryUpdate,
   validateCatalogExportFilter,
   validateCatalogHealthFilter,
@@ -54,15 +60,21 @@ import {
   validateRegisterWorkspaceAlias,
   validateSkillFileSyncInput,
   validateWorkspace,
+  validateWorkspaceCatalogSyncInput,
 } from "@src/catalog/validation.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
 import { LorError } from "@src/errors.ts";
 import { LocalSkillSync } from "@src/skills/local_skill_sync.ts";
+import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 
 interface CatalogServiceOptions {
   repository: CatalogRepository;
   skillRoots?: readonly string[];
   now?: () => string;
+}
+
+interface WorkspaceCatalogSyncPlan {
+  preview: WorkspaceCatalogSyncPreview;
 }
 
 export class CatalogService {
@@ -432,6 +444,46 @@ export class CatalogService {
     };
   }
 
+  async previewWorkspaceCatalogSync(
+    input: WorkspaceCatalogSyncInput,
+  ): Promise<WorkspaceCatalogSyncPreview> {
+    const validated = validateWorkspaceCatalogSyncInput(input);
+    return (await this.buildWorkspaceCatalogSyncPlan(validated)).preview;
+  }
+
+  async applyWorkspaceCatalogSync(
+    input: ApplyWorkspaceCatalogSyncInput,
+  ): Promise<WorkspaceCatalogSyncApplyResult> {
+    const validated = validateApplyWorkspaceCatalogSync(input);
+    const { preview } = await this.buildWorkspaceCatalogSyncPlan(validated);
+    const importResult = await this.importCatalog({
+      workspace: preview.targetWorkspace,
+      conflictStrategy: "skip",
+      catalog: {
+        version: 1,
+        exportedAt: this.#now(),
+        workspace: preview.sourceWorkspace,
+        filters: {
+          entryType: "skill",
+          projectName: preview.projectName,
+        },
+        entries: preview.skillsToCopy,
+      },
+    });
+
+    return {
+      ...preview,
+      summary: {
+        ...preview.summary,
+        copiedSkills: importResult.importedCount,
+      },
+      copiedSkills: preview.skillsToCopy
+        .slice(0, importResult.importedCount)
+        .map((entry) => entry.skillName),
+      importResult,
+    };
+  }
+
   async checkCatalogHealth(
     filter: CatalogHealthFilter,
   ): Promise<CatalogHealthReport> {
@@ -596,6 +648,88 @@ export class CatalogService {
     return { workspace, proposal, entry };
   }
 
+  private async buildWorkspaceCatalogSyncPlan(
+    input: WorkspaceCatalogSyncInput,
+  ): Promise<WorkspaceCatalogSyncPlan> {
+    const now = this.#now();
+    const sourceWorkspace = await this.resolveWorkspace(
+      input.sourceWorkspace,
+      now,
+    );
+    const targetWorkspace = await this.resolveWorkspace(
+      input.targetWorkspace,
+      now,
+    );
+    if (sourceWorkspace === targetWorkspace) {
+      throw new LorError(
+        "validation_error",
+        "sourceWorkspace and targetWorkspace must resolve to different workspaces.",
+        { field: "targetWorkspace" },
+      );
+    }
+
+    const sourceEntries = await this.#repository.listEntries(sourceWorkspace, {
+      workspace: sourceWorkspace,
+      entryType: "skill",
+      projectName: input.projectName,
+    });
+    const targetEntries = await this.#repository.listEntries(targetWorkspace, {
+      workspace: targetWorkspace,
+      entryType: "skill",
+    });
+    const targetSkillNames = new Set(
+      targetEntries
+        .filter((entry): entry is SkillCatalogEntry =>
+          entry.entryType === "skill"
+        )
+        .map((entry) => entry.skillName),
+    );
+    const sourceSkills = sourceEntries.filter((
+      entry,
+    ): entry is SkillCatalogEntry => entry.entryType === "skill");
+    const selectedSkills = selectSyncSkills(sourceSkills, input.skillNames);
+    const sourceSkillNames = new Set(
+      sourceSkills.map((entry) => entry.skillName),
+    );
+    const missingSkills = (input.skillNames ?? []).filter((skillName) =>
+      !sourceSkillNames.has(skillName)
+    );
+    const duplicateSkills = selectedSkills
+      .filter((entry) => targetSkillNames.has(entry.skillName))
+      .map((entry) => entry.skillName);
+    const skillsToCopy = selectedSkills
+      .filter((entry) => !targetSkillNames.has(entry.skillName))
+      .map(toExportSkillEntry);
+    const generatedAgentPrompts = (input.agentPromptRoles ?? []).map((role) =>
+      generateAgentPrompt({
+        workspace: targetWorkspace,
+        role,
+        projectName: input.projectName,
+      })
+    );
+
+    const preview: WorkspaceCatalogSyncPreview = {
+      sourceWorkspace,
+      targetWorkspace,
+      projectName: input.projectName,
+      requestedSkillNames: input.skillNames,
+      requestedAgentPromptRoles: input.agentPromptRoles,
+      skillsToCopy,
+      duplicateSkills,
+      missingSkills,
+      generatedAgentPrompts,
+      summary: {
+        selectedSkills: selectedSkills.length,
+        skillsToCopy: skillsToCopy.length,
+        duplicateSkills: duplicateSkills.length,
+        missingSkills: missingSkills.length,
+        generatedAgentPrompts: generatedAgentPrompts.length,
+      },
+    };
+
+    return { preview };
+  }
+
   private async findImportConflicts(
     input: CatalogImportInput & {
       conflictStrategy: "skip" | "fail";
@@ -675,6 +809,27 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
     skillName: entry.skillName,
     skillContext: entry.skillContext,
   };
+}
+
+function selectSyncSkills(
+  sourceSkills: readonly SkillCatalogEntry[],
+  skillNames?: readonly string[],
+): SkillCatalogEntry[] {
+  if (skillNames === undefined) {
+    return [...sourceSkills];
+  }
+
+  const sourceBySkillName = new Map(
+    sourceSkills.map((entry) => [entry.skillName, entry]),
+  );
+  return skillNames.flatMap((skillName) => {
+    const entry = sourceBySkillName.get(skillName);
+    return entry ? [entry] : [];
+  });
+}
+
+function toExportSkillEntry(entry: SkillCatalogEntry): CatalogExportSkillEntry {
+  return toExportEntry(entry) as CatalogExportSkillEntry;
 }
 
 function mergeSkillUpdate(

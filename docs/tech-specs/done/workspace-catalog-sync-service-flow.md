@@ -2,9 +2,10 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines the service-level data flow for Workspace Catalog
-Sync. The implementation should compose existing catalog export/import and agent
-prompt generation behavior while keeping the public lower-level tools unchanged.
+Implemented for v1. This tech spec defines the service-level data flow for
+Workspace Catalog Sync. The implementation composes existing catalog
+export/import and agent prompt generation behavior while keeping the public
+lower-level tools unchanged.
 
 ## 2. Context
 
@@ -138,7 +139,7 @@ validation should live with existing catalog validation helpers.
 
 ## 10. Verification Plan
 
-When implemented, verification should include:
+Implementation verification includes:
 
 - Source and target workspace aliases resolve before all reads and writes.
 - Preview returns skills to copy, duplicates, missing requested skills, prompt
@@ -156,9 +157,6 @@ When implemented, verification should include:
 - Existing `export_catalog`, `import_catalog`, and `generate_agent_prompt`
   public behavior remains unchanged.
 
-For this docs-only change, verification is limited to formatting touched docs
-and running `git diff --check`.
-
 ## 11. Decision Log
 
 - 2026-07-23: Reuse existing export/import and prompt-generation behavior
@@ -167,3 +165,5 @@ and running `git diff --check`.
   storage state.
 - 2026-07-23: Generalize the service flow from one-time initialization to
   reusable catalog sync between workspaces.
+- 2026-07-23: Implement preview and apply service methods without adding SQLite
+  tables or schema migrations.

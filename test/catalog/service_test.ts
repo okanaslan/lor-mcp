@@ -1029,6 +1029,185 @@ Deno.test("CatalogService import skips or fails duplicate entries", async () => 
   }
 });
 
+Deno.test("CatalogService previews workspace catalog sync without mutation", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "source-workspace",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSkill({
+      workspace: "source-workspace",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      skillContext: {
+        whenToUse: "Use for backend implementation.",
+      },
+    });
+    await service.introduceSkill({
+      workspace: "source-workspace",
+      skillName: "qa-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "QA Skill",
+      primarySpecialty: "quality assurance",
+      specialtyTags: ["qa"],
+    });
+    await service.introduceSkill({
+      workspace: "target-workspace",
+      skillName: "qa-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Existing QA Skill",
+      primarySpecialty: "quality assurance",
+      specialtyTags: ["qa"],
+    });
+
+    const preview = await service.previewWorkspaceCatalogSync({
+      sourceWorkspace: "source-workspace",
+      targetWorkspace: "target-workspace",
+      projectName: "Local Orchestration Router (LOR)",
+      skillNames: ["backend-skill", "qa-skill", "missing-skill"],
+      agentPromptRoles: ["backend"],
+    });
+    const targetEntries = await service.listEntries({
+      workspace: "target-workspace",
+    });
+    const generatedPrompt = preview.generatedAgentPrompts[0];
+
+    assertEquals(preview.sourceWorkspace, "source-workspace");
+    assertEquals(preview.targetWorkspace, "target-workspace");
+    assertEquals(preview.skillsToCopy.map((entry) => entry.skillName), [
+      "backend-skill",
+    ]);
+    assertEquals(
+      preview.skillsToCopy[0].skillContext?.whenToUse,
+      "Use for backend implementation.",
+    );
+    assertEquals(preview.duplicateSkills, ["qa-skill"]);
+    assertEquals(preview.missingSkills, ["missing-skill"]);
+    assertEquals(generatedPrompt.role, "backend");
+    assertEquals(
+      generatedPrompt.suggestedAgentMetadata.displayName,
+      "Backend Agent",
+    );
+    assertEquals(preview.summary, {
+      selectedSkills: 2,
+      skillsToCopy: 1,
+      duplicateSkills: 1,
+      missingSkills: 1,
+      generatedAgentPrompts: 1,
+    });
+    assertEquals(targetEntries.map((entry) => entry.entryKey), ["qa-skill"]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService applies workspace catalog sync with confirmation", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "source-workspace",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSkill({
+      workspace: "source-workspace",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      skillContext: {
+        usageNotes: "Preserve this context.",
+      },
+    });
+    await service.introduceSkill({
+      workspace: "source-workspace",
+      skillName: "qa-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "QA Skill",
+      primarySpecialty: "quality assurance",
+      specialtyTags: ["qa"],
+    });
+    await service.introduceSkill({
+      workspace: "target-workspace",
+      skillName: "qa-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Existing QA Skill",
+      primarySpecialty: "quality assurance",
+      specialtyTags: ["qa"],
+    });
+
+    const result = await service.applyWorkspaceCatalogSync({
+      sourceWorkspace: "source-workspace",
+      targetWorkspace: "target-workspace",
+      confirm: true,
+    });
+    const targetEntries = await service.listEntries({
+      workspace: "target-workspace",
+    });
+    const copied = await service.getEntryDetail({
+      workspace: "target-workspace",
+      entryType: "skill",
+      entryKey: "backend-skill",
+    });
+
+    assertEquals(result.copiedSkills, ["backend-skill"]);
+    assertEquals(result.summary.copiedSkills, 1);
+    assertEquals(result.importResult.importedCount, 1);
+    assertEquals(result.importResult.skippedCount, 0);
+    assertEquals(result.duplicateSkills, ["qa-skill"]);
+    assertEquals(targetEntries.map((entry) => entry.entryKey).sort(), [
+      "backend-skill",
+      "qa-skill",
+    ]);
+    if (copied?.entryType !== "skill") {
+      throw new Error("Expected copied skill.");
+    }
+    assertEquals(copied.skillContext?.usageNotes, "Preserve this context.");
+    assertEquals(copied.verificationSource, "mcp_introduction");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService rejects workspace sync without confirmation or across same workspace", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.applyWorkspaceCatalogSync({
+          sourceWorkspace: "source-workspace",
+          targetWorkspace: "target-workspace",
+          confirm: false as true,
+        }),
+      Error,
+      "confirm must be true",
+    );
+    await assertRejects(
+      () =>
+        service.previewWorkspaceCatalogSync({
+          sourceWorkspace: "same-workspace",
+          targetWorkspace: "same-workspace",
+        }),
+      Error,
+      "must resolve to different workspaces",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService reports catalog health from stored verification metadata", async () => {
   const { repo, service } = await createCatalogService();
   try {

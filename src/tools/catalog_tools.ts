@@ -5,6 +5,8 @@ import {
   type ApplySkillFileSyncToolInput,
   applySkillUpdateInputSchema,
   type ApplySkillUpdateToolInput,
+  applyWorkspaceCatalogSyncInputSchema,
+  type ApplyWorkspaceCatalogSyncToolInput,
   checkCatalogHealthInputSchema,
   type CheckCatalogHealthToolInput,
   clearWorkspaceCatalogInputSchema,
@@ -29,6 +31,8 @@ import {
   type PrepareAgentHandoffToolInput,
   previewSkillFileSyncInputSchema,
   type PreviewSkillFileSyncToolInput,
+  previewWorkspaceCatalogSyncInputSchema,
+  type PreviewWorkspaceCatalogSyncToolInput,
   proposeSkillUpdateInputSchema,
   type ProposeSkillUpdateToolInput,
   registerWorkspaceAliasInputSchema,
@@ -416,6 +420,68 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
+    "preview_workspace_catalog_sync",
+    {
+      description:
+        "Preview skill-only catalog sync from one workspace catalog into another.",
+      inputSchema: previewWorkspaceCatalogSyncInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: PreviewWorkspaceCatalogSyncToolInput) =>
+      withLoggedRuntime(
+        "preview_workspace_catalog_sync",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const preview = await runtime.service.previewWorkspaceCatalogSync(
+            input,
+          );
+          return okResult(
+            preview,
+            `Previewed ${preview.summary.skillsToCopy} skills to copy.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "apply_workspace_catalog_sync",
+    {
+      description:
+        "Copy previewed skill-only catalog entries into a target workspace after explicit confirmation.",
+      inputSchema: applyWorkspaceCatalogSyncInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: ApplyWorkspaceCatalogSyncToolInput) =>
+      withLoggedRuntime(
+        "apply_workspace_catalog_sync",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.applyWorkspaceCatalogSync(input);
+          return okResult(
+            result,
+            `Copied ${result.importResult.importedCount} skills into ${result.targetWorkspace}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
     "check_catalog_health",
     {
       description:
@@ -594,6 +660,7 @@ function logToolCall(
     status,
     durationMs: durationMs(startedAt),
     ...safeInputFields(input),
+    ...safeResultFields(result),
   };
   if (errorCode) {
     fields.errorCode = errorCode;
@@ -655,6 +722,37 @@ function safeInputFields(input: unknown): LogFields {
   }
   if (typeof input.alias === "string") {
     fields.alias = input.alias;
+  }
+  if (typeof input.sourceWorkspace === "string") {
+    fields.sourceWorkspace = input.sourceWorkspace;
+  }
+  if (typeof input.targetWorkspace === "string") {
+    fields.targetWorkspace = input.targetWorkspace;
+  }
+  return fields;
+}
+
+function safeResultFields(result: ToolResult): LogFields {
+  const data = result.structuredContent.data;
+  if (!isRecord(data) || !isRecord(data.summary)) {
+    return {};
+  }
+
+  const fields: LogFields = {};
+  for (
+    const key of [
+      "selectedSkills",
+      "skillsToCopy",
+      "duplicateSkills",
+      "missingSkills",
+      "generatedAgentPrompts",
+      "copiedSkills",
+    ]
+  ) {
+    const value = data.summary[key];
+    if (typeof value === "number") {
+      fields[key] = value;
+    }
   }
   return fields;
 }

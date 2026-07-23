@@ -248,6 +248,65 @@ export interface CatalogImportResult {
   errors: CatalogImportIssue[];
 }
 
+export interface WorkspaceCatalogSyncInput {
+  sourceWorkspace: string;
+  targetWorkspace: string;
+  projectName?: string;
+  skillNames?: readonly string[];
+  agentPromptRoles?: readonly string[];
+}
+
+export interface ApplyWorkspaceCatalogSyncInput
+  extends WorkspaceCatalogSyncInput {
+  confirm: true;
+}
+
+export interface WorkspaceCatalogSyncSummary {
+  selectedSkills: number;
+  skillsToCopy: number;
+  duplicateSkills: number;
+  missingSkills: number;
+  generatedAgentPrompts: number;
+  copiedSkills?: number;
+}
+
+export interface WorkspaceCatalogSyncAgentPrompt {
+  workspace: string;
+  role: string;
+  prompt: string;
+  displayName: string;
+  suggestedAgentMetadata: {
+    projectName: string;
+    displayName: string;
+    primarySpecialty: string;
+    specialtyTags: readonly string[];
+    handoff?: HandoffMetadata;
+  };
+  delivery: {
+    mode: "manual";
+    instruction: string;
+  };
+}
+
+export interface WorkspaceCatalogSyncPreview {
+  sourceWorkspace: string;
+  targetWorkspace: string;
+  projectName?: string;
+  requestedSkillNames?: readonly string[];
+  requestedAgentPromptRoles?: readonly string[];
+  skillsToCopy: CatalogExportSkillEntry[];
+  duplicateSkills: readonly string[];
+  missingSkills: readonly string[];
+  generatedAgentPrompts: WorkspaceCatalogSyncAgentPrompt[];
+  summary: WorkspaceCatalogSyncSummary;
+}
+
+export interface WorkspaceCatalogSyncApplyResult
+  extends WorkspaceCatalogSyncPreview {
+  copiedSkills: readonly string[];
+  importResult: CatalogImportResult;
+}
+
 export interface CatalogHealthFilter {
   workspace: string;
   entryType?: EntryType;

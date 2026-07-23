@@ -216,6 +216,22 @@ export const importCatalogInputSchema = z.object({
   }),
 });
 
+const workspaceCatalogSyncBaseInputSchema = z.object({
+  sourceWorkspace: workspaceSchema,
+  targetWorkspace: workspaceSchema,
+  projectName: z.string().trim().min(1).optional(),
+  skillNames: z.array(z.string().trim().min(1)).min(1).optional(),
+  agentPromptRoles: z.array(z.string().trim().min(1)).min(1).optional(),
+});
+
+export const previewWorkspaceCatalogSyncInputSchema =
+  workspaceCatalogSyncBaseInputSchema;
+
+export const applyWorkspaceCatalogSyncInputSchema =
+  workspaceCatalogSyncBaseInputSchema.extend({
+    confirm: z.literal(true),
+  });
+
 export const checkCatalogHealthInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema.optional(),
@@ -287,6 +303,12 @@ export type RemoveCatalogEntryToolInput = z.infer<
 >;
 export type ExportCatalogToolInput = z.infer<typeof exportCatalogInputSchema>;
 export type ImportCatalogToolInput = z.infer<typeof importCatalogInputSchema>;
+export type PreviewWorkspaceCatalogSyncToolInput = z.infer<
+  typeof previewWorkspaceCatalogSyncInputSchema
+>;
+export type ApplyWorkspaceCatalogSyncToolInput = z.infer<
+  typeof applyWorkspaceCatalogSyncInputSchema
+>;
 export type CheckCatalogHealthToolInput = z.infer<
   typeof checkCatalogHealthInputSchema
 >;

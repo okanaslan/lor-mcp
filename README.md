@@ -58,6 +58,9 @@ flowchart RL
   catalog --> checkHealth["check_catalog_health"]
   catalog --> exportCatalog["export_catalog"]
   exportCatalog --> importCatalog["import_catalog"]
+  catalog --> previewWorkspaceSync["preview_workspace_catalog_sync"]
+  previewWorkspaceSync --> applyWorkspaceSync["apply_workspace_catalog_sync"]
+  applyWorkspaceSync --> catalog
   catalog --> listEntries["list_catalog_entries"]
 
   listEntries --> removeEntry["remove_catalog_entry"]
@@ -111,6 +114,10 @@ Catalog maintenance tools:
 - `update_catalog_entry`
 - `remove_catalog_entry`
 - `clear_workspace_catalog`
+- `export_catalog`
+- `import_catalog`
+- `preview_workspace_catalog_sync`
+- `apply_workspace_catalog_sync`
 
 ## Runtime
 
