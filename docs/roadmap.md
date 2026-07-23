@@ -90,6 +90,9 @@ Latest implementation verification:
 - [Generate Agent Prompt](feature-specs/generate-agent-prompt.md): Implemented
   for v1 deterministic starter prompts for empty Codex chats and suggested
   metadata for later agent registration.
+- [Initialize Workspace](feature-specs/initialize-workspace.md): Draft. Defines
+  helper tools for copying skills from an existing workspace into a new
+  workspace, then using generated agent prompts to bootstrap fresh agents.
 - [Update Catalog Entry](feature-specs/update-catalog-entry.md): Implemented for
   v1 partial metadata updates.
 - [Registered Skill Context Updates](feature-specs/registered-skill-context-updates.md):
@@ -119,6 +122,9 @@ Latest implementation verification:
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can
   resolve and prepare handoff prompts today, while Codex thread tools perform
   the actual send/read loop.
+- Plan the `preview_workspace_initialization` and
+  `apply_workspace_initialization` helper tools for skill-only new workspace
+  bootstrapping.
 - Decide whether future health refresh should probe external evidence sources
   and update stored verification metadata.
 - Decide whether conflict handling needs a dedicated follow-up beyond the basic
