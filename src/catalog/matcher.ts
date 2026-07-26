@@ -19,6 +19,10 @@ interface FieldScore {
   signals: string[];
 }
 
+interface ScoredMatchCandidate extends MatchCandidate {
+  fieldScores: FieldScore[];
+}
+
 export function findCatalogMatches(
   entries: CatalogEntry[],
   request: MatchRequest,
@@ -38,7 +42,7 @@ export function findCatalogMatches(
         : true
     )
     .map((entry) => scoreEntry(entry, queryTokens, request))
-    .filter((candidate): candidate is MatchCandidate =>
+    .filter((candidate): candidate is ScoredMatchCandidate =>
       candidate !== undefined
     );
 
@@ -47,25 +51,29 @@ export function findCatalogMatches(
   );
   const skills = rank(candidates.filter((entry) => entry.entryType === "skill"))
     .slice(0, 5);
-  const ambiguousAgents = topAgentsAreAmbiguous(agents);
+  const ambiguousAgents = topAgentsAreAmbiguous(agents, queryTokens);
 
   const data: MatchData = {
-    agents,
-    skills,
+    agents: agents.map(toPublicCandidate),
+    skills: skills.map(toPublicCandidate),
     agentsAmbiguous: ambiguousAgents,
   };
 
   if (ambiguousAgents) {
-    const topScore = agents[0]?.score;
-    const conflictCandidates = agents.filter((agent) =>
-      agent.score === topScore
-    );
+    const conflictCandidates = nearEqualTopAgents(agents);
     data.conflict = {
-      reason: "Multiple agents matched the task equally well.",
-      candidates: conflictCandidates,
+      reason: "Multiple agents matched the task with near-equal strength.",
+      candidates: conflictCandidates.map(toPublicCandidate),
       matchedSignals: [
         ...new Set(conflictCandidates.flatMap((agent) => agent.matchedSignals)),
       ],
+      differentiatingFields: differentiatingFields(conflictCandidates),
+      differentiatingSignals: differentiatingSignals(conflictCandidates),
+      suggestedClarificationQuestion: suggestedClarificationQuestion(
+        conflictCandidates,
+      ),
+      recommendedNextAction:
+        "Ask the user to choose an agent or rerun matching with a more specific projectName or specialtyHints value before preparing a handoff.",
       resolutionHint:
         "Refine the task, add specialty hints, or choose one candidate.",
     };
@@ -83,7 +91,7 @@ function scoreEntry(
   entry: CatalogEntry,
   queryTokens: string[],
   request: MatchRequest,
-): MatchCandidate | undefined {
+): ScoredMatchCandidate | undefined {
   if (queryTokens.length === 0) {
     return undefined;
   }
@@ -129,6 +137,7 @@ function scoreEntry(
       matchedSignals,
       score,
     },
+    fieldScores,
   };
 }
 
@@ -246,14 +255,140 @@ function scoreToken(
   return 0;
 }
 
-function rank(candidates: MatchCandidate[]): MatchCandidate[] {
+function rank<T extends MatchCandidate>(candidates: T[]): T[] {
   return candidates.sort((a, b) =>
     b.score - a.score || a.displayName.localeCompare(b.displayName)
   );
 }
 
-function topAgentsAreAmbiguous(agents: MatchCandidate[]): boolean {
-  return agents.length > 1 && agents[0].score === agents[1].score;
+function topAgentsAreAmbiguous(
+  agents: ScoredMatchCandidate[],
+  queryTokens: string[],
+): boolean {
+  const candidates = nearEqualTopAgents(agents);
+  return candidates.length > 1 &&
+    !hasDeterministicAgentSelection(candidates, queryTokens);
+}
+
+function nearEqualTopAgents(
+  agents: ScoredMatchCandidate[],
+): ScoredMatchCandidate[] {
+  const topScore = agents[0]?.score;
+  if (!topScore) {
+    return [];
+  }
+  const threshold = topScore * 0.1;
+  return agents.filter((agent) => topScore - agent.score <= threshold);
+}
+
+function differentiatingFields(
+  candidates: ScoredMatchCandidate[],
+): string[] {
+  const fields = [
+    ...new Set(
+      candidates.flatMap((candidate) =>
+        candidate.fieldScores.map((score) => score.field)
+      ),
+    ),
+  ];
+  return fields.filter((field) => {
+    const signalSets = candidates.map((candidate) =>
+      candidate.fieldScores.find((score) => score.field === field)?.signals ??
+        []
+    );
+    const [first, ...rest] = signalSets.map((signals) =>
+      [...signals].sort().join("\u0000")
+    );
+    return rest.some((signals) => signals !== first);
+  });
+}
+
+function hasDeterministicAgentSelection(
+  candidates: ScoredMatchCandidate[],
+  queryTokens: string[],
+): boolean {
+  return hasExactProjectNameAdvantage(candidates, queryTokens) ||
+    hasPrimarySpecialtyAdvantage(candidates);
+}
+
+function hasExactProjectNameAdvantage(
+  candidates: ScoredMatchCandidate[],
+  queryTokens: string[],
+): boolean {
+  const [topCandidate, ...rest] = candidates;
+  if (!topCandidate || !projectNameExactlyMatches(topCandidate, queryTokens)) {
+    return false;
+  }
+  return rest.some((candidate) =>
+    !projectNameExactlyMatches(candidate, queryTokens)
+  );
+}
+
+function projectNameExactlyMatches(
+  candidate: ScoredMatchCandidate,
+  queryTokens: string[],
+): boolean {
+  const queryTokenSet = new Set(queryTokens);
+  const projectTokens = tokenize(candidate.projectName);
+  return projectTokens.length > 0 &&
+    projectTokens.every((token) => queryTokenSet.has(token));
+}
+
+function hasPrimarySpecialtyAdvantage(
+  candidates: ScoredMatchCandidate[],
+): boolean {
+  const [topCandidate, ...rest] = candidates;
+  if (!topCandidate) {
+    return false;
+  }
+  const topScore = fieldScore(topCandidate, "primarySpecialty");
+  return topScore > 0 &&
+    rest.every((candidate) =>
+      topScore > fieldScore(candidate, "primarySpecialty")
+    );
+}
+
+function fieldScore(
+  candidate: ScoredMatchCandidate,
+  field: FieldScore["field"],
+): number {
+  return candidate.fieldScores.find((score) => score.field === field)?.score ??
+    0;
+}
+
+function differentiatingSignals(
+  candidates: ScoredMatchCandidate[],
+): string[] {
+  const signalCounts = new Map<string, number>();
+  for (const candidate of candidates) {
+    for (const signal of candidate.matchedSignals) {
+      signalCounts.set(signal, (signalCounts.get(signal) ?? 0) + 1);
+    }
+  }
+  return [...signalCounts.entries()]
+    .filter(([, count]) => count !== candidates.length)
+    .map(([signal]) => signal);
+}
+
+function suggestedClarificationQuestion(
+  candidates: ScoredMatchCandidate[],
+): string {
+  const names = candidates.map((candidate) => candidate.displayName);
+  return `Which agent should handle this task: ${formatChoiceList(names)}?`;
+}
+
+function formatChoiceList(values: string[]): string {
+  if (values.length <= 2) {
+    return values.join(" or ");
+  }
+  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
+}
+
+function toPublicCandidate(
+  candidate: ScoredMatchCandidate,
+): MatchCandidate {
+  const { fieldScores: _fieldScores, ...publicCandidate } = candidate;
+  return publicCandidate;
 }
 
 function tokenize(value: string): string[] {

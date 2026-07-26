@@ -402,7 +402,10 @@ write to catalog storage.
 `find_matching_catalog_entry` output data should represent one of three
 non-error outcomes: match, no match, or conflict. It may return validation,
 session/setup, or storage errors. It should exclude retired agents from normal
-matching while keeping skills and active agents routable.
+matching while keeping skills and active agents routable. Conflict output is
+agents-only in v1 and should include ambiguous candidates, candidate
+explanations, differentiating fields/signals, a clarification question, and a
+recommended next action.
 
 Stable error codes for v1 should include:
 

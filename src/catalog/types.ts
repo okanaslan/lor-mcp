@@ -492,6 +492,10 @@ export interface MatchData {
     reason: string;
     candidates: MatchCandidate[];
     matchedSignals: string[];
+    differentiatingFields: string[];
+    differentiatingSignals: string[];
+    suggestedClarificationQuestion: string;
+    recommendedNextAction: string;
     resolutionHint: string;
   };
 }

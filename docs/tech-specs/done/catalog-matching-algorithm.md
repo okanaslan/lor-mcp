@@ -111,8 +111,16 @@ agent-versus-skill precedence.
 
 Conflict behavior should not force a single mixed winner:
 
-- If multiple agents share the top score, include them in ranked order and mark
-  the agent list as ambiguous.
+- If multiple top agents are within 10 percent of the highest agent score,
+  include them in ranked order and mark the agent list as ambiguous unless
+  deterministic auto-selection has stronger evidence.
+- Deterministic auto-selection is allowed when the top agent has a meaningful
+  stronger signal than other near-equal agents. V1 supports exact project-name
+  match from task text and strictly stronger `primarySpecialty` score.
+- Conflict payloads include ambiguous agent candidates, each candidate's normal
+  explanation, matched signals across candidates, differentiating fields,
+  differentiating signals, a suggested clarification question, and a recommended
+  next action.
 - If multiple skills match, return the ranked skill list instead of treating
   multiple skills as a conflict.
 - Do not prefer agents over skills or skills over agents through hidden
@@ -176,7 +184,11 @@ When this tech spec is implemented as code, verification should include:
 - `specialtyHints` affect ranking.
 - No matching entries returns `status: no_match`.
 - Multiple matching skills are returned as a ranked list.
-- Multiple top agents are marked ambiguous instead of silently picking one.
+- Near-equal top agents are marked ambiguous instead of silently picking one.
+- Exact project-name and stronger primary-specialty evidence allow deterministic
+  auto-selection.
+- Conflict payloads include differentiating fields/signals, a clarification
+  question, and recommended next action.
 - Results never include entries outside the requested workspace.
 - Candidate metadata includes score, matched fields, and matched signals.
 - Skill context can influence skill ranking when `whenToUse`, `examplePrompts`,
@@ -206,3 +218,6 @@ checking the docs tree, running `git diff --check`, and checking git status.
   returning ranked agent and skill lists.
 - 2026-07-19: Include registered skill context in skill scoring, while keeping
   constraints unscored.
+- 2026-07-26: Treat top agent scores within 10 percent as conflict candidates
+  unless exact project-name or stronger primary-specialty evidence allows safe
+  deterministic selection.

@@ -2,49 +2,65 @@
 
 ## 1. Summary
 
-Draft. This feature defines how Local Orchestration Router (LOR) handles cases where multiple
-introduced agents or skills match a request equally well.
+Implemented for v1. This feature defines how Local Orchestration Router (LOR)
+handles cases where multiple introduced agents match a request with near-equal
+strength and the caller cannot safely choose one handoff target.
 
 ## 2. Goals
 
-- Avoid silently choosing between equally strong matches.
+- Avoid silently choosing between near-equal agent matches.
 - Return clear conflict results for ambiguous recommendations.
 - Provide enough candidate metadata for the caller to choose or refine.
+- Keep skills ranked without treating multiple skill matches as conflicts.
 
 ## 3. Non-Goals
 
 - Define the complete matching algorithm.
 - Automatically modify catalog metadata to resolve conflicts.
 - Ask the user through a UI flow.
-- Include entries from other initialized MCP sessions.
+- Include entries from other workspaces.
+- Persist conflict feedback or learn from conflict outcomes.
 
 ## 4. Functional Requirements
 
-- The server must detect when multiple entries have equivalent match strength.
-- Conflict detection must only consider entries in the active initialized MCP
-  session.
+- The server must detect when multiple top agents have near-equivalent match
+  strength.
+- V1 conflict detection must only consider agent candidates.
+- Near-equal top agent scores are scores within 10 percent of the top agent
+  score.
+- Conflict detection must only consider entries in the requested workspace.
 - The server must return a conflict result instead of choosing randomly.
-- The conflict result must include the conflicting entries' type, identifier,
-  display name, project name, primary specialty, and specialty tags.
-- The conflict result should include the matching signals shared by the
-  candidates.
+- The conflict result must include ambiguous candidates and each candidate's
+  explanation.
+- The conflict result must include matched signals, differentiating fields,
+  differentiating signals, a suggested clarification question, and a recommended
+  next action.
+- The server may auto-select deterministically when the top agent has a
+  meaningful stronger signal, such as exact project-name match or stronger
+  primary-specialty strength.
+- Multiple matching skills must remain a ranked list and must not force
+  `status: "conflict"` in v1.
 - The caller may resolve the conflict by making a more specific request or by
   choosing one candidate.
-- Conflict handling must support both introduced agents and introduced skills.
 
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that two backend-focused
-entries match a task and Local Orchestration Router (LOR) asks the caller to disambiguate instead
-of guessing.
+agents match a task with near-equal strength and Local Orchestration Router
+(LOR) asks the caller to disambiguate instead of guessing.
 
 ## 6. Data Model
 
 Conceptual `CatalogConflictResult` fields:
 
 - `reason`: describes why the match is ambiguous.
-- `candidates`: lists the equally matched entries.
-- `matchedSignals`: lists shared matching fields.
+- `candidates`: lists the near-equivalent agent candidates.
+- `matchedSignals`: lists matching tokens or signals across candidates.
+- `differentiatingFields`: lists fields that distinguish the candidates.
+- `differentiatingSignals`: lists signals that distinguish the candidates.
+- `suggestedClarificationQuestion`: gives the caller a ready question to ask.
+- `recommendedNextAction`: tells the caller how to proceed safely before
+  preparing a handoff.
 - `resolutionHint`: suggests how the caller can refine the request.
 
 ## 7. Error Handling
@@ -57,15 +73,20 @@ Conceptual `CatalogConflictResult` fields:
 ## 8. Security and Permissions
 
 - Conflict candidates must only come from the requested workspace.
-- Conflict responses must not reveal entries from other sessions.
+- Conflict responses must not reveal entries from other workspaces.
 
 ## 9. Open Questions
 
-- Should same-score conflicts always require caller resolution?
-- Should one entry type be preferred over another when scores tie?
 - Should recent usage become a tie-breaker later?
+- Should future versions persist conflict feedback after the caller resolves an
+  ambiguity?
 
 ## 10. Decision Log
 
 - 2026-07-11: Equal matches return conflict instead of random selection.
-- 2026-07-11: Conflict handling covers both agents and skills.
+- 2026-07-11: Initial draft considered conflict handling for both agents and
+  skills.
+- 2026-07-26: Implement v1 conflict handling for agents only, using a 10 percent
+  near-equal threshold while keeping skills ranked.
+- 2026-07-26: Allow deterministic auto-selection when the top agent has exact
+  project-name or stronger primary-specialty evidence.

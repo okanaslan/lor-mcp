@@ -59,6 +59,149 @@ Deno.test("findCatalogMatches returns separate ranked agent and skill lists", ()
   ]);
 });
 
+Deno.test("findCatalogMatches returns conflict for near-equal top agents", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      entryType: "agent",
+      entryKey: "implementation-agent",
+      codexSessionId: "implementation-agent",
+      agentStatus: "active",
+      displayName: "Implementation Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    },
+    {
+      ...baseEntry,
+      entryType: "agent",
+      entryKey: "platform-agent",
+      codexSessionId: "platform-agent",
+      agentStatus: "active",
+      displayName: "Platform Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["platform"],
+    },
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "backend-skill",
+      skillName: "backend-skill",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "implement backend api platform",
+  });
+
+  assertEquals(result.status, "conflict");
+  assertEquals(result.data.agentsAmbiguous, true);
+  assertEquals(
+    result.data.conflict?.candidates.map((candidate) => candidate.entryKey),
+    ["platform-agent", "implementation-agent"],
+  );
+  assertEquals(
+    result.data.conflict?.differentiatingFields,
+    ["specialtyTags", "displayName"],
+  );
+  assertEquals(
+    result.data.conflict?.differentiatingSignals,
+    ["platform", "implement"],
+  );
+  assertEquals(
+    result.data.conflict?.suggestedClarificationQuestion,
+    "Which agent should handle this task: Platform Agent or Implementation Agent?",
+  );
+  assertEquals(
+    result.data.conflict?.recommendedNextAction,
+    "Ask the user to choose an agent or rerun matching with a more specific projectName or specialtyHints value before preparing a handoff.",
+  );
+  assertEquals(result.data.skills.map((skill) => skill.entryKey), [
+    "backend-skill",
+  ]);
+  assertEquals(
+    result.data.conflict?.candidates[0]?.explanation.summary,
+    "Platform Agent (agent) matched primary specialty using backend, api, platform.",
+  );
+});
+
+Deno.test("findCatalogMatches auto-selects an exact project-name match", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      projectName: "Billing Platform",
+      entryType: "agent",
+      entryKey: "billing-platform-agent",
+      codexSessionId: "billing-platform-agent",
+      agentStatus: "active",
+      displayName: "Service Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    },
+    {
+      ...baseEntry,
+      projectName: "Billing Tools",
+      entryType: "agent",
+      entryKey: "billing-tools-agent",
+      codexSessionId: "billing-tools-agent",
+      agentStatus: "active",
+      displayName: "Support Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "implement backend api for billing platform",
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.agentsAmbiguous, false);
+  assertEquals(result.data.conflict, undefined);
+  assertEquals(result.data.agents.map((agent) => agent.entryKey), [
+    "billing-platform-agent",
+    "billing-tools-agent",
+  ]);
+});
+
+Deno.test("findCatalogMatches auto-selects stronger primary specialty", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      projectName: "Local Orchestration Router (LOR)",
+      entryType: "agent",
+      entryKey: "backend-specialist",
+      codexSessionId: "backend-specialist",
+      agentStatus: "active",
+      displayName: "Service Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["service"],
+    },
+    {
+      ...baseEntry,
+      projectName: "API Tools",
+      entryType: "agent",
+      entryKey: "tag-match-agent",
+      codexSessionId: "tag-match-agent",
+      agentStatus: "active",
+      displayName: "Support Agent",
+      primarySpecialty: "general support",
+      specialtyTags: ["backend", "api"],
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "backend api",
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.agentsAmbiguous, false);
+  assertEquals(result.data.conflict, undefined);
+  assertEquals(result.data.agents.map((agent) => agent.entryKey), [
+    "backend-specialist",
+    "tag-match-agent",
+  ]);
+});
+
 Deno.test("findCatalogMatches filters by project and returns no_match", () => {
   const result = findCatalogMatches([
     {

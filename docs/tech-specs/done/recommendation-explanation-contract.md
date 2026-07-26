@@ -75,8 +75,11 @@ only visible candidate data and matched signals. Summary text must not mention:
 
 `no_match` responses should not include candidate explanations because there are
 no returned candidates. Ambiguous top agents should each include their own
-explanation, and the match result should mark the agent list as ambiguous.
-Multiple returned skills should each include their own explanation.
+explanation, and the match result should mark the agent list as ambiguous. The
+conflict object should add deterministic differentiating fields/signals, a
+suggested clarification question, and a recommended next action. Multiple
+returned skills should each include their own explanation and should not create
+conflicts in v1.
 
 ## 6. Alternatives Considered
 
@@ -148,6 +151,8 @@ When this tech spec is implemented as code, verification should include:
   candidates.
 - Cross-workspace entries never appear in summaries, fields, signals, or
   candidate explanation metadata.
+- Ambiguous agent conflicts expose explanations only for returned ambiguous
+  candidates plus deterministic differentiating fields and signals.
 
 For this documentation change, verification is limited to reading back the spec,
 checking the docs tree, running `git diff --check`, and checking git status.
@@ -176,3 +181,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
 - 2026-07-17: Keep explanations inline with `find_matching_catalog_entry` and
   use deterministic summaries that include entry type, strongest matched field,
   and matched signals.
+- 2026-07-26: Include candidate explanations in agents-only conflict results and
+  add deterministic conflict-level clarification metadata.

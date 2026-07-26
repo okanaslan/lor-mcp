@@ -49,7 +49,7 @@ Implemented in the runnable local v1:
   active records, old records can be marked retired, and matching excludes
   retired agents by default.
 - Deterministic local fuzzy matching with registered skill context signals,
-  structured match explanations, and conflict reporting.
+  structured match explanations, and agents-only near-equal conflict reporting.
 - Structured MCP response envelopes with output schemas and stable error codes.
 - Dispatch boundary: LOR prepares agent handoff prompts and stores
   `codexSessionId`; Codex-native thread tools send the prompt to reachable
@@ -125,9 +125,9 @@ Latest implementation verification:
   verification remains out of scope for introduction flows.
 - [Routing Recommendation Explanation](feature-specs/routing-recommendation-explanation.md):
   Implemented for v1 inline deterministic match candidate explanations.
-- [Conflict Handling](feature-specs/conflict-handling.md): Draft. Defines how
-  Local Orchestration Router (LOR) handles equally strong catalog matches. Basic
-  equally scored agent conflict reporting exists in v1 matching.
+- [Conflict Handling](feature-specs/conflict-handling.md): Implemented for v1
+  agents-only near-equal ambiguity handling with deterministic auto-selection
+  for exact project-name and stronger primary-specialty evidence.
 - [Catalog Export](feature-specs/catalog-export.md): Implemented for v1
   structured JSON workspace backups.
 - [Catalog Import](feature-specs/catalog-import.md): Implemented for v1
@@ -142,8 +142,8 @@ Latest implementation verification:
   the actual send/read loop.
 - Decide whether future health refresh should probe external evidence sources
   and update stored verification metadata.
-- Decide whether conflict handling needs a dedicated follow-up beyond the basic
-  equally scored agent conflict reporting in v1 matching.
+- Decide whether future conflict handling should persist caller feedback or
+  expand beyond agents-only ambiguity handling.
 - Track late-future HTTP authorization discovery in
   [Future HTTP Authorization Discovery](tech-specs/future/http-authorization-discovery.md);
   the current local server remains unauthenticated and should not return fake

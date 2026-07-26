@@ -33,7 +33,9 @@ requested workspace.
 - The server must return ranked matching agents and skills when relevant entries
   exist.
 - The server must return a no-match result when no introduced entry is relevant.
-- The server must defer equal-match resolution to the Conflict Handling feature.
+- The server must return a conflict result when top agent recommendations are
+  ambiguous under the Conflict Handling feature.
+- Skills must remain ranked and must not create conflicts in v1.
 - The server must not return entries from another workspace.
 
 ## 5. User Stories / Use Cases
@@ -63,7 +65,8 @@ Conceptual `CatalogMatchResult` fields:
 - Missing task input must return a validation error.
 - Missing or invalid MCP readiness context must return a session error.
 - Storage failures must return a storage error.
-- Equal matches must return a conflict result instead of silently choosing.
+- Ambiguous top agent matches must return a conflict result instead of silently
+  choosing.
 
 ## 8. Security and Permissions
 
@@ -84,3 +87,5 @@ Conceptual `CatalogMatchResult` fields:
 - 2026-07-13: Implement deterministic local fuzzy matching against the
   client-supplied workspace.
 - 2026-07-19: Implement skill-context-aware matching for registered skills.
+- 2026-07-26: Implement agents-only conflict handling for near-equal top agent
+  recommendations.

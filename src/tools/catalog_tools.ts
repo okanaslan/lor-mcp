@@ -636,7 +636,7 @@ export function registerCatalogTools(
             return statusResult(
               "conflict",
               result.data,
-              "Multiple agents matched equally well.",
+              "Multiple agents matched with near-equal strength.",
             );
           }
           return okResult(result.data, "Found matching catalog entries.");
