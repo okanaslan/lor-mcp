@@ -5,8 +5,9 @@ the LOR MCP Server.
 
 LOR is currently a runnable local Deno TypeScript MCP server with Streamable
 HTTP, SQLite-backed workspace catalog storage, deterministic matching, agent
-handoff prompt preparation, workspace catalog sync, registered skill context
-updates, and approval-gated local `SKILL.md` sync.
+handoff and regeneration prompt preparation, agent retirement, workspace catalog
+sync, registered skill context updates, and approval-gated local `SKILL.md`
+sync.
 
 ## Contents
 
@@ -28,7 +29,9 @@ The main user flows are:
 
 - Register agents and skills with routing metadata.
 - Find matching agents and skills for a task.
-- Fetch details and prepare handoff prompts for registered Codex agents.
+- Fetch details and prepare handoff or regeneration prompts for registered Codex
+  agents.
+- Retire replaced agents while keeping their catalog records inspectable.
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed
   section.

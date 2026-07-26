@@ -1,4 +1,5 @@
 import {
+  type AgentStatus,
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type ApplyWorkspaceCatalogSyncInput,
@@ -13,8 +14,10 @@ import {
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type PrepareAgentHandoffInput,
+  type PrepareAgentRegenerationInput,
   type ProposeSkillUpdateInput,
   type RegisterWorkspaceAliasInput,
+  type RetireAgentInput,
   type SkillContext,
   type SkillFileSyncInput,
   type SkillMetadataUpdate,
@@ -33,6 +36,7 @@ export function validateIntroduceAgent(
     displayName: requireString(input.displayName, "displayName"),
     primarySpecialty: requireString(input.primarySpecialty, "primarySpecialty"),
     specialtyTags: requireTags(input.specialtyTags),
+    replacesAgentEntryKey: input.replacesAgentEntryKey?.trim() || undefined,
     handoff: input.handoff ? validateHandoff(input.handoff) : undefined,
   };
 }
@@ -91,6 +95,25 @@ export function validateCatalogEntryUpdate(
   }
 
   return update;
+}
+
+export function validateRetireAgent(input: RetireAgentInput): RetireAgentInput {
+  if (input.confirm !== true) {
+    throw new LorError(
+      "validation_error",
+      "confirm must be true.",
+      { field: "confirm" },
+    );
+  }
+
+  return {
+    workspace: requireWorkspace(input.workspace),
+    agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
+    reason: input.reason?.trim() || undefined,
+    replacedByAgentEntryKey: input.replacedByAgentEntryKey?.trim() ||
+      undefined,
+    confirm: true,
+  };
 }
 
 export function validateEntryLookup(input: EntryLookup): EntryLookup {
@@ -224,6 +247,30 @@ export function validatePrepareAgentHandoff(
     agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
     task: requireString(input.task, "task"),
     context: context || undefined,
+  };
+}
+
+export function validatePrepareAgentRegeneration(
+  input: PrepareAgentRegenerationInput,
+):
+  & Required<
+    Pick<
+      PrepareAgentRegenerationInput,
+      "workspace" | "agentEntryKey" | "includeRegistrationInstructions"
+    >
+  >
+  & Omit<
+    PrepareAgentRegenerationInput,
+    "workspace" | "agentEntryKey" | "includeRegistrationInstructions"
+  > {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
+    reason: input.reason?.trim() || undefined,
+    carryForwardContext: input.carryForwardContext?.trim() || undefined,
+    replacementTask: input.replacementTask?.trim() || undefined,
+    includeRegistrationInstructions: input.includeRegistrationInstructions ??
+      true,
   };
 }
 
@@ -369,6 +416,17 @@ function validateCatalogImportEntry(
         entry.codexSessionId,
         `catalog.entries.${index}.codexSessionId`,
       ),
+      agentStatus: entry.agentStatus === undefined
+        ? undefined
+        : requireAgentStatus(
+          entry.agentStatus,
+          `catalog.entries.${index}.agentStatus`,
+        ),
+      retiredAt: entry.retiredAt?.trim() || undefined,
+      retirementReason: entry.retirementReason?.trim() || undefined,
+      replacedByAgentEntryKey: entry.replacedByAgentEntryKey?.trim() ||
+        undefined,
+      replacesAgentEntryKey: entry.replacesAgentEntryKey?.trim() || undefined,
       handoff: entry.handoff ? validateHandoff(entry.handoff) : undefined,
     };
   }
@@ -419,6 +477,17 @@ function requireVerificationStatus(
   throw new LorError(
     "validation_error",
     `${field} must be verified, unverified, or unknown.`,
+    { field },
+  );
+}
+
+function requireAgentStatus(value: unknown, field: string): AgentStatus {
+  if (value === "active" || value === "retired") {
+    return value;
+  }
+  throw new LorError(
+    "validation_error",
+    `${field} must be active or retired.`,
     { field },
   );
 }

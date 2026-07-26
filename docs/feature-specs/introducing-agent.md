@@ -29,6 +29,8 @@ session ID and routing metadata in durable storage scoped to the workspace.
 - The request must include a human-readable display name.
 - The request must include one primary specialty.
 - The request must include specialty tags.
+- The request may include `replacesAgentEntryKey` when this agent is a
+  replacement for a retired or soon-to-be-retired agent.
 - The server must reject requests missing any required field.
 - The server must associate the introduced agent with the client-supplied
   workspace.
@@ -36,6 +38,7 @@ session ID and routing metadata in durable storage scoped to the workspace.
 - The server may allow the same Codex session ID to be introduced in different
   workspaces.
 - The server must persist accepted agent records in durable storage.
+- The server must default newly introduced agents to `agentStatus: "active"`.
 - The server must scope persisted agent records by workspace.
 - The server must prevent one workspace from accessing another workspace's
   introduced agent records.
@@ -58,6 +61,9 @@ Conceptual `IntroducedAgent` fields:
 - `displayName`: provides a human-readable name for catalog display.
 - `primarySpecialty`: names the agent's primary specialty.
 - `specialtyTags`: lists additional specialties or routing tags.
+- `agentStatus`: tracks whether the agent is active or retired.
+- `replacesAgentEntryKey`: optionally links a replacement agent to an older
+  agent entry.
 - `createdAt`: records when the agent was introduced.
 - `updatedAt`: records when the stored record was last changed, if updates are
   added later.
@@ -106,3 +112,5 @@ persistence implementation.
   keep MCP session state as protocol readiness context.
 - 2026-07-13: Implement `introduce_agent` as non-blocking registration with
   `mcp_introduction` verification metadata.
+- 2026-07-26: Default introduced agents to active and allow optional replacement
+  linkage through `replacesAgentEntryKey`.

@@ -7,9 +7,9 @@ MCP tool set for Local Orchestration Router (LOR). The v1 surface supports
 introducing agents and skills, inspecting, updating, removing, clearing,
 exporting, and importing the catalog, registering workspace aliases, managing
 stored skill context updates, syncing approved skill context to local skill
-files, preparing manual agent handoff prompts, generating empty-chat starter
-prompts, checking stored catalog health metadata, and finding a matching catalog
-entry for a task.
+files, preparing manual agent handoff prompts, retiring replaced agents,
+generating empty-chat starter prompts, checking stored catalog health metadata,
+and finding a matching catalog entry for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -50,7 +50,7 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register twenty MCP tools with snake_case names:
+V1 should register twenty-two MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -59,6 +59,7 @@ V1 should register twenty MCP tools with snake_case names:
 - `register_workspace_alias`
 - `get_catalog_entry_detail`
 - `update_catalog_entry`
+- `retire_agent`
 - `propose_skill_update`
 - `apply_skill_update`
 - `preview_skill_file_sync`
@@ -70,6 +71,7 @@ V1 should register twenty MCP tools with snake_case names:
 - `apply_workspace_catalog_sync`
 - `check_catalog_health`
 - `prepare_agent_handoff`
+- `prepare_agent_regeneration`
 - `generate_agent_prompt`
 - `find_matching_catalog_entry`
 
@@ -140,6 +142,7 @@ changing the tool surface.
 - `displayName`
 - `primarySpecialty`
 - `specialtyTags`
+- optional `replacesAgentEntryKey`
 
 `introduce_agent` output data should include the created agent entry metadata.
 It may return validation, session/setup, duplicate, or storage errors.
@@ -211,6 +214,20 @@ errors.
 `update_catalog_entry` output data should include the updated entry metadata. It
 may return validation, session/setup, not-found, or storage errors. It must
 reject empty update patches and must not allow changing the stable entry key.
+
+`retire_agent` input:
+
+- `workspace`
+- `agentEntryKey`
+- optional `reason`
+- optional `replacedByAgentEntryKey`
+- `confirm`: literal `true`
+
+`retire_agent` output data should include the resolved workspace, retired agent
+entry, retirement timestamp, and optional replacement agent summary. It may
+return validation, session/setup, not-found, or storage errors. It must only
+mark agent catalog records as retired and must not mutate Codex chats or delete
+catalog rows.
 
 `propose_skill_update` input:
 
@@ -341,7 +358,23 @@ mutate stored verification metadata.
 `prepare_agent_handoff` output data should include the target agent summary,
 rendered prompt, whether stored handoff metadata was used, missing context
 labels, and manual delivery instructions. It may return validation, not-found,
-session/setup, or storage errors.
+session/setup, or storage errors. It must reject retired target agents.
+
+`prepare_agent_regeneration` input:
+
+- `workspace`
+- `agentEntryKey`
+- optional `reason`
+- optional `carryForwardContext`
+- optional `replacementTask`
+- optional `includeRegistrationInstructions`, defaulting to `true`
+
+`prepare_agent_regeneration` output data should include the source agent
+summary, deterministic replacement prompt, suggested replacement metadata
+without `codexSessionId`, manual replacement instructions, catalog action
+guidance, and manual delivery instructions. It may return validation, not-found,
+session/setup, or storage errors. It must not create Codex chats, message Codex
+agents, or mutate catalog storage.
 
 `generate_agent_prompt` input:
 
@@ -368,7 +401,8 @@ write to catalog storage.
 
 `find_matching_catalog_entry` output data should represent one of three
 non-error outcomes: match, no match, or conflict. It may return validation,
-session/setup, or storage errors.
+session/setup, or storage errors. It should exclude retired agents from normal
+matching while keeping skills and active agents routable.
 
 Stable error codes for v1 should include:
 
@@ -405,6 +439,8 @@ When this tech spec is implemented as code, verification should include:
   `confirm: true`.
 - Update changes only editable metadata for entries in the requested workspace
   and rejects empty patches.
+- Retire requires `confirm: true`, marks only workspace-local agents as retired,
+  validates replacement links in the same workspace, and does not delete rows.
 - Remove hard-deletes only entries in the requested workspace.
 - Export only includes entries from the requested workspace and honors filters.
 - Import writes only to the requested workspace and handles duplicates according
@@ -412,7 +448,7 @@ When this tech spec is implemented as code, verification should include:
 - Health reports only entries from the requested workspace and does not mutate
   stored verification metadata.
 - Prepare handoff renders prompts only for agents in the requested workspace and
-  does not dispatch work.
+  does not dispatch work or target retired agents.
 - Generate prompt returns deterministic starter prompts for supported roles and
   does not write to catalog storage.
 - Match returns `no_match` and `conflict` as structured non-error outcomes.
@@ -469,3 +505,7 @@ checking the docs tree, running `git diff --check`, and checking git status.
   skill file sync through `preview_skill_file_sync` and `apply_skill_file_sync`.
 - 2026-07-23: Add skill-only workspace catalog sync through
   `preview_workspace_catalog_sync` and `apply_workspace_catalog_sync`.
+- 2026-07-26: Add `prepare_agent_regeneration` for deterministic manual
+  replacement prompt preparation without catalog mutation.
+- 2026-07-26: Add `retire_agent` so replacement flows keep Codex session IDs
+  immutable while excluding retired agents from normal routing.

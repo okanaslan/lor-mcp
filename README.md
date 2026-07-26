@@ -66,6 +66,8 @@ flowchart RL
   listEntries --> removeEntry["remove_catalog_entry"]
   removeEntry --> clearCatalog["clear_workspace_catalog"]
   listEntries --> updateEntry["update_catalog_entry"]
+  updateEntry --> retireAgent["retire_agent"]
+  retireAgent --> catalog
   updateEntry --> proposeSkillUpdate["propose_skill_update"]
   proposeSkillUpdate --> applySkillUpdate["apply_skill_update"]
   applySkillUpdate --> catalog
@@ -74,7 +76,9 @@ flowchart RL
   listEntries --> findMatch["find_matching_catalog_entry"]
   findMatch --> detail["get_catalog_entry_detail"]
   detail --> handoff["prepare_agent_handoff"]
+  detail --> regeneration["prepare_agent_regeneration"]
   handoff --> generatePrompt["generate_agent_prompt"]
+  regeneration --> generatePrompt
 ```
 
 ## Daily Usage
@@ -98,6 +102,16 @@ Common routing flow:
 3. `prepare_agent_handoff` when another registered agent should receive work
 4. Codex-native thread communication using the registered `codexSessionId`
 
+Common agent lifecycle flow:
+
+1. `get_catalog_entry_detail` for the context-heavy registered agent.
+2. `prepare_agent_regeneration` to render a ready-to-paste replacement prompt.
+3. Start a new Codex chat manually and register its new session ID with
+   `introduce_agent`, optionally using `replacesAgentEntryKey`.
+4. After confirming the replacement works, call `retire_agent` with
+   `confirm: true` for the old agent. Retired agents remain inspectable, but
+   matching and handoff avoid them.
+
 Common catalog improvement flow:
 
 1. `propose_skill_update` to preview better stored skill context.
@@ -112,6 +126,7 @@ Catalog maintenance tools:
 - `list_catalog_entries`
 - `check_catalog_health`
 - `update_catalog_entry`
+- `retire_agent`
 - `remove_catalog_entry`
 - `clear_workspace_catalog`
 - `export_catalog`

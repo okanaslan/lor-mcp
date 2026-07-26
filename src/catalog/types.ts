@@ -1,4 +1,5 @@
 export type EntryType = "agent" | "skill";
+export type AgentStatus = "active" | "retired";
 export type VerificationStatus = "verified" | "unverified" | "unknown";
 export type Confidence = "low" | "medium" | "high";
 export type MatchStatus = "ok" | "no_match" | "conflict";
@@ -40,6 +41,11 @@ export interface BaseCatalogEntry extends VerificationMetadata {
 export interface AgentCatalogEntry extends BaseCatalogEntry {
   entryType: "agent";
   codexSessionId: string;
+  agentStatus: AgentStatus;
+  retiredAt?: string;
+  retirementReason?: string;
+  replacedByAgentEntryKey?: string;
+  replacesAgentEntryKey?: string;
   handoff?: HandoffMetadata;
 }
 
@@ -58,6 +64,7 @@ export interface IntroduceAgentInput {
   displayName: string;
   primarySpecialty: string;
   specialtyTags: readonly string[];
+  replacesAgentEntryKey?: string;
   handoff?: HandoffMetadata;
 }
 
@@ -109,6 +116,21 @@ export interface CatalogEntryUpdate extends EntryLookup {
   displayName?: string;
   primarySpecialty?: string;
   specialtyTags?: readonly string[];
+}
+
+export interface RetireAgentInput {
+  workspace: string;
+  agentEntryKey: string;
+  reason?: string;
+  replacedByAgentEntryKey?: string;
+  confirm: true;
+}
+
+export interface RetireAgentResult {
+  workspace: string;
+  agent: AgentCatalogEntry;
+  retiredAt: string;
+  replacedByAgent?: HandoffTargetAgent;
 }
 
 export interface SkillMetadataUpdate {
@@ -192,6 +214,11 @@ export type CatalogImportConflictStrategy = "skip" | "fail";
 export interface CatalogExportAgentEntry extends VerificationMetadata {
   entryType: "agent";
   codexSessionId: string;
+  agentStatus?: AgentStatus;
+  retiredAt?: string;
+  retirementReason?: string;
+  replacedByAgentEntryKey?: string;
+  replacesAgentEntryKey?: string;
   projectName: string;
   displayName: string;
   primarySpecialty: string;
@@ -361,6 +388,15 @@ export interface PrepareAgentHandoffInput {
   context?: string;
 }
 
+export interface PrepareAgentRegenerationInput {
+  workspace: string;
+  agentEntryKey: string;
+  reason?: string;
+  carryForwardContext?: string;
+  replacementTask?: string;
+  includeRegistrationInstructions?: boolean;
+}
+
 export interface HandoffTargetAgent {
   entryKey: string;
   codexSessionId: string;
@@ -377,6 +413,35 @@ export interface PrepareAgentHandoffResult {
   usedStoredHandoff: boolean;
   handoff?: HandoffMetadata;
   missingContext: string[];
+  delivery: {
+    mode: "manual";
+    instruction: string;
+  };
+}
+
+export interface RegenerationSourceAgent extends HandoffTargetAgent {
+  handoff?: HandoffMetadata;
+}
+
+export interface SuggestedReplacementAgentMetadata {
+  projectName: string;
+  displayName: string;
+  primarySpecialty: string;
+  specialtyTags: readonly string[];
+  replacesAgentEntryKey?: string;
+  handoff?: HandoffMetadata;
+}
+
+export interface PrepareAgentRegenerationResult {
+  workspace: string;
+  sourceAgent: RegenerationSourceAgent;
+  prompt: string;
+  suggestedReplacementMetadata: SuggestedReplacementAgentMetadata;
+  replacementInstructions: string[];
+  catalogAction: {
+    mode: "manual";
+    instruction: string;
+  };
   delivery: {
     mode: "manual";
     instruction: string;
@@ -443,6 +508,10 @@ export interface CatalogRepository {
     input: IntroduceAgentInput & {
       verification: VerificationMetadata;
       now: string;
+      agentStatus?: AgentStatus;
+      retiredAt?: string;
+      retirementReason?: string;
+      replacedByAgentEntryKey?: string;
     },
   ): Promise<AgentCatalogEntry>;
   createSkill(
@@ -486,6 +555,10 @@ export interface CatalogRepository {
     workspace: string,
     input: CatalogEntryUpdate & { now: string },
   ): Promise<CatalogEntry | undefined>;
+  retireAgent(
+    workspace: string,
+    input: RetireAgentInput & { now: string },
+  ): Promise<AgentCatalogEntry | undefined>;
   removeEntry(
     workspace: string,
     lookup: EntryLookup,

@@ -65,6 +65,10 @@ export async function seedAgent(
     handoff: overrides.handoff,
     verification: overrides.verification ?? verification,
     now: overrides.now ?? FIXED_NOW,
+    agentStatus: overrides.agentStatus,
+    retiredAt: overrides.retiredAt,
+    retirementReason: overrides.retirementReason,
+    replacedByAgentEntryKey: overrides.replacedByAgentEntryKey,
   });
 }
 
@@ -90,6 +94,10 @@ export async function seedSkill(
 type SeedAgentOverrides =
   & Partial<Omit<IntroduceAgentInput, "workspace" | "codexSessionId">>
   & {
+    agentStatus?: "active" | "retired";
+    retiredAt?: string;
+    retirementReason?: string;
+    replacedByAgentEntryKey?: string;
     verification?: VerificationMetadata;
     now?: string;
   };

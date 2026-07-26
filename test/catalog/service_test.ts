@@ -889,6 +889,12 @@ Deno.test("CatalogService exports workspace catalog entries with filters", async
       primarySpecialty: "backend api",
       specialtyTags: ["api"],
     });
+    await service.retireAgent({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      reason: "Replaced after regeneration.",
+      confirm: true,
+    });
     await service.introduceSkill({
       workspace: "LOR-MCP",
       skillName: "frontend-skill",
@@ -920,6 +926,12 @@ Deno.test("CatalogService exports workspace catalog entries with filters", async
     });
     assertEquals(catalog.entries.map((entry) => entry.entryType), ["agent"]);
     assertEquals(catalog.entries[0].displayName, "Backend Agent");
+    assertEquals(
+      catalog.entries[0].entryType === "agent"
+        ? catalog.entries[0].agentStatus
+        : undefined,
+      "retired",
+    );
   } finally {
     repo.close();
   }
@@ -937,6 +949,11 @@ Deno.test("CatalogService imports exported catalog entries into requested worksp
         displayName: "Backend Agent",
         primarySpecialty: "backend api",
         specialtyTags: ["api"],
+        agentStatus: "retired",
+        retiredAt: FIXED_NOW,
+        retirementReason: "Replaced after regeneration.",
+        replacedByAgentEntryKey: "agent-2",
+        replacesAgentEntryKey: "agent-0",
         verificationStatus: "verified",
         verificationSource: "catalog_export",
         verifiedAt: FIXED_NOW,
@@ -989,6 +1006,11 @@ Deno.test("CatalogService imports exported catalog entries into requested worksp
       throw new Error("Expected imported agent.");
     }
     assertEquals(agent.handoff?.whenToUse, "Backend work");
+    assertEquals(agent.agentStatus, "retired");
+    assertEquals(agent.retiredAt, FIXED_NOW);
+    assertEquals(agent.retirementReason, "Replaced after regeneration.");
+    assertEquals(agent.replacedByAgentEntryKey, "agent-2");
+    assertEquals(agent.replacesAgentEntryKey, "agent-0");
   } finally {
     repo.close();
   }
@@ -1380,6 +1402,7 @@ Deno.test("CatalogService prepares handoff from stored template", async () => {
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
       specialtyTags: ["api", "mcp"],
+      replacesAgentEntryKey: "agent-1",
       handoff: {
         whenToUse: "Backend API changes",
         handoffPromptTemplate:
@@ -1461,6 +1484,254 @@ Deno.test("CatalogService prepares generic handoff without stored metadata", asy
   }
 });
 
+Deno.test("CatalogService prepares agent regeneration from stored metadata", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api", "mcp"],
+      replacesAgentEntryKey: "agent-1",
+      handoff: {
+        whenToUse: "Backend API changes",
+        handoffPromptTemplate: "Handle {task} with {context}.",
+        requiredContext: ["requirements"],
+        expectedOutput: "Patch summary",
+        constraints: ["Stay scoped"],
+      },
+    });
+
+    const result = await service.prepareAgentRegeneration({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      reason: "The old chat is context-heavy.",
+      carryForwardContext: "Keep the Deno MCP server conventions.",
+      replacementTask: "Read the repo and wait for implementation prompts.",
+    });
+    const entries = await service.listEntries({ workspace: "LOR-MCP" });
+
+    assertEquals(result.workspace, "LOR-MCP");
+    assertEquals(result.sourceAgent.entryKey, "agent-1");
+    assertEquals(result.sourceAgent.codexSessionId, "agent-1");
+    assertEquals(result.sourceAgent.handoff?.whenToUse, "Backend API changes");
+    assertEquals(result.suggestedReplacementMetadata, {
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api", "mcp"],
+      replacesAgentEntryKey: "agent-1",
+      handoff: {
+        whenToUse: "Backend API changes",
+        handoffPromptTemplate: "Handle {task} with {context}.",
+        requiredContext: ["requirements"],
+        expectedOutput: "Patch summary",
+        constraints: ["Stay scoped"],
+      },
+    });
+    assertEquals(
+      "codexSessionId" in result.suggestedReplacementMetadata,
+      false,
+    );
+    assertEquals(
+      result.prompt.includes("Previous Codex session ID: agent-1"),
+      true,
+    );
+    assertEquals(
+      result.prompt.includes("The old chat is context-heavy."),
+      true,
+    );
+    assertEquals(
+      result.prompt.includes("Keep the Deno MCP server conventions."),
+      true,
+    );
+    assertEquals(
+      result.prompt.includes(
+        "After this chat exists, ask the caller to register the new session",
+      ),
+      true,
+    );
+    assertEquals(result.replacementInstructions.length, 4);
+    assertEquals(result.catalogAction.mode, "manual");
+    assertEquals(result.delivery.mode, "manual");
+    assertEquals(entries.map((entry) => entry.entryKey), ["agent-1"]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService retires an agent and excludes it from matching", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-old",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-new",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Replacement Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      replacesAgentEntryKey: "agent-old",
+    });
+
+    const result = await service.retireAgent({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-old",
+      reason: "Replaced after context regeneration.",
+      replacedByAgentEntryKey: "agent-new",
+      confirm: true,
+    });
+    const detail = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-old",
+    });
+    const match = await service.findMatchingEntries({
+      workspace: "LOR-MCP",
+      task: "Implement backend API changes",
+    });
+
+    assertEquals(result.agent.agentStatus, "retired");
+    assertEquals(result.agent.retiredAt, FIXED_NOW);
+    assertEquals(
+      result.agent.retirementReason,
+      "Replaced after context regeneration.",
+    );
+    assertEquals(result.agent.replacedByAgentEntryKey, "agent-new");
+    assertEquals(result.replacedByAgent?.entryKey, "agent-new");
+    assertEquals(detail?.entryType, "agent");
+    if (detail?.entryType === "agent") {
+      assertEquals(detail.agentStatus, "retired");
+    }
+    assertEquals(
+      match.data.agents.map((agent) => agent.entryKey),
+      ["agent-new"],
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService rejects handoff to retired agents", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-old",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.retireAgent({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-old",
+      confirm: true,
+    });
+
+    await assertRejects(
+      () =>
+        service.prepareAgentHandoff({
+          workspace: "LOR-MCP",
+          agentEntryKey: "agent-old",
+          task: "Handle backend work",
+        }),
+      Error,
+      "Target agent is retired.",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService validates agent retirement inputs", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-old",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    await assertRejects(
+      () =>
+        service.retireAgent({
+          workspace: "LOR-MCP",
+          agentEntryKey: "agent-old",
+          confirm: false as true,
+        }),
+      Error,
+      "confirm must be true",
+    );
+    await assertRejects(
+      () =>
+        service.retireAgent({
+          workspace: "LOR-MCP",
+          agentEntryKey: "agent-old",
+          replacedByAgentEntryKey: "agent-old",
+          confirm: true,
+        }),
+      Error,
+      "replacedByAgentEntryKey must reference a different agent",
+    );
+    await assertRejects(
+      () =>
+        service.retireAgent({
+          workspace: "LOR-MCP",
+          agentEntryKey: "agent-old",
+          replacedByAgentEntryKey: "missing-agent",
+          confirm: true,
+        }),
+      Error,
+      "Replacement agent was not found",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService can omit registration instructions from regeneration prompt", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const result = await service.prepareAgentRegeneration({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      includeRegistrationInstructions: false,
+    });
+
+    assertEquals(result.prompt.includes("Registration instructions:"), false);
+    assertEquals(
+      result.replacementInstructions.includes(
+        "Registration instructions were omitted from the generated prompt by request.",
+      ),
+      true,
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService validates prepare handoff inputs", async () => {
   const { repo, service } = await createCatalogService();
   try {
@@ -1489,6 +1760,32 @@ Deno.test("CatalogService validates prepare handoff inputs", async () => {
   }
 });
 
+Deno.test("CatalogService validates prepare regeneration inputs", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.prepareAgentRegeneration({
+          workspace: "LOR-MCP",
+          agentEntryKey: " ",
+        }),
+      Error,
+      "agentEntryKey is required",
+    );
+    await assertRejects(
+      () =>
+        service.prepareAgentRegeneration({
+          workspace: " ",
+          agentEntryKey: "agent-1",
+        }),
+      Error,
+      "workspace is required",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService returns not_found for missing handoff target", async () => {
   const { repo, service } = await createCatalogService();
   try {
@@ -1498,6 +1795,23 @@ Deno.test("CatalogService returns not_found for missing handoff target", async (
           workspace: "LOR-MCP",
           agentEntryKey: "missing-agent",
           task: "Review code",
+        }),
+      Error,
+      "not_found",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns not_found for missing regeneration target", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.prepareAgentRegeneration({
+          workspace: "LOR-MCP",
+          agentEntryKey: "missing-agent",
         }),
       Error,
       "not_found",
@@ -1525,6 +1839,32 @@ Deno.test("CatalogService prepare handoff does not cross workspaces", async () =
           workspace: "workspace-b",
           agentEntryKey: "agent-1",
           task: "Review code",
+        }),
+      Error,
+      "not_found",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService prepare regeneration does not cross workspaces", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "workspace-a",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    await assertRejects(
+      () =>
+        service.prepareAgentRegeneration({
+          workspace: "workspace-b",
+          agentEntryKey: "agent-1",
         }),
       Error,
       "not_found",

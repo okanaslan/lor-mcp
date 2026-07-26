@@ -52,6 +52,69 @@ Deno.test("SqliteCatalogRepository enforces workspace-local duplicates", async (
   }
 });
 
+Deno.test("SqliteCatalogRepository creates agents as active by default", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedAgent(repo, "workspace-a", "agent-1");
+
+    const agent = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+
+    assertEquals(agent?.entryType, "agent");
+    if (agent?.entryType === "agent") {
+      assertEquals(agent.agentStatus, "active");
+      assertEquals(agent.retiredAt, undefined);
+      assertEquals(agent.retirementReason, undefined);
+      assertEquals(agent.replacedByAgentEntryKey, undefined);
+      assertEquals(agent.replacesAgentEntryKey, undefined);
+    }
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository retires only the requested workspace agent", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedAgent(repo, "workspace-a", "agent-1");
+    await seedAgent(repo, "workspace-a", "agent-2", {
+      replacesAgentEntryKey: "agent-1",
+    });
+    await seedAgent(repo, "workspace-b", "agent-1");
+
+    const retired = await repo.retireAgent("workspace-a", {
+      workspace: "workspace-a",
+      agentEntryKey: "agent-1",
+      reason: "Replaced after context regeneration.",
+      replacedByAgentEntryKey: "agent-2",
+      confirm: true,
+      now: "2026-07-12T01:00:00.000Z",
+    });
+    const otherWorkspace = await repo.getEntry("workspace-b", {
+      workspace: "workspace-b",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+
+    assertEquals(retired?.agentStatus, "retired");
+    assertEquals(retired?.retiredAt, "2026-07-12T01:00:00.000Z");
+    assertEquals(
+      retired?.retirementReason,
+      "Replaced after context regeneration.",
+    );
+    assertEquals(retired?.replacedByAgentEntryKey, "agent-2");
+    assertEquals(otherWorkspace?.entryType, "agent");
+    if (otherWorkspace?.entryType === "agent") {
+      assertEquals(otherWorkspace.agentStatus, "active");
+    }
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("SqliteCatalogRepository resolves trailing slash path aliases", async () => {
   const repo = await createInitializedRepository();
   try {
@@ -744,6 +807,12 @@ Deno.test("SqliteCatalogRepository migrates legacy catalogNamespace columns", as
 
   assertEquals(entries.map((entry) => entry.workspace), ["LOR-MCP"]);
   assertEquals(entries.map((entry) => entry.entryKey), ["agent-1"]);
+  assertEquals(
+    entries.map((entry) =>
+      entry.entryType === "agent" ? entry.agentStatus : undefined
+    ),
+    ["active"],
+  );
 
   repo.close();
 });

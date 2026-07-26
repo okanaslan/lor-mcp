@@ -8,14 +8,44 @@ import {
   exportCatalogInputSchema,
   generateAgentPromptInputSchema,
   importCatalogInputSchema,
+  introduceAgentInputSchema,
   prepareAgentHandoffInputSchema,
+  prepareAgentRegenerationInputSchema,
   previewSkillFileSyncInputSchema,
   previewWorkspaceCatalogSyncInputSchema,
   proposeSkillUpdateInputSchema,
   registerWorkspaceAliasInputSchema,
   removeCatalogEntryInputSchema,
+  retireAgentInputSchema,
   updateCatalogEntryInputSchema,
 } from "@src/tools/schemas.ts";
+
+Deno.test("introduceAgentInputSchema accepts optional replacement pointer", () => {
+  assertEquals(
+    introduceAgentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-new",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      replacesAgentEntryKey: "agent-old",
+    }).success,
+    true,
+  );
+  assertEquals(
+    introduceAgentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-new",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      replacesAgentEntryKey: " ",
+    }).success,
+    false,
+  );
+});
 
 Deno.test("clearWorkspaceCatalogInputSchema requires confirm true", () => {
   assertEquals(
@@ -104,6 +134,40 @@ Deno.test("prepareAgentHandoffInputSchema requires workspace agent and task", ()
   );
 });
 
+Deno.test("prepareAgentRegenerationInputSchema requires workspace and agent", () => {
+  assertEquals(
+    prepareAgentRegenerationInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      reason: "Context is too large",
+      carryForwardContext: "Preserve repo-specific instructions",
+      replacementTask: "Read the repo and wait for work",
+      includeRegistrationInstructions: false,
+    }).success,
+    true,
+  );
+  assertEquals(
+    prepareAgentRegenerationInputSchema.safeParse({
+      agentEntryKey: "agent-1",
+    }).success,
+    false,
+  );
+  assertEquals(
+    prepareAgentRegenerationInputSchema.safeParse({
+      workspace: "LOR-MCP",
+    }).success,
+    false,
+  );
+  assertEquals(
+    prepareAgentRegenerationInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      includeRegistrationInstructions: "yes",
+    }).success,
+    false,
+  );
+});
+
 Deno.test("updateCatalogEntryInputSchema requires an editable field", () => {
   assertEquals(
     updateCatalogEntryInputSchema.safeParse({
@@ -128,6 +192,42 @@ Deno.test("updateCatalogEntryInputSchema requires an editable field", () => {
       entryType: "agent",
       entryKey: "agent-1",
       specialtyTags: [],
+    }).success,
+    false,
+  );
+});
+
+Deno.test("retireAgentInputSchema requires agent and confirm true", () => {
+  assertEquals(
+    retireAgentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-old",
+      reason: "Replaced after context regeneration.",
+      replacedByAgentEntryKey: "agent-new",
+      confirm: true,
+    }).success,
+    true,
+  );
+  assertEquals(
+    retireAgentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-old",
+    }).success,
+    false,
+  );
+  assertEquals(
+    retireAgentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-old",
+      confirm: false,
+    }).success,
+    false,
+  );
+  assertEquals(
+    retireAgentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: " ",
+      confirm: true,
     }).success,
     false,
   );

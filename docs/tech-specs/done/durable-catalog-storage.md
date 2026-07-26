@@ -71,6 +71,11 @@ writes must resolve aliases first and filter by the resolved canonical
 
 - `workspace`
 - `codexSessionId`
+- `agentStatus`
+- `retiredAt`
+- `retirementReason`
+- `replacedByAgentEntryKey`
+- `replacesAgentEntryKey`
 - `projectName`
 - `displayName`
 - `primarySpecialty`
@@ -92,6 +97,10 @@ writes must resolve aliases first and filter by the resolved canonical
 `specialtyTags` should be stored as JSON text for v1. This keeps the first
 schema simple while preserving the option to normalize tags later if matching or
 filtering requires it.
+
+Agent lifecycle fields are additive. Existing rows should migrate to
+`agentStatus: "active"` with empty retirement fields. `retire_agent` should set
+the retirement fields without changing the stable `codexSessionId`.
 
 `workspace_aliases` should store:
 

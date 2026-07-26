@@ -20,6 +20,7 @@ Deno.test("findCatalogMatches returns separate ranked agent and skill lists", ()
       entryType: "agent",
       entryKey: "agent-1",
       codexSessionId: "agent-1",
+      agentStatus: "active",
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
     },

@@ -27,10 +27,14 @@ import {
   type MatchResult,
   type PrepareAgentHandoffInput,
   type PrepareAgentHandoffResult,
+  type PrepareAgentRegenerationInput,
+  type PrepareAgentRegenerationResult,
   type ProposeSkillUpdateInput,
   type RegisterWorkspaceAliasInput,
   type RegisterWorkspaceAliasResult,
   type RemoveCatalogEntryResult,
+  type RetireAgentInput,
+  type RetireAgentResult,
   type SkillCatalogEntry,
   type SkillContext,
   type SkillFileSyncApplyResult,
@@ -56,8 +60,10 @@ import {
   validateIntroduceAgent,
   validateIntroduceSkill,
   validatePrepareAgentHandoff,
+  validatePrepareAgentRegeneration,
   validateProposeSkillUpdate,
   validateRegisterWorkspaceAlias,
+  validateRetireAgent,
   validateSkillFileSyncInput,
   validateWorkspace,
   validateWorkspaceCatalogSyncInput,
@@ -175,6 +181,60 @@ export class CatalogService {
       );
     }
     return updated;
+  }
+
+  async retireAgent(
+    input: RetireAgentInput,
+  ): Promise<RetireAgentResult> {
+    const validated = validateRetireAgent(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    if (validated.replacedByAgentEntryKey === validated.agentEntryKey) {
+      throw new LorError(
+        "validation_error",
+        "replacedByAgentEntryKey must reference a different agent.",
+        { field: "replacedByAgentEntryKey" },
+      );
+    }
+
+    let replacedByAgent: AgentCatalogEntry | undefined;
+    if (validated.replacedByAgentEntryKey) {
+      const replacement = await this.#repository.getEntry(workspace, {
+        workspace,
+        entryType: "agent",
+        entryKey: validated.replacedByAgentEntryKey,
+      });
+      if (!replacement || replacement.entryType !== "agent") {
+        throw new LorError(
+          "not_found",
+          "Replacement agent was not found.",
+          { entryType: "agent" },
+        );
+      }
+      replacedByAgent = replacement;
+    }
+
+    const now = this.#now();
+    const agent = await this.#repository.retireAgent(workspace, {
+      ...validated,
+      workspace,
+      now,
+    });
+    if (!agent) {
+      throw new LorError(
+        "not_found",
+        "Agent was not found.",
+        { entryType: "agent" },
+      );
+    }
+
+    return {
+      workspace,
+      agent,
+      retiredAt: agent.retiredAt ?? now,
+      replacedByAgent: replacedByAgent
+        ? toHandoffTargetAgent(replacedByAgent)
+        : undefined,
+    };
   }
 
   async proposeSkillUpdate(
@@ -403,6 +463,7 @@ export class CatalogService {
           displayName: entry.displayName,
           primarySpecialty: entry.primarySpecialty,
           specialtyTags: entry.specialtyTags,
+          replacesAgentEntryKey: entry.replacesAgentEntryKey,
           handoff: entry.handoff,
           verification: {
             verificationStatus: entry.verificationStatus,
@@ -411,6 +472,10 @@ export class CatalogService {
             verificationMessage: entry.verificationMessage,
           },
           now,
+          agentStatus: entry.agentStatus ?? "active",
+          retiredAt: entry.retiredAt,
+          retirementReason: entry.retirementReason,
+          replacedByAgentEntryKey: entry.replacedByAgentEntryKey,
         });
       } else {
         await this.#repository.createSkill(workspace, {
@@ -536,6 +601,13 @@ export class CatalogService {
         { entryType: "agent" },
       );
     }
+    if (entry.agentStatus === "retired") {
+      throw new LorError(
+        "validation_error",
+        "Target agent is retired.",
+        { entryType: "agent", entryKey: entry.entryKey },
+      );
+    }
 
     const prompt = entry.handoff
       ? renderHandoffTemplate(entry, validated)
@@ -563,6 +635,63 @@ export class CatalogService {
     };
   }
 
+  async prepareAgentRegeneration(
+    input: PrepareAgentRegenerationInput,
+  ): Promise<PrepareAgentRegenerationResult> {
+    const validated = validatePrepareAgentRegeneration(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const entry = await this.#repository.getEntry(workspace, {
+      workspace,
+      entryType: "agent",
+      entryKey: validated.agentEntryKey,
+    });
+    if (!entry || entry.entryType !== "agent") {
+      throw new LorError(
+        "not_found",
+        "Source agent was not found.",
+        { entryType: "agent" },
+      );
+    }
+
+    const suggestedReplacementMetadata = {
+      projectName: entry.projectName,
+      displayName: entry.displayName,
+      primarySpecialty: entry.primarySpecialty,
+      specialtyTags: entry.specialtyTags,
+      replacesAgentEntryKey: entry.entryKey,
+      handoff: entry.handoff,
+    };
+
+    return {
+      workspace,
+      sourceAgent: {
+        entryKey: entry.entryKey,
+        codexSessionId: entry.codexSessionId,
+        displayName: entry.displayName,
+        projectName: entry.projectName,
+        primarySpecialty: entry.primarySpecialty,
+        specialtyTags: entry.specialtyTags,
+        handoff: entry.handoff,
+      },
+      prompt: renderAgentRegenerationPrompt(entry, validated),
+      suggestedReplacementMetadata,
+      replacementInstructions: replacementInstructions(
+        entry,
+        validated.includeRegistrationInstructions,
+      ),
+      catalogAction: {
+        mode: "manual",
+        instruction:
+          `After confirming the replacement works, introduce the replacement agent, then call retire_agent for old catalog entry ${entry.entryKey}; LOR will not mutate the catalog from this preparation step.`,
+      },
+      delivery: {
+        mode: "manual",
+        instruction:
+          "Paste this prompt into a new empty Codex chat. Local Orchestration Router (LOR) does not create, message, or steer Codex chats.",
+      },
+    };
+  }
+
   async findMatchingEntries(
     request: MatchRequest,
   ): Promise<MatchResult> {
@@ -576,7 +705,10 @@ export class CatalogService {
     const entries = await this.#repository.listEntries(workspace, {
       workspace,
     });
-    return findCatalogMatches(entries, { ...request, workspace });
+    return findCatalogMatches(entries.filter(isRoutableEntry), {
+      ...request,
+      workspace,
+    });
   }
 
   async registerWorkspaceAlias(
@@ -799,6 +931,11 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
       ...base,
       entryType: "agent",
       codexSessionId: entry.codexSessionId,
+      agentStatus: entry.agentStatus,
+      retiredAt: entry.retiredAt,
+      retirementReason: entry.retirementReason,
+      replacedByAgentEntryKey: entry.replacedByAgentEntryKey,
+      replacesAgentEntryKey: entry.replacesAgentEntryKey,
       handoff: entry.handoff,
     };
   }
@@ -830,6 +967,21 @@ function selectSyncSkills(
 
 function toExportSkillEntry(entry: SkillCatalogEntry): CatalogExportSkillEntry {
   return toExportEntry(entry) as CatalogExportSkillEntry;
+}
+
+function toHandoffTargetAgent(entry: AgentCatalogEntry) {
+  return {
+    entryKey: entry.entryKey,
+    codexSessionId: entry.codexSessionId,
+    displayName: entry.displayName,
+    projectName: entry.projectName,
+    primarySpecialty: entry.primarySpecialty,
+    specialtyTags: entry.specialtyTags,
+  };
+}
+
+function isRoutableEntry(entry: CatalogEntry): boolean {
+  return entry.entryType !== "agent" || entry.agentStatus === "active";
 }
 
 function mergeSkillUpdate(
@@ -960,4 +1112,102 @@ function renderGenericHandoffPrompt(
   );
 
   return sections.join("\n");
+}
+
+function renderAgentRegenerationPrompt(
+  entry: AgentCatalogEntry,
+  input:
+    & Required<
+      Pick<
+        PrepareAgentRegenerationInput,
+        "workspace" | "agentEntryKey" | "includeRegistrationInstructions"
+      >
+    >
+    & Omit<
+      PrepareAgentRegenerationInput,
+      "workspace" | "agentEntryKey" | "includeRegistrationInstructions"
+    >,
+): string {
+  const sections = [
+    `You are ${entry.displayName}, a regenerated Codex agent for ${entry.projectName}.`,
+    "",
+    "Source agent being replaced:",
+    `- Catalog entry key: ${entry.entryKey}`,
+    `- Previous Codex session ID: ${entry.codexSessionId}`,
+    "",
+    "Role metadata to preserve:",
+    `- Project: ${entry.projectName}`,
+    `- Display name: ${entry.displayName}`,
+    `- Primary specialty: ${entry.primarySpecialty}`,
+    `- Specialty tags: ${entry.specialtyTags.join(", ")}`,
+  ];
+
+  if (entry.handoff) {
+    sections.push(
+      "",
+      "Stored handoff guidance to preserve:",
+      `- When to use: ${entry.handoff.whenToUse}`,
+      `- Expected output: ${entry.handoff.expectedOutput}`,
+      `- Required context: ${entry.handoff.requiredContext.join(", ")}`,
+      `- Constraints: ${entry.handoff.constraints.join(", ")}`,
+      "Stored handoff prompt template:",
+      entry.handoff.handoffPromptTemplate,
+    );
+  }
+
+  if (input.reason) {
+    sections.push("", "Regeneration reason:", input.reason);
+  }
+  if (input.carryForwardContext) {
+    sections.push("", "Carry-forward context:", input.carryForwardContext);
+  }
+  if (input.replacementTask) {
+    sections.push("", "First replacement task:", input.replacementTask);
+  }
+
+  sections.push(
+    "",
+    "Operating instructions:",
+    "- Read the repository instructions and current files before changing code.",
+    "- Preserve user work and never revert unrelated changes.",
+    "- Keep changes scoped to the requested task and existing project patterns.",
+    "- Report exact files changed and exact verification commands/results.",
+    "- Ask only questions that materially affect the plan or implementation.",
+  );
+
+  if (input.includeRegistrationInstructions) {
+    sections.push(
+      "",
+      "Registration instructions:",
+      "- This is a new Codex chat and will have a new Codex session ID.",
+      "- Do not reuse the previous Codex session ID.",
+      "- After this chat exists, ask the caller to register the new session with `introduce_agent` using the suggested replacement metadata returned by LOR plus the new `codexSessionId`.",
+      "- After confirming the replacement works, ask the caller to mark the old agent retired with `retire_agent`.",
+    );
+  }
+
+  return sections.join("\n");
+}
+
+function replacementInstructions(
+  entry: AgentCatalogEntry,
+  includeRegistrationInstructions: boolean,
+): string[] {
+  const instructions = [
+    "Create a new empty Codex chat and paste the generated prompt.",
+  ];
+  if (includeRegistrationInstructions) {
+    instructions.push(
+      "After the new chat has a Codex session ID, call introduce_agent with the suggested replacement metadata and the new codexSessionId.",
+      `Do not reuse the old codexSessionId ${entry.codexSessionId}.`,
+    );
+  } else {
+    instructions.push(
+      "Registration instructions were omitted from the generated prompt by request.",
+    );
+  }
+  instructions.push(
+    `Only call retire_agent for old catalog entry ${entry.entryKey} after confirming the replacement is usable.`,
+  );
+  return instructions;
 }

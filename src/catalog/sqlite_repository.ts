@@ -1,6 +1,7 @@
 import type { Database } from "@db/sqlite";
 import type {
   AgentCatalogEntry,
+  AgentStatus,
   CatalogEntry,
   CatalogEntryUpdate,
   CatalogRepository,
@@ -12,6 +13,7 @@ import type {
   ListEntriesFilter,
   RegisterWorkspaceAliasInput,
   RegisterWorkspaceAliasResult,
+  RetireAgentInput,
   SkillCatalogEntry,
   SkillUpdateProposal,
   VerificationMetadata,
@@ -26,6 +28,11 @@ import {
 interface AgentRow {
   workspace: string;
   codexSessionId: string;
+  agentStatus: string;
+  retiredAt: string | null;
+  retirementReason: string | null;
+  replacedByAgentEntryKey: string | null;
+  replacesAgentEntryKey: string | null;
   projectName: string;
   displayName: string;
   primarySpecialty: string;
@@ -89,8 +96,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
       this.#db.exec(SCHEMA_SQL);
       migrateLegacyNamespaceColumns(this.#db);
       migrateSkillContextColumn(this.#db);
+      migrateAgentLifecycleColumns(this.#db);
       backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 4);
+      recordSchemaVersion(this.#db, 5);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -101,6 +109,10 @@ export class SqliteCatalogRepository implements CatalogRepository {
     input: IntroduceAgentInput & {
       verification: VerificationMetadata;
       now: string;
+      agentStatus?: AgentStatus;
+      retiredAt?: string;
+      retirementReason?: string;
+      replacedByAgentEntryKey?: string;
     },
   ): Promise<AgentCatalogEntry> {
     const db = this.requireDb();
@@ -116,10 +128,12 @@ export class SqliteCatalogRepository implements CatalogRepository {
       db.exec(
         `INSERT INTO introduced_agents (
           workspace, codexSessionId, projectName, displayName,
-          primarySpecialty, specialtyTags, handoff, verificationStatus,
+          primarySpecialty, specialtyTags, handoff, agentStatus,
+          retiredAt, retirementReason, replacedByAgentEntryKey,
+          replacesAgentEntryKey, verificationStatus,
           verificationSource, verifiedAt, verificationMessage, createdAt,
           updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         workspace,
         input.codexSessionId,
         input.projectName,
@@ -127,6 +141,11 @@ export class SqliteCatalogRepository implements CatalogRepository {
         input.primarySpecialty,
         JSON.stringify(input.specialtyTags),
         input.handoff ? JSON.stringify(input.handoff) : null,
+        input.agentStatus ?? "active",
+        input.retiredAt ?? null,
+        input.retirementReason ?? null,
+        input.replacedByAgentEntryKey ?? null,
+        input.replacesAgentEntryKey ?? null,
         input.verification.verificationStatus,
         input.verification.verificationSource,
         input.verification.verifiedAt,
@@ -364,6 +383,50 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
     try {
       return Promise.resolve(update());
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
+  retireAgent(
+    workspace: string,
+    input: RetireAgentInput & { now: string },
+  ): Promise<AgentCatalogEntry | undefined> {
+    const db = this.requireDb();
+    const retire = db.transaction(() => {
+      const existing = this.getEntrySync(workspace, {
+        workspace,
+        entryType: "agent",
+        entryKey: input.agentEntryKey,
+      });
+      if (!existing || existing.entryType !== "agent") {
+        return undefined;
+      }
+
+      db.exec(
+        `UPDATE introduced_agents
+         SET agentStatus = ?, retiredAt = ?, retirementReason = ?,
+           replacedByAgentEntryKey = ?, updatedAt = ?
+         WHERE workspace = ? AND codexSessionId = ?`,
+        "retired",
+        existing.retiredAt ?? input.now,
+        input.reason ?? existing.retirementReason ?? null,
+        input.replacedByAgentEntryKey ?? existing.replacedByAgentEntryKey ??
+          null,
+        input.now,
+        workspace,
+        input.agentEntryKey,
+      );
+
+      return this.getEntrySync(workspace, {
+        workspace,
+        entryType: "agent",
+        entryKey: input.agentEntryKey,
+      }) as AgentCatalogEntry | undefined;
+    });
+
+    try {
+      return Promise.resolve(retire());
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -678,6 +741,11 @@ function mapAgentRow(row: AgentRow): AgentCatalogEntry {
     entryType: "agent",
     entryKey: row.codexSessionId,
     codexSessionId: row.codexSessionId,
+    agentStatus: parseAgentStatus(row.agentStatus),
+    retiredAt: row.retiredAt ?? undefined,
+    retirementReason: row.retirementReason ?? undefined,
+    replacedByAgentEntryKey: row.replacedByAgentEntryKey ?? undefined,
+    replacesAgentEntryKey: row.replacesAgentEntryKey ?? undefined,
     projectName: row.projectName,
     displayName: row.displayName,
     primarySpecialty: row.primarySpecialty,
@@ -748,6 +816,13 @@ function parseVerificationStatus(
   return "unknown";
 }
 
+function parseAgentStatus(value: string): AgentStatus {
+  if (value === "active" || value === "retired") {
+    return value;
+  }
+  return "active";
+}
+
 interface TableColumn {
   name: string;
 }
@@ -765,6 +840,28 @@ function migrateSkillContextColumn(db: Database): void {
   const columnNames = new Set(columns.map((column) => column.name));
   if (!columnNames.has("skillContext")) {
     db.exec("ALTER TABLE introduced_skills ADD COLUMN skillContext TEXT");
+  }
+}
+
+function migrateAgentLifecycleColumns(db: Database): void {
+  const columns = db.prepare<TableColumn>(
+    "PRAGMA table_info(introduced_agents)",
+  )
+    .all();
+  const columnNames = new Set(columns.map((column) => column.name));
+  const additions = [
+    ["agentStatus", "TEXT NOT NULL DEFAULT 'active'"],
+    ["retiredAt", "TEXT"],
+    ["retirementReason", "TEXT"],
+    ["replacedByAgentEntryKey", "TEXT"],
+    ["replacesAgentEntryKey", "TEXT"],
+  ];
+  for (const [columnName, definition] of additions) {
+    if (!columnNames.has(columnName)) {
+      db.exec(
+        `ALTER TABLE introduced_agents ADD COLUMN ${columnName} ${definition}`,
+      );
+    }
   }
 }
 
@@ -859,6 +956,11 @@ CREATE TABLE IF NOT EXISTS workspace_aliases (
 CREATE TABLE IF NOT EXISTS introduced_agents (
   workspace TEXT NOT NULL,
   codexSessionId TEXT NOT NULL,
+  agentStatus TEXT NOT NULL DEFAULT 'active',
+  retiredAt TEXT,
+  retirementReason TEXT,
+  replacedByAgentEntryKey TEXT,
+  replacesAgentEntryKey TEXT,
   projectName TEXT NOT NULL,
   displayName TEXT NOT NULL,
   primarySpecialty TEXT NOT NULL,

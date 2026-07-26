@@ -28,6 +28,7 @@ Implemented in the runnable local v1:
   - `register_workspace_alias`
   - `get_catalog_entry_detail`
   - `update_catalog_entry`
+  - `retire_agent`
   - `propose_skill_update`
   - `apply_skill_update`
   - `preview_skill_file_sync`
@@ -39,10 +40,14 @@ Implemented in the runnable local v1:
   - `apply_workspace_catalog_sync`
   - `check_catalog_health`
   - `prepare_agent_handoff`
+  - `prepare_agent_regeneration`
   - `generate_agent_prompt`
   - `find_matching_catalog_entry`
 - Agent and skill introduction now acts as registration. The server no longer
   requires server-local pre-verification evidence before accepting new entries.
+- Agent replacement uses immutable session identity: new agents register as
+  active records, old records can be marked retired, and matching excludes
+  retired agents by default.
 - Deterministic local fuzzy matching with registered skill context signals,
   structured match explanations, and conflict reporting.
 - Structured MCP response envelopes with output schemas and stable error codes.
@@ -89,6 +94,13 @@ Latest implementation verification:
   Implemented for v1 detail lookup.
 - [Prepare Agent Handoff](feature-specs/prepare-agent-handoff.md): Implemented
   for v1 prompt preparation without dispatching to Codex.
+- [Prepare Agent Regeneration](feature-specs/prepare-agent-regeneration.md):
+  Implemented for v1 deterministic prompt preparation for replacing a registered
+  context-heavy Codex agent with a fresh chat and later `introduce_agent`
+  registration.
+- [Agent Lifecycle Retirement](feature-specs/agent-lifecycle-retirement.md):
+  Implemented for v1 immutable session identity, explicit `retire_agent`
+  lifecycle mutation, and default routing exclusion for retired agents.
 - [Generate Agent Prompt](feature-specs/generate-agent-prompt.md): Implemented
   for v1 deterministic starter prompts for empty Codex chats and suggested
   metadata for later agent registration.

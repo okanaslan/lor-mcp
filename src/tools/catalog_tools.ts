@@ -29,6 +29,8 @@ import {
   type ListCatalogEntriesToolInput,
   prepareAgentHandoffInputSchema,
   type PrepareAgentHandoffToolInput,
+  prepareAgentRegenerationInputSchema,
+  type PrepareAgentRegenerationToolInput,
   previewSkillFileSyncInputSchema,
   type PreviewSkillFileSyncToolInput,
   previewWorkspaceCatalogSyncInputSchema,
@@ -39,6 +41,8 @@ import {
   type RegisterWorkspaceAliasToolInput,
   removeCatalogEntryInputSchema,
   type RemoveCatalogEntryToolInput,
+  retireAgentInputSchema,
+  type RetireAgentToolInput,
   toolOutputSchema,
   updateCatalogEntryInputSchema,
   type UpdateCatalogEntryToolInput,
@@ -224,6 +228,36 @@ export function registerCatalogTools(
         async (runtime) => {
           const entry = await runtime.service.updateCatalogEntry(input);
           return okResult(entry, `Updated ${entry.displayName}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "retire_agent",
+    {
+      description:
+        "Mark one introduced Codex agent as retired after explicit confirmation.",
+      inputSchema: retireAgentInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: RetireAgentToolInput) =>
+      withLoggedRuntime(
+        "retire_agent",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.retireAgent(input);
+          return okResult(
+            result,
+            `Retired agent ${result.agent.displayName}.`,
+          );
         },
       ),
   );
@@ -524,6 +558,36 @@ export function registerCatalogTools(
           return okResult(
             result,
             `Prepared handoff prompt for ${result.targetAgent.displayName}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "prepare_agent_regeneration",
+    {
+      description:
+        "Prepare a manual prompt for regenerating a registered Codex agent in a fresh chat.",
+      inputSchema: prepareAgentRegenerationInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: PrepareAgentRegenerationToolInput) =>
+      withLoggedRuntime(
+        "prepare_agent_regeneration",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.prepareAgentRegeneration(input);
+          return okResult(
+            result,
+            `Prepared regeneration prompt for ${result.sourceAgent.displayName}.`,
           );
         },
       ),

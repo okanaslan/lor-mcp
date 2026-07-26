@@ -1,6 +1,7 @@
 import * as z from "zod/v4";
 
 export const entryTypeSchema = z.enum(["agent", "skill"]);
+export const agentStatusSchema = z.enum(["active", "retired"]);
 
 export const handoffSchema = z.object({
   whenToUse: z.string().trim().min(1),
@@ -19,6 +20,7 @@ export const introduceAgentInputSchema = z.object({
   displayName: z.string().trim().min(1),
   primarySpecialty: z.string().trim().min(1),
   specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  replacesAgentEntryKey: z.string().trim().min(1).optional(),
   handoff: handoffSchema.optional(),
 });
 
@@ -90,6 +92,14 @@ export const updateCatalogEntryInputSchema = z.object({
     path: ["update"],
   },
 );
+
+export const retireAgentInputSchema = z.object({
+  workspace: workspaceSchema,
+  agentEntryKey: z.string().trim().min(1),
+  reason: z.string().trim().min(1).optional(),
+  replacedByAgentEntryKey: z.string().trim().min(1).optional(),
+  confirm: z.literal(true),
+});
 
 const skillContextSchema = z.object({
   whenToUse: z.string().trim().min(1).optional(),
@@ -173,6 +183,11 @@ const verificationStatusSchema = z.enum(["verified", "unverified", "unknown"]);
 const exportAgentEntrySchema = z.object({
   entryType: z.literal("agent"),
   codexSessionId: z.string().trim().min(1),
+  agentStatus: agentStatusSchema.optional(),
+  retiredAt: z.string().trim().min(1).optional(),
+  retirementReason: z.string().trim().min(1).optional(),
+  replacedByAgentEntryKey: z.string().trim().min(1).optional(),
+  replacesAgentEntryKey: z.string().trim().min(1).optional(),
   projectName: z.string().trim().min(1),
   displayName: z.string().trim().min(1),
   primarySpecialty: z.string().trim().min(1),
@@ -252,6 +267,15 @@ export const prepareAgentHandoffInputSchema = z.object({
   context: z.string().trim().min(1).optional(),
 });
 
+export const prepareAgentRegenerationInputSchema = z.object({
+  workspace: workspaceSchema,
+  agentEntryKey: z.string().trim().min(1),
+  reason: z.string().trim().min(1).optional(),
+  carryForwardContext: z.string().trim().min(1).optional(),
+  replacementTask: z.string().trim().min(1).optional(),
+  includeRegistrationInstructions: z.boolean().optional(),
+});
+
 export const generateAgentPromptInputSchema = z.object({
   workspace: workspaceSchema,
   role: z.string().trim().min(1),
@@ -286,6 +310,7 @@ export type GetCatalogEntryDetailToolInput = z.infer<
 export type UpdateCatalogEntryToolInput = z.infer<
   typeof updateCatalogEntryInputSchema
 >;
+export type RetireAgentToolInput = z.infer<typeof retireAgentInputSchema>;
 export type ProposeSkillUpdateToolInput = z.infer<
   typeof proposeSkillUpdateInputSchema
 >;
@@ -314,6 +339,9 @@ export type CheckCatalogHealthToolInput = z.infer<
 >;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema
+>;
+export type PrepareAgentRegenerationToolInput = z.infer<
+  typeof prepareAgentRegenerationInputSchema
 >;
 export type GenerateAgentPromptToolInput = z.infer<
   typeof generateAgentPromptInputSchema
