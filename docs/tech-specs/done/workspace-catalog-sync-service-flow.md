@@ -13,7 +13,7 @@ Current LOR behavior already provides the building blocks needed for workspace
 catalog sync:
 
 - Workspace alias resolution in catalog service/repository code.
-- Skill filtering through catalog list/export behavior.
+- Skill and subagent filtering through catalog list/export behavior.
 - Duplicate skipping through import behavior.
 - Deterministic role preset rendering through `generate_agent_prompt`.
 
@@ -23,10 +23,13 @@ workflow. It should not add SQLite tables or schema migrations.
 ## 3. Goals
 
 - Resolve source and target workspaces consistently with existing catalog tools.
-- Select source skills using existing catalog filters where practical.
-- Build a skill-only import payload for apply.
+- Select source skills and workspace-local subagents using existing catalog
+  filters where practical.
+- Build an import payload containing selected skills and subagents for apply.
 - Preserve skill metadata exactly, including verification metadata and
   `skillContext`.
+- Preserve subagent metadata exactly, including prompt rendering inputs and
+  references.
 - Generate optional agent starter prompt metadata without persistence.
 - Support empty target workspaces and already-populated target workspaces.
 
@@ -47,15 +50,19 @@ workflow. It should not add SQLite tables or schema migrations.
 2. Resolve `sourceWorkspace` and `targetWorkspace` through existing workspace
    alias resolution.
 3. Reject source and target resolving to the same canonical workspace.
-4. Export or list source skills with `entryType: "skill"` and optional
+4. Export or list source skills and subagents with workspace scope and optional
    `projectName`.
 5. If `skillNames` is supplied, keep only matching source skills and report
    requested names missing from the selected source set.
-6. Read target skills for duplicate detection.
-7. Split selected source skills into `skillsToCopy` and `duplicateSkills`.
-8. Render requested agent prompt roles with existing `generateAgentPrompt`,
-   using the resolved target workspace and optional `projectName`.
-9. Return the preview payload without writing to SQLite or local files.
+6. If `subagentNames` is supplied, keep only matching source subagents and
+   report requested names missing from the selected source set.
+7. Read target skills and subagents for duplicate detection.
+8. Split selected source skills into `skillsToCopy` and `duplicateSkills`.
+9. Split selected source subagents into `subagentsToCopy` and
+   `duplicateSubagents`.
+10. Render requested agent prompt roles with existing `generateAgentPrompt`,
+    using the resolved target workspace and optional `projectName`.
+11. Return the preview payload without writing to SQLite or local files.
 
 `projectName` is both a source skill filter and the project name passed to
 generated prompt metadata. When omitted, source skills are not filtered by
@@ -68,13 +75,14 @@ behavior.
 
 1. Validate input and require `confirm: true`.
 2. Recompute the preview from current storage state.
-3. Build a version 1 catalog import object from `skillsToCopy` only.
+3. Build a version 1 catalog import object from `skillsToCopy` and
+   `subagentsToCopy`.
 4. Set the import object's `workspace` to the resolved source workspace for
    traceability, while importing into the resolved target workspace.
 5. Call the same internal import path used by `import_catalog` with
    `conflictStrategy: "skip"`.
-6. Return the recomputed preview fields plus `copiedSkills` and copied count
-   from the import result.
+6. Return the recomputed preview fields plus `copiedSkills`, `copiedSubagents`,
+   and copied counts from the import result.
 
 Apply must not trust a client-supplied preview result. The preview is for user
 approval; apply must recompute from storage to avoid stale or tampered payloads.

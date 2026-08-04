@@ -6,11 +6,13 @@ import {
   checkCatalogHealthInputSchema,
   clearWorkspaceCatalogInputSchema,
   exportCatalogInputSchema,
+  findMatchingCatalogEntryInputSchema,
   generateAgentPromptInputSchema,
   getCatalogEntryDetailInputSchema,
   importCatalogInputSchema,
   introduceAgentInputSchema,
   introduceSkillInputSchema,
+  introduceSubagentInputSchema,
   prepareAgentHandoffInputSchema,
   prepareAgentRegenerationInputSchema,
   previewSkillFileSyncInputSchema,
@@ -22,6 +24,47 @@ import {
   retireAgentInputSchema,
   updateCatalogEntryInputSchema,
 } from "@src/tools/schemas.ts";
+
+Deno.test("introduceSubagentInputSchema accepts workspace and global prompt profiles", () => {
+  const input = {
+    workspace: "LOR-MCP",
+    name: "api-test-subagent",
+    displayName: "API Test Subagent",
+    projectName: "Local Orchestration Router (LOR)",
+    purpose: "Write focused backend API tests.",
+    limitedScope: "Only inspect API handlers and related tests.",
+    primarySpecialty: "backend api testing",
+    specialtyTags: ["backend", "api", "tests"],
+    agentReferences: [{
+      entryType: "agent",
+      name: "Backend Agent",
+      entryKey: "agent-1",
+      required: true,
+    }],
+    skillReferences: [{
+      entryType: "skill",
+      name: "okan-code-review",
+      scope: "global",
+    }],
+    promptTemplate: "Handle {purpose} for {projectName}.",
+    constraints: ["Do not edit unrelated files."],
+    expectedOutput: "A concise test plan and patch summary.",
+  };
+
+  assertEquals(introduceSubagentInputSchema.safeParse(input).success, true);
+  assertEquals(
+    introduceSubagentInputSchema.safeParse({
+      ...input,
+      scope: "global",
+      name: "global-api-test-subagent",
+    }).success,
+    true,
+  );
+  assertEquals(
+    introduceSubagentInputSchema.safeParse({ ...input, name: " " }).success,
+    false,
+  );
+});
 
 Deno.test("introduceAgentInputSchema accepts optional replacement pointer", () => {
   assertEquals(
@@ -401,6 +444,15 @@ Deno.test("removeCatalogEntryInputSchema requires workspace type and key", () =>
     }).success,
     false,
   );
+  assertEquals(
+    removeCatalogEntryInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "subagent",
+      entryKey: "api-test-subagent",
+      scope: "global",
+    }).success,
+    true,
+  );
 });
 
 Deno.test("exportCatalogInputSchema accepts optional filters", () => {
@@ -464,6 +516,41 @@ Deno.test("importCatalogInputSchema requires versioned catalog data", () => {
   );
 });
 
+Deno.test("importCatalogInputSchema accepts workspace subagent entries", () => {
+  const validCatalog = {
+    version: 1,
+    exportedAt: "2026-07-17T00:00:00.000Z",
+    workspace: "Source",
+    filters: {},
+    entries: [{
+      entryType: "subagent",
+      name: "api-test-subagent",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "API Test Subagent",
+      purpose: "Write focused backend API tests.",
+      limitedScope: "Only inspect API handlers and related tests.",
+      primarySpecialty: "backend api testing",
+      specialtyTags: ["backend", "api", "tests"],
+      agentReferences: [],
+      skillReferences: [],
+      unresolvedReferences: [],
+      constraints: ["Do not edit unrelated files."],
+      expectedOutput: "A concise test plan and patch summary.",
+      verificationStatus: "verified",
+      verificationSource: "catalog_export",
+      verifiedAt: "2026-07-17T00:00:00.000Z",
+    }],
+  };
+
+  assertEquals(
+    importCatalogInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      catalog: validCatalog,
+    }).success,
+    true,
+  );
+});
+
 Deno.test("workspace catalog sync schemas require source and target workspaces", () => {
   assertEquals(
     previewWorkspaceCatalogSyncInputSchema.safeParse({
@@ -471,6 +558,7 @@ Deno.test("workspace catalog sync schemas require source and target workspaces",
       targetWorkspace: "target-workspace",
       projectName: "Local Orchestration Router (LOR)",
       skillNames: ["backend-skill"],
+      subagentNames: ["api-test-subagent"],
       agentPromptRoles: ["backend"],
     }).success,
     true,
@@ -492,6 +580,14 @@ Deno.test("workspace catalog sync schemas require source and target workspaces",
       sourceWorkspace: "source-workspace",
       targetWorkspace: "target-workspace",
       skillNames: [],
+    }).success,
+    false,
+  );
+  assertEquals(
+    previewWorkspaceCatalogSyncInputSchema.safeParse({
+      sourceWorkspace: "source-workspace",
+      targetWorkspace: "target-workspace",
+      subagentNames: [],
     }).success,
     false,
   );
@@ -546,6 +642,13 @@ Deno.test("checkCatalogHealthInputSchema accepts filters and requires type for k
     }).success,
     false,
   );
+  assertEquals(
+    checkCatalogHealthInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "subagent",
+    }).success,
+    false,
+  );
 });
 
 Deno.test("generateAgentPromptInputSchema requires workspace and role", () => {
@@ -571,5 +674,17 @@ Deno.test("generateAgentPromptInputSchema requires workspace and role", () => {
       workspace: "LOR-MCP",
     }).success,
     false,
+  );
+});
+
+Deno.test("findMatchingCatalogEntryInputSchema accepts subagent preferred type", () => {
+  assertEquals(
+    findMatchingCatalogEntryInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      task: "write focused backend api tests",
+      preferredType: "subagent",
+      specialtyHints: ["backend"],
+    }).success,
+    true,
   );
 });

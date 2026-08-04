@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-A Codex user or agent lists the current Local Orchestration Router (LOR) catalog before deciding
-how to approach a task.
+A Codex user or agent lists the current Local Orchestration Router (LOR) catalog
+before deciding how to approach a task.
 
 ## 2. Actor
 
@@ -18,8 +18,8 @@ already been introduced for the requested workspace.
 
 1. The Codex user opens a workspace where LOR MCP is configured.
 2. The user or current agent asks LOR MCP to list catalog entries.
-3. Local Orchestration Router (LOR) returns introduced agents and skills for the requested workspace
-   workspace.
+3. Local Orchestration Router (LOR) returns introduced agents and skills for the
+   requested workspace workspace.
 4. The actor reviews display names, projects, specialties, and tags.
 5. The actor decides whether to use a listed entry, ask for a match, or
    introduce another entry.

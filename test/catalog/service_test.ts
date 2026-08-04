@@ -157,6 +157,119 @@ Deno.test("CatalogService allows workspace and global skills with the same name"
   }
 });
 
+Deno.test("CatalogService introduces subagents with rendered prompts and metadata references", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const created = await service.introduceSubagent({
+      workspace: "LOR-MCP",
+      name: "api-test-subagent",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "API Test Subagent",
+      purpose: "Write focused backend API tests.",
+      limitedScope: "Only inspect API handlers and related tests.",
+      primarySpecialty: "backend api testing",
+      specialtyTags: ["backend", "api", "tests"],
+      agentReferences: [{
+        entryType: "agent",
+        name: "Backend Agent",
+        entryKey: "missing-agent",
+        required: true,
+      }],
+      skillReferences: [{
+        entryType: "skill",
+        name: "okan-code-review",
+        scope: "global",
+      }],
+      promptTemplate:
+        "You are {displayName}. Purpose: {purpose}. Project: {projectName}.",
+      constraints: ["Do not edit unrelated files."],
+      expectedOutput: "A concise test summary.",
+    });
+    const detail = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "subagent",
+      entryKey: "api-test-subagent",
+    });
+
+    assertEquals(created.entryType, "subagent");
+    if (created.entryType === "subagent") {
+      assertEquals(created.scope, "workspace");
+      assertEquals(created.prompt.includes("API Test Subagent"), true);
+      assertEquals(created.prompt.includes("{missing}"), false);
+      assertEquals(created.agentReferences[0]?.entryKey, "missing-agent");
+      assertEquals(created.unresolvedReferences, []);
+    }
+    assertEquals(detail?.entryType, "subagent");
+    if (detail?.entryType === "subagent") {
+      assertEquals(
+        detail.prompt.includes("Write focused backend API tests."),
+        true,
+      );
+    }
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService lists global subagents and requires scope for ambiguous detail", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSubagent({
+      workspace: "LOR-MCP",
+      name: "review-subagent",
+      projectName: "Workspace Project",
+      displayName: "Workspace Review Subagent",
+      purpose: "Review workspace code changes.",
+      limitedScope: "Only review files in the current workspace.",
+      primarySpecialty: "code review",
+      specialtyTags: ["review"],
+    });
+    await service.introduceSubagent({
+      workspace: "LOR-MCP",
+      scope: "global",
+      name: "review-subagent",
+      projectName: "Global Review",
+      displayName: "Global Review Subagent",
+      purpose: "Review general code changes.",
+      limitedScope: "Only review provided diffs.",
+      primarySpecialty: "code review",
+      specialtyTags: ["review", "global"],
+    });
+
+    const otherWorkspaceEntries = await service.listEntries({
+      workspace: "Other-Workspace",
+      entryType: "subagent",
+    });
+    const globalDetail = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "subagent",
+      entryKey: "review-subagent",
+      scope: "global",
+    });
+
+    assertEquals(otherWorkspaceEntries.map((entry) => entry.entryKey), [
+      "review-subagent",
+    ]);
+    assertEquals(globalDetail?.entryType, "subagent");
+    if (globalDetail?.entryType === "subagent") {
+      assertEquals(globalDetail.scope, "global");
+      assertEquals(globalDetail.displayName, "Global Review Subagent");
+    }
+    await assertRejects(
+      () =>
+        service.getEntryDetail({
+          workspace: "LOR-MCP",
+          entryType: "subagent",
+          entryKey: "review-subagent",
+        }),
+      Error,
+      "scope is required",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService promotes workspace skills to global without removing source", async () => {
   const { repo, service } = await createCatalogService();
   try {
@@ -250,6 +363,128 @@ Deno.test("CatalogService keeps export sync and clear workspace-local for global
       ),
       ["global:global-skill"],
     );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService includes subagents in match export import sync remove and excludes health", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "Source",
+      skillName: "backend-skill",
+      projectName: "Source Project",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["backend", "api"],
+    });
+    await service.introduceSubagent({
+      workspace: "Source",
+      name: "api-test-subagent",
+      projectName: "Source Project",
+      displayName: "API Test Subagent",
+      purpose: "Write focused backend API tests.",
+      limitedScope: "Only inspect API handlers and related tests.",
+      primarySpecialty: "backend api testing",
+      specialtyTags: ["backend", "api", "tests"],
+      skillReferences: [{
+        entryType: "skill",
+        name: "backend-skill",
+        scope: "workspace",
+        required: true,
+      }],
+    });
+    await service.introduceSubagent({
+      workspace: "Source",
+      scope: "global",
+      name: "global-review-subagent",
+      projectName: "Global Project",
+      displayName: "Global Review Subagent",
+      purpose: "Review focused implementation patches.",
+      limitedScope: "Only review provided diffs.",
+      primarySpecialty: "code review",
+      specialtyTags: ["review"],
+    });
+
+    const match = await service.findMatchingEntries({
+      workspace: "Source",
+      task: "write backend api tests",
+    });
+    const exported = await service.exportCatalog({ workspace: "Source" });
+    const exportedSubagents = await service.exportCatalog({
+      workspace: "Source",
+      entryType: "subagent",
+    });
+    const preview = await service.previewWorkspaceCatalogSync({
+      sourceWorkspace: "Source",
+      targetWorkspace: "Target",
+    });
+    const applied = await service.applyWorkspaceCatalogSync({
+      sourceWorkspace: "Source",
+      targetWorkspace: "Target",
+      confirm: true,
+    });
+    const targetEntries = await service.listEntries({
+      workspace: "Target",
+      entryType: "subagent",
+    });
+    const importedIntoThird = await service.importCatalog({
+      workspace: "Third",
+      catalog: exported,
+    });
+    const health = await service.checkCatalogHealth({ workspace: "Source" });
+    const removed = await service.removeCatalogEntry({
+      workspace: "Source",
+      entryType: "subagent",
+      entryKey: "api-test-subagent",
+    });
+
+    assertEquals(match.status, "ok");
+    assertEquals(match.data.subagents[0]?.entryKey, "api-test-subagent");
+    assertEquals(
+      match.data.subagents[0]?.prompt?.includes("API Test Subagent"),
+      true,
+    );
+    assertEquals(
+      exported.entries.map((entry) =>
+        entry.entryType === "subagent" ? entry.name : entry.entryType
+      ).sort(),
+      ["api-test-subagent", "skill"],
+    );
+    assertEquals(exportedSubagents.filters.entryType, "subagent");
+    assertEquals(exportedSubagents.entries.map((entry) => entry.entryType), [
+      "subagent",
+    ]);
+    assertEquals(preview.subagentsToCopy.map((entry) => entry.name), [
+      "api-test-subagent",
+    ]);
+    assertEquals(preview.summary.subagentsToCopy, 1);
+    assertEquals(applied.copiedSubagents, ["api-test-subagent"]);
+    assertEquals(applied.importResult.importedCount, 2);
+    assertEquals(
+      targetEntries.map((entry) =>
+        entry.entryType === "subagent" ? `${entry.scope}:${entry.entryKey}` : ""
+      ).sort(),
+      ["global:global-review-subagent", "workspace:api-test-subagent"],
+    );
+    assertEquals(importedIntoThird.importedCount, 2);
+    assertEquals(health.summary, {
+      total: 1,
+      verified: 1,
+      unverified: 0,
+      unknown: 0,
+      agents: 0,
+      skills: 1,
+    });
+    assertEquals(health.entries.map((entry) => entry.entryType), ["skill"]);
+    assertEquals(removed, {
+      workspace: "Source",
+      scope: "workspace",
+      entryType: "subagent",
+      entryKey: "api-test-subagent",
+      removed: true,
+    });
   } finally {
     repo.close();
   }
@@ -1369,6 +1604,10 @@ Deno.test("CatalogService previews workspace catalog sync without mutation", asy
       skillsToCopy: 1,
       duplicateSkills: 1,
       missingSkills: 1,
+      selectedSubagents: 0,
+      subagentsToCopy: 0,
+      duplicateSubagents: 0,
+      missingSubagents: 0,
       generatedAgentPrompts: 1,
     });
     assertEquals(targetEntries.map((entry) => entry.entryKey), ["qa-skill"]);

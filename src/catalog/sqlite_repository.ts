@@ -11,14 +11,20 @@ import type {
   EntryLookup,
   IntroduceAgentInput,
   IntroduceSkillInput,
+  IntroduceSubagentInput,
   ListEntriesFilter,
   RegisterWorkspaceAliasInput,
   RegisterWorkspaceAliasResult,
   RetireAgentInput,
   SkillCatalogEntry,
   SkillUpdateProposal,
+  SubagentCatalogEntry,
   VerificationMetadata,
 } from "@src/catalog/types.ts";
+import {
+  normalizeSubagentPromptFields,
+  renderSubagentPrompt,
+} from "@src/catalog/subagent_prompt.ts";
 import { LorError } from "@src/errors.ts";
 import {
   isAbsoluteWorkspacePath,
@@ -63,6 +69,29 @@ interface SkillRow {
   updatedAt: string;
 }
 
+interface SubagentRow {
+  workspace: string;
+  name: string;
+  projectName: string;
+  displayName: string;
+  purpose: string;
+  limitedScope: string;
+  primarySpecialty: string;
+  specialtyTags: string;
+  agentReferences: string;
+  skillReferences: string;
+  unresolvedReferences: string;
+  promptTemplate: string | null;
+  constraints: string;
+  expectedOutput: string;
+  verificationStatus: string;
+  verificationSource: string;
+  verifiedAt: string;
+  verificationMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface SkillUpdateProposalRow {
   proposalId: string;
   workspace: string;
@@ -83,6 +112,7 @@ interface WorkspaceAliasRow {
 }
 
 const GLOBAL_SKILL_WORKSPACE = "__lor_global_skills__";
+const GLOBAL_SUBAGENT_WORKSPACE = "__lor_global_subagents__";
 const PUBLIC_GLOBAL_WORKSPACE = "global";
 
 export class SqliteCatalogRepository implements CatalogRepository {
@@ -102,7 +132,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
       migrateSkillContextColumn(this.#db);
       migrateAgentLifecycleColumns(this.#db);
       backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 5);
+      recordSchemaVersion(this.#db, 6);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -229,6 +259,73 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  async createSubagent(
+    workspace: string,
+    input: IntroduceSubagentInput & {
+      verification: VerificationMetadata;
+      now: string;
+    },
+  ): Promise<SubagentCatalogEntry> {
+    const db = this.requireDb();
+    const scope = input.scope ?? "workspace";
+    const storageWorkspace = subagentStorageWorkspace(workspace, scope);
+    const promptFields = normalizeSubagentPromptFields(input);
+    const insert = db.transaction(() => {
+      if (this.subagentExists(storageWorkspace, input.name)) {
+        throw new LorError(
+          "duplicate_entry",
+          scope === "global"
+            ? "Subagent already exists in global scope."
+            : "Subagent already exists in this workspace.",
+          { entryType: "subagent" },
+        );
+      }
+
+      db.exec(
+        `INSERT INTO introduced_subagents (
+          workspace, name, projectName, displayName, purpose, limitedScope,
+          primarySpecialty, specialtyTags, agentReferences, skillReferences,
+          unresolvedReferences, promptTemplate, constraints, expectedOutput,
+          verificationStatus, verificationSource, verifiedAt,
+          verificationMessage, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        storageWorkspace,
+        input.name,
+        input.projectName,
+        input.displayName,
+        input.purpose,
+        input.limitedScope,
+        input.primarySpecialty,
+        JSON.stringify(input.specialtyTags),
+        JSON.stringify(promptFields.agentReferences),
+        JSON.stringify(promptFields.skillReferences),
+        JSON.stringify(input.unresolvedReferences ?? []),
+        input.promptTemplate ?? null,
+        JSON.stringify(promptFields.constraints),
+        promptFields.expectedOutput,
+        input.verification.verificationStatus,
+        input.verification.verificationSource,
+        input.verification.verifiedAt,
+        input.verification.verificationMessage ?? null,
+        input.now,
+        input.now,
+      );
+    });
+
+    try {
+      insert();
+      const created = await this.getEntry(workspace, {
+        workspace,
+        entryType: "subagent",
+        entryKey: input.name,
+        scope,
+      });
+      return created as SubagentCatalogEntry;
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
   createSkillUpdateProposal(
     input: SkillUpdateProposal,
   ): Promise<SkillUpdateProposal> {
@@ -348,6 +445,11 @@ export class SqliteCatalogRepository implements CatalogRepository {
         ...this.listSkills(workspace, filter.projectName, filter.scope),
       );
     }
+    if (!filter.entryType || filter.entryType === "subagent") {
+      entries.push(
+        ...this.listSubagents(workspace, filter.projectName, filter.scope),
+      );
+    }
     return Promise.resolve(
       entries.sort((a, b) =>
         a.entryType.localeCompare(b.entryType) ||
@@ -388,13 +490,31 @@ export class SqliteCatalogRepository implements CatalogRepository {
           workspace,
           input.entryKey,
         );
-      } else {
+      } else if (input.entryType === "skill") {
         const storageWorkspace = skillStorageWorkspace(workspace, input.scope);
         db.exec(
           `UPDATE introduced_skills
            SET projectName = ?, displayName = ?, primarySpecialty = ?,
              specialtyTags = ?, updatedAt = ?
            WHERE workspace = ? AND skillName = ?`,
+          input.projectName ?? existing.projectName,
+          input.displayName ?? existing.displayName,
+          input.primarySpecialty ?? existing.primarySpecialty,
+          JSON.stringify(input.specialtyTags ?? existing.specialtyTags),
+          input.now,
+          storageWorkspace,
+          input.entryKey,
+        );
+      } else {
+        const storageWorkspace = subagentStorageWorkspace(
+          workspace,
+          input.scope,
+        );
+        db.exec(
+          `UPDATE introduced_subagents
+           SET projectName = ?, displayName = ?, primarySpecialty = ?,
+             specialtyTags = ?, updatedAt = ?
+           WHERE workspace = ? AND name = ?`,
           input.projectName ?? existing.projectName,
           input.displayName ?? existing.displayName,
           input.primarySpecialty ?? existing.primarySpecialty,
@@ -477,7 +597,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
           workspace,
           lookup.entryKey,
         );
-      } else {
+      } else if (lookup.entryType === "skill") {
         const storageWorkspace = skillStorageWorkspace(
           workspace,
           lookup.scope,
@@ -485,6 +605,17 @@ export class SqliteCatalogRepository implements CatalogRepository {
         db.exec(
           `DELETE FROM introduced_skills
            WHERE workspace = ? AND skillName = ?`,
+          storageWorkspace,
+          lookup.entryKey,
+        );
+      } else {
+        const storageWorkspace = subagentStorageWorkspace(
+          workspace,
+          lookup.scope,
+        );
+        db.exec(
+          `DELETE FROM introduced_subagents
+           WHERE workspace = ? AND name = ?`,
           storageWorkspace,
           lookup.entryKey,
         );
@@ -512,11 +643,19 @@ export class SqliteCatalogRepository implements CatalogRepository {
       return row ? mapAgentRow(row) : undefined;
     }
 
-    const row = this.requireDb().prepare<SkillRow>(
-      `SELECT * FROM introduced_skills
-       WHERE workspace = ? AND skillName = ?`,
-    ).get(skillStorageWorkspace(workspace, lookup.scope), lookup.entryKey);
-    return row ? mapSkillRow(row) : undefined;
+    if (lookup.entryType === "skill") {
+      const row = this.requireDb().prepare<SkillRow>(
+        `SELECT * FROM introduced_skills
+         WHERE workspace = ? AND skillName = ?`,
+      ).get(skillStorageWorkspace(workspace, lookup.scope), lookup.entryKey);
+      return row ? mapSkillRow(row) : undefined;
+    }
+
+    const row = this.requireDb().prepare<SubagentRow>(
+      `SELECT * FROM introduced_subagents
+       WHERE workspace = ? AND name = ?`,
+    ).get(subagentStorageWorkspace(workspace, lookup.scope), lookup.entryKey);
+    return row ? mapSubagentRow(row) : undefined;
   }
 
   private getSkillUpdateProposalSync(
@@ -668,6 +807,24 @@ export class SqliteCatalogRepository implements CatalogRepository {
     return rows.map(mapSkillRow);
   }
 
+  private listSubagents(
+    workspace: string,
+    projectName?: string,
+    scope?: CatalogScope,
+  ): SubagentCatalogEntry[] {
+    const db = this.requireDb();
+    const workspaces = subagentListStorageWorkspaces(workspace, scope);
+    const sql = projectName
+      ? `SELECT * FROM introduced_subagents
+         WHERE workspace IN (${placeholders(workspaces)}) AND projectName = ?`
+      : `SELECT * FROM introduced_subagents
+         WHERE workspace IN (${placeholders(workspaces)})`;
+    const rows = projectName
+      ? db.prepare<SubagentRow>(sql).all(...workspaces, projectName)
+      : db.prepare<SubagentRow>(sql).all(...workspaces);
+    return rows.map(mapSubagentRow);
+  }
+
   private agentExists(workspace: string, codexSessionId: string): boolean {
     return Boolean(
       this.requireDb().prepare<{ count: number }>(
@@ -690,6 +847,15 @@ export class SqliteCatalogRepository implements CatalogRepository {
         `SELECT COUNT(*) AS count FROM introduced_skills
          WHERE workspace = ? AND skillName = ?`,
       ).get(workspace, skillName)?.count,
+    );
+  }
+
+  private subagentExists(workspace: string, name: string): boolean {
+    return Boolean(
+      this.requireDb().prepare<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM introduced_subagents
+         WHERE workspace = ? AND name = ?`,
+      ).get(workspace, name)?.count,
     );
   }
 
@@ -816,6 +982,38 @@ function mapSkillRow(row: SkillRow): SkillCatalogEntry {
   };
 }
 
+function mapSubagentRow(row: SubagentRow): SubagentCatalogEntry {
+  const entry = {
+    workspace: publicSubagentWorkspace(row.workspace),
+    scope: subagentScopeFromStorage(row.workspace),
+    entryType: "subagent" as const,
+    entryKey: row.name,
+    name: row.name,
+    projectName: row.projectName,
+    displayName: row.displayName,
+    purpose: row.purpose,
+    limitedScope: row.limitedScope,
+    primarySpecialty: row.primarySpecialty,
+    specialtyTags: parseTags(row.specialtyTags),
+    agentReferences: parseJsonArray(row.agentReferences),
+    skillReferences: parseJsonArray(row.skillReferences),
+    unresolvedReferences: parseJsonArray(row.unresolvedReferences),
+    promptTemplate: row.promptTemplate ?? undefined,
+    constraints: parseJsonArray(row.constraints),
+    expectedOutput: row.expectedOutput,
+    verificationStatus: parseVerificationStatus(row.verificationStatus),
+    verificationSource: row.verificationSource,
+    verifiedAt: row.verifiedAt,
+    verificationMessage: row.verificationMessage ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+  return {
+    ...entry,
+    prompt: renderSubagentPrompt(entry),
+  };
+}
+
 function mapSkillUpdateProposalRow(
   row: SkillUpdateProposalRow,
 ): SkillUpdateProposal {
@@ -844,6 +1042,13 @@ function skillStorageWorkspace(
   return scope === "global" ? GLOBAL_SKILL_WORKSPACE : workspace;
 }
 
+function subagentStorageWorkspace(
+  workspace: string,
+  scope: CatalogScope | undefined,
+): string {
+  return scope === "global" ? GLOBAL_SUBAGENT_WORKSPACE : workspace;
+}
+
 function skillListStorageWorkspaces(
   workspace: string,
   scope: CatalogScope | undefined,
@@ -857,12 +1062,35 @@ function skillListStorageWorkspaces(
   return [workspace, GLOBAL_SKILL_WORKSPACE];
 }
 
+function subagentListStorageWorkspaces(
+  workspace: string,
+  scope: CatalogScope | undefined,
+): string[] {
+  if (scope === "global") {
+    return [GLOBAL_SUBAGENT_WORKSPACE];
+  }
+  if (scope === "workspace") {
+    return [workspace];
+  }
+  return [workspace, GLOBAL_SUBAGENT_WORKSPACE];
+}
+
 function skillScopeFromStorage(workspace: string): CatalogScope {
   return workspace === GLOBAL_SKILL_WORKSPACE ? "global" : "workspace";
 }
 
+function subagentScopeFromStorage(workspace: string): CatalogScope {
+  return workspace === GLOBAL_SUBAGENT_WORKSPACE ? "global" : "workspace";
+}
+
 function publicSkillWorkspace(workspace: string): string {
   return workspace === GLOBAL_SKILL_WORKSPACE
+    ? PUBLIC_GLOBAL_WORKSPACE
+    : workspace;
+}
+
+function publicSubagentWorkspace(workspace: string): string {
+  return workspace === GLOBAL_SUBAGENT_WORKSPACE
     ? PUBLIC_GLOBAL_WORKSPACE
     : workspace;
 }
@@ -876,6 +1104,11 @@ function parseTags(value: string): string[] {
   return Array.isArray(parsed)
     ? parsed.filter((tag) => typeof tag === "string")
     : [];
+}
+
+function parseJsonArray<T = never>(value: string): T[] {
+  const parsed = JSON.parse(value);
+  return Array.isArray(parsed) ? parsed as T[] : [];
 }
 
 function parseVerificationStatus(
@@ -901,6 +1134,7 @@ interface TableColumn {
 function migrateLegacyNamespaceColumns(db: Database): void {
   renameLegacyNamespaceColumn(db, "introduced_agents");
   renameLegacyNamespaceColumn(db, "introduced_skills");
+  renameLegacyNamespaceColumn(db, "introduced_subagents");
 }
 
 function migrateSkillContextColumn(db: Database): void {
@@ -962,6 +1196,8 @@ function backfillWorkspaceAliases(db: Database): void {
     SELECT workspace FROM introduced_agents
     UNION
     SELECT workspace FROM introduced_skills
+    UNION
+    SELECT workspace FROM introduced_subagents
   `).all().map((row) => row.workspace);
   const absoluteByBasename = new Map<string, string[]>();
 
@@ -1061,6 +1297,30 @@ CREATE TABLE IF NOT EXISTS introduced_skills (
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   PRIMARY KEY (workspace, skillName)
+);
+
+CREATE TABLE IF NOT EXISTS introduced_subagents (
+  workspace TEXT NOT NULL,
+  name TEXT NOT NULL,
+  projectName TEXT NOT NULL,
+  displayName TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  limitedScope TEXT NOT NULL,
+  primarySpecialty TEXT NOT NULL,
+  specialtyTags TEXT NOT NULL,
+  agentReferences TEXT NOT NULL,
+  skillReferences TEXT NOT NULL,
+  unresolvedReferences TEXT NOT NULL,
+  promptTemplate TEXT,
+  constraints TEXT NOT NULL,
+  expectedOutput TEXT NOT NULL,
+  verificationStatus TEXT NOT NULL,
+  verificationSource TEXT NOT NULL,
+  verifiedAt TEXT NOT NULL,
+  verificationMessage TEXT,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL,
+  PRIMARY KEY (workspace, name)
 );
 
 CREATE TABLE IF NOT EXISTS skill_update_proposals (

@@ -2,10 +2,10 @@
 
 ## 1. Summary
 
-Planned. This feature adds subagents as a third catalog entry type in Local
-Orchestration Router (LOR). Subagents are reusable prompt profiles for temporary
-or focused delegation, not registered Codex sessions. LOR can suggest up to
-three matching subagents through `find_matching_catalog_entry` and return
+Implemented for v1. This feature adds subagents as a third catalog entry type in
+Local Orchestration Router (LOR). Subagents are reusable prompt profiles for
+temporary or focused delegation, not registered Codex sessions. LOR can suggest
+up to three matching subagents through `find_matching_catalog_entry` and return
 ready-to-use prompts for suggested or detailed subagent entries.
 
 ## 2. Goals
@@ -140,10 +140,12 @@ Unresolved references must be preserved and returned as metadata or warnings.
 
 ## 10. Decision Log
 
-- 2026-08-04: Add subagents as a planned third catalog type, not Codex sessions.
+- 2026-08-04: Add subagents as a third catalog type, not Codex sessions.
 - 2026-08-04: Include subagents in `find_matching_catalog_entry` instead of
   adding a separate suggestion tool.
 - 2026-08-04: Support workspace and global subagent scopes.
 - 2026-08-04: Return ready-to-use prompts for subagent introduction, detail, and
   match results.
 - 2026-08-04: Allow unresolved agent and skill references as metadata only.
+- 2026-08-04: Implement `introduce_subagent`, subagent list/detail/match,
+  workspace export/import/sync, global subagent visibility, and remove support.

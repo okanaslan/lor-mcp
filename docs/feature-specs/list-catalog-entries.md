@@ -2,15 +2,15 @@
 
 ## 1. Summary
 
-Implemented for v1 agents and skills, including shared global skills by default.
-Planned subagent support will let users list reusable subagent prompt profiles
-available in the requested workspace plus shared global subagents.
+Implemented for v1 agents, skills, and subagent prompt profiles, including
+shared global skills and global subagents by default.
 
 ## 2. Goals
 
-- Show what agents and skills have been introduced in the workspace catalog.
+- Show what agents, skills, and subagent profiles have been introduced in the
+  workspace catalog.
 - Show shared global skills alongside workspace-local entries by default.
-- Show planned workspace-local and global subagents alongside agents and skills.
+- Show workspace-local and global subagents alongside agents and skills.
 - Support simple filtering by entry type and project.
 - Provide a compact view suitable for catalog inspection.
 
@@ -28,8 +28,7 @@ available in the requested workspace plus shared global subagents.
 - The server must list catalog entries scoped to the requested workspace.
 - The server must include global skills by default.
 - The list must include both introduced agents and introduced skills by default.
-- Planned subagent support must include workspace-local and global subagents by
-  default.
+- The list must include workspace-local and global subagents by default.
 - The caller may filter by entry type.
 - The caller may filter by project name.
 - Each list item must include the entry type, identifier, display name, project
@@ -48,10 +47,9 @@ which agents and skills are currently available before asking for routing.
 
 Conceptual `CatalogListItem` fields:
 
-- `entryType`: identifies `agent`, `skill`, or planned `subagent`.
+- `entryType`: identifies `agent`, `skill`, or `subagent`.
 - `entryKey`: identifies the catalog entry within the workspace.
-- `scope`: identifies `workspace` or `global` for skill and planned subagent
-  entries.
+- `scope`: identifies `workspace` or `global` for skill and subagent entries.
 - `displayName`: provides the human-readable catalog name.
 - `projectName`: names the focused project.
 - `primarySpecialty`: names the primary capability.
@@ -81,5 +79,5 @@ Conceptual `CatalogListItem` fields:
 - 2026-07-11: Keep full entry detail in a separate feature spec.
 - 2026-07-13: Implement list lookup against the client-supplied workspace.
 - 2026-08-04: Implement list results to include global skills by default.
-- 2026-08-04: Plan list results to include workspace-local and global subagents
-  by default once Subagent Suggestions is implemented.
+- 2026-08-04: Implement list results to include workspace-local and global
+  subagents by default.

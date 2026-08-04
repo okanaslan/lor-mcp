@@ -1,9 +1,10 @@
-export type EntryType = "agent" | "skill";
+export type EntryType = "agent" | "skill" | "subagent";
 export type CatalogScope = "workspace" | "global";
 export type AgentStatus = "active" | "retired";
 export type VerificationStatus = "verified" | "unverified" | "unknown";
 export type Confidence = "low" | "medium" | "high";
 export type MatchStatus = "ok" | "no_match" | "conflict";
+export type ReferenceEntryType = "agent" | "skill";
 
 export interface VerificationMetadata {
   verificationStatus: VerificationStatus;
@@ -25,6 +26,14 @@ export interface SkillContext {
   usageNotes?: string;
   constraints?: readonly string[];
   examplePrompts?: readonly string[];
+}
+
+export interface CatalogReference {
+  entryType: ReferenceEntryType;
+  name: string;
+  scope?: CatalogScope;
+  entryKey?: string;
+  required?: boolean;
 }
 
 export interface BaseCatalogEntry extends VerificationMetadata {
@@ -59,7 +68,25 @@ export interface SkillCatalogEntry extends BaseCatalogEntry {
   skillContext?: SkillContext;
 }
 
-export type CatalogEntry = AgentCatalogEntry | SkillCatalogEntry;
+export interface SubagentCatalogEntry extends BaseCatalogEntry {
+  entryType: "subagent";
+  scope: CatalogScope;
+  name: string;
+  purpose: string;
+  limitedScope: string;
+  agentReferences: readonly CatalogReference[];
+  skillReferences: readonly CatalogReference[];
+  unresolvedReferences: readonly CatalogReference[];
+  promptTemplate?: string;
+  constraints: readonly string[];
+  expectedOutput: string;
+  prompt: string;
+}
+
+export type CatalogEntry =
+  | AgentCatalogEntry
+  | SkillCatalogEntry
+  | SubagentCatalogEntry;
 
 export interface IntroduceAgentInput {
   workspace: string;
@@ -83,6 +110,24 @@ export interface IntroduceSkillInput {
   skillContext?: SkillContext;
 }
 
+export interface IntroduceSubagentInput {
+  workspace: string;
+  scope?: CatalogScope;
+  name: string;
+  projectName: string;
+  displayName: string;
+  purpose: string;
+  limitedScope: string;
+  primarySpecialty: string;
+  specialtyTags: readonly string[];
+  agentReferences?: readonly CatalogReference[];
+  skillReferences?: readonly CatalogReference[];
+  unresolvedReferences?: readonly CatalogReference[];
+  promptTemplate?: string;
+  constraints?: readonly string[];
+  expectedOutput?: string;
+}
+
 export interface ListEntriesFilter {
   workspace: string;
   entryType?: EntryType;
@@ -93,12 +138,12 @@ export interface ListEntriesFilter {
 export interface ClearWorkspaceCatalogInput {
   workspace: string;
   confirm: true;
-  entryType?: EntryType;
+  entryType?: "agent" | "skill";
 }
 
 export interface ClearWorkspaceCatalogResult {
   workspace: string;
-  entryType?: EntryType;
+  entryType?: "agent" | "skill";
   deletedAgents: number;
   deletedSkills: number;
   deletedTotal: number;
@@ -258,9 +303,27 @@ export interface CatalogExportSkillEntry extends VerificationMetadata {
   skillContext?: SkillContext;
 }
 
+export interface CatalogExportSubagentEntry extends VerificationMetadata {
+  entryType: "subagent";
+  name: string;
+  projectName: string;
+  displayName: string;
+  purpose: string;
+  limitedScope: string;
+  primarySpecialty: string;
+  specialtyTags: readonly string[];
+  agentReferences: readonly CatalogReference[];
+  skillReferences: readonly CatalogReference[];
+  unresolvedReferences: readonly CatalogReference[];
+  promptTemplate?: string;
+  constraints: readonly string[];
+  expectedOutput: string;
+}
+
 export type CatalogExportEntry =
   | CatalogExportAgentEntry
-  | CatalogExportSkillEntry;
+  | CatalogExportSkillEntry
+  | CatalogExportSubagentEntry;
 
 export interface CatalogExport {
   version: 1;
@@ -302,6 +365,7 @@ export interface WorkspaceCatalogSyncInput {
   targetWorkspace: string;
   projectName?: string;
   skillNames?: readonly string[];
+  subagentNames?: readonly string[];
   agentPromptRoles?: readonly string[];
 }
 
@@ -315,8 +379,13 @@ export interface WorkspaceCatalogSyncSummary {
   skillsToCopy: number;
   duplicateSkills: number;
   missingSkills: number;
+  selectedSubagents: number;
+  subagentsToCopy: number;
+  duplicateSubagents: number;
+  missingSubagents: number;
   generatedAgentPrompts: number;
   copiedSkills?: number;
+  copiedSubagents?: number;
 }
 
 export interface WorkspaceCatalogSyncAgentPrompt {
@@ -342,10 +411,14 @@ export interface WorkspaceCatalogSyncPreview {
   targetWorkspace: string;
   projectName?: string;
   requestedSkillNames?: readonly string[];
+  requestedSubagentNames?: readonly string[];
   requestedAgentPromptRoles?: readonly string[];
   skillsToCopy: CatalogExportSkillEntry[];
+  subagentsToCopy: CatalogExportSubagentEntry[];
   duplicateSkills: readonly string[];
+  duplicateSubagents: readonly string[];
   missingSkills: readonly string[];
+  missingSubagents: readonly string[];
   generatedAgentPrompts: WorkspaceCatalogSyncAgentPrompt[];
   summary: WorkspaceCatalogSyncSummary;
 }
@@ -353,6 +426,7 @@ export interface WorkspaceCatalogSyncPreview {
 export interface WorkspaceCatalogSyncApplyResult
   extends WorkspaceCatalogSyncPreview {
   copiedSkills: readonly string[];
+  copiedSubagents: readonly string[];
   importResult: CatalogImportResult;
 }
 
@@ -371,7 +445,7 @@ export interface CatalogHealthIssue {
 
 export interface CatalogHealthEntry {
   scope: CatalogScope;
-  entryType: EntryType;
+  entryType: "agent" | "skill";
   entryKey: string;
   displayName: string;
   projectName: string;
@@ -397,7 +471,7 @@ export interface CatalogHealthReport {
   checkedAt: string;
   workspace: string;
   filters: {
-    entryType?: EntryType;
+    entryType?: "agent" | "skill";
     projectName?: string;
     scope?: CatalogScope;
     entryKey?: string;
@@ -505,6 +579,12 @@ export interface MatchCandidate {
   primarySpecialty: string;
   specialtyTags: readonly string[];
   skillContext?: SkillContext;
+  purpose?: string;
+  limitedScope?: string;
+  prompt?: string;
+  agentReferences?: readonly CatalogReference[];
+  skillReferences?: readonly CatalogReference[];
+  unresolvedReferences?: readonly CatalogReference[];
   score: number;
   matchedFields: string[];
   matchedSignals: string[];
@@ -514,6 +594,7 @@ export interface MatchCandidate {
 export interface MatchData {
   agents: MatchCandidate[];
   skills: MatchCandidate[];
+  subagents: MatchCandidate[];
   agentsAmbiguous: boolean;
   conflict?: {
     reason: string;
@@ -552,6 +633,13 @@ export interface CatalogRepository {
       now: string;
     },
   ): Promise<SkillCatalogEntry>;
+  createSubagent(
+    workspace: string,
+    input: IntroduceSubagentInput & {
+      verification: VerificationMetadata;
+      now: string;
+    },
+  ): Promise<SubagentCatalogEntry>;
   createSkillUpdateProposal(
     input: SkillUpdateProposal,
   ): Promise<SkillUpdateProposal>;

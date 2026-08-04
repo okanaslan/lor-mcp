@@ -14,6 +14,7 @@ import {
   type HandoffMetadata,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
+  type IntroduceSubagentInput,
   type PrepareAgentHandoffInput,
   type PrepareAgentRegenerationInput,
   type PromoteSkillToGlobalInput,
@@ -61,6 +62,39 @@ export function validateIntroduceSkill(
     skillContext: input.skillContext
       ? validateSkillContext(input.skillContext, "skillContext")
       : undefined,
+  };
+}
+
+export function validateIntroduceSubagent(
+  input: IntroduceSubagentInput,
+): IntroduceSubagentInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    scope: input.scope === undefined ? undefined : requireCatalogScope(
+      input.scope,
+      "scope",
+    ),
+    name: requireString(input.name, "name"),
+    projectName: requireString(input.projectName, "projectName"),
+    displayName: requireString(input.displayName, "displayName"),
+    purpose: requireString(input.purpose, "purpose"),
+    limitedScope: requireString(input.limitedScope, "limitedScope"),
+    primarySpecialty: requireString(input.primarySpecialty, "primarySpecialty"),
+    specialtyTags: requireTags(input.specialtyTags),
+    agentReferences: input.agentReferences === undefined
+      ? undefined
+      : validateReferences(input.agentReferences, "agentReferences", "agent"),
+    skillReferences: input.skillReferences === undefined
+      ? undefined
+      : validateReferences(input.skillReferences, "skillReferences", "skill"),
+    unresolvedReferences: input.unresolvedReferences === undefined
+      ? undefined
+      : validateReferences(input.unresolvedReferences, "unresolvedReferences"),
+    promptTemplate: input.promptTemplate?.trim() || undefined,
+    constraints: input.constraints === undefined
+      ? undefined
+      : requireStringList(input.constraints, "constraints"),
+    expectedOutput: input.expectedOutput?.trim() || undefined,
   };
 }
 
@@ -165,11 +199,19 @@ export function validateCatalogHealthFilter(
     );
   }
 
+  if (input.entryType === "subagent") {
+    throw new LorError(
+      "validation_error",
+      "Subagents are not health-checked in v1.",
+      { field: "entryType" },
+    );
+  }
+
   return {
     workspace: requireWorkspace(input.workspace),
     entryType: input.entryType === undefined
       ? undefined
-      : requireEntryType(input.entryType),
+      : requireHealthEntryType(input.entryType),
     projectName: projectName || undefined,
     scope: input.scope === undefined ? undefined : requireListScope(
       input.entryType,
@@ -243,6 +285,9 @@ export function validateWorkspaceCatalogSyncInput(
     skillNames: input.skillNames === undefined
       ? undefined
       : requireStringList(input.skillNames, "skillNames"),
+    subagentNames: input.subagentNames === undefined
+      ? undefined
+      : requireStringList(input.subagentNames, "subagentNames"),
     agentPromptRoles: input.agentPromptRoles === undefined
       ? undefined
       : requireStringList(input.agentPromptRoles, "agentPromptRoles"),
@@ -471,6 +516,45 @@ function validateCatalogImportEntry(
     };
   }
 
+  if (entry.entryType === "subagent") {
+    return {
+      ...base,
+      entryType: "subagent",
+      name: requireString(entry.name, `catalog.entries.${index}.name`),
+      purpose: requireString(
+        entry.purpose,
+        `catalog.entries.${index}.purpose`,
+      ),
+      limitedScope: requireString(
+        entry.limitedScope,
+        `catalog.entries.${index}.limitedScope`,
+      ),
+      agentReferences: validateReferences(
+        entry.agentReferences,
+        `catalog.entries.${index}.agentReferences`,
+        "agent",
+      ),
+      skillReferences: validateReferences(
+        entry.skillReferences,
+        `catalog.entries.${index}.skillReferences`,
+        "skill",
+      ),
+      unresolvedReferences: validateReferences(
+        entry.unresolvedReferences,
+        `catalog.entries.${index}.unresolvedReferences`,
+      ),
+      promptTemplate: entry.promptTemplate?.trim() || undefined,
+      constraints: requireStringList(
+        entry.constraints,
+        `catalog.entries.${index}.constraints`,
+      ),
+      expectedOutput: requireString(
+        entry.expectedOutput,
+        `catalog.entries.${index}.expectedOutput`,
+      ),
+    };
+  }
+
   return {
     ...base,
     entryType: "skill",
@@ -494,17 +578,28 @@ function hasEditableUpdate(input: CatalogEntryUpdate): boolean {
     input.specialtyTags !== undefined;
 }
 
-function requireEntryType(value: unknown): "agent" | "skill" {
-  if (value !== "agent" && value !== "skill") {
+function requireEntryType(value: unknown): "agent" | "skill" | "subagent" {
+  if (value !== "agent" && value !== "skill" && value !== "subagent") {
     throw new LorError(
       "validation_error",
-      "entryType must be agent or skill.",
+      "entryType must be agent, skill, or subagent.",
       {
         field: "entryType",
       },
     );
   }
   return value;
+}
+
+function requireHealthEntryType(value: unknown): "agent" | "skill" {
+  if (value === "agent" || value === "skill") {
+    return value;
+  }
+  throw new LorError(
+    "validation_error",
+    "entryType must be agent or skill.",
+    { field: "entryType" },
+  );
 }
 
 function requireCatalogScope(value: unknown, field: string): CatalogScope {
@@ -528,6 +623,62 @@ function requireLookupScope(entryType: unknown, scope: unknown): CatalogScope {
     );
   }
   return normalized;
+}
+
+function validateReferences(
+  values: readonly {
+    entryType: unknown;
+    name: string;
+    scope?: unknown;
+    entryKey?: string;
+    required?: boolean;
+  }[],
+  field: string,
+  expectedType?: "agent" | "skill",
+) {
+  if (!Array.isArray(values)) {
+    throw new LorError("validation_error", `${field} must be an array.`, {
+      field,
+    });
+  }
+
+  return values.map((reference, index) => {
+    const entryType = requireReferenceEntryType(reference.entryType);
+    if (expectedType && entryType !== expectedType) {
+      throw new LorError(
+        "validation_error",
+        `${field}.${index}.entryType must be ${expectedType}.`,
+        { field: `${field}.${index}.entryType` },
+      );
+    }
+    if (entryType === "agent" && reference.scope === "global") {
+      throw new LorError(
+        "validation_error",
+        "Agent references only support workspace scope.",
+        { field: `${field}.${index}.scope` },
+      );
+    }
+    return {
+      entryType,
+      name: requireString(reference.name, `${field}.${index}.name`),
+      scope: reference.scope === undefined
+        ? undefined
+        : requireCatalogScope(reference.scope, `${field}.${index}.scope`),
+      entryKey: reference.entryKey?.trim() || undefined,
+      required: reference.required === true ? true : undefined,
+    };
+  });
+}
+
+function requireReferenceEntryType(value: unknown): "agent" | "skill" {
+  if (value === "agent" || value === "skill") {
+    return value;
+  }
+  throw new LorError(
+    "validation_error",
+    "reference entryType must be agent or skill.",
+    { field: "entryType" },
+  );
 }
 
 function requireListScope(

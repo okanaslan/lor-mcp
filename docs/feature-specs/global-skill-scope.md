@@ -121,5 +121,5 @@ workspace skill identifiers in caller-facing results.
 - 2026-08-04: Keep workspace exports workspace-local and exclude global skills.
 - 2026-08-04: Implement global skill scope in v1 with duplicate promotion
   failure and scope-aware exact skill operations.
-- 2026-08-04: Keep this spec skill-only; planned global subagent behavior is
-  tracked separately in Subagent Suggestions.
+- 2026-08-04: Keep this spec skill-only; global subagent behavior is tracked
+  separately in Subagent Suggestions.

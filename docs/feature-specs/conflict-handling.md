@@ -12,8 +12,7 @@ strength and the caller cannot safely choose one handoff target.
 - Return clear conflict results for ambiguous recommendations.
 - Provide enough candidate metadata for the caller to choose or refine.
 - Keep skills ranked without treating multiple skill matches as conflicts.
-- Keep planned subagents ranked without treating multiple subagent matches as
-  conflicts.
+- Keep subagents ranked without treating multiple subagent matches as conflicts.
 
 ## 3. Non-Goals
 
@@ -43,7 +42,7 @@ strength and the caller cannot safely choose one handoff target.
 - Multiple matching skills must remain a ranked list and must not force
   `status: "conflict"` in v1.
 - Multiple matching subagents must remain a ranked list and must not force
-  `status: "conflict"` once Subagent Suggestions is implemented.
+  `status: "conflict"` in v1.
 - The caller may resolve the conflict by making a more specific request or by
   choosing one candidate.
 

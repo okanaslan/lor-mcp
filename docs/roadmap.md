@@ -23,6 +23,7 @@ Implemented in the runnable local v1:
 - V1 MCP tools:
   - `introduce_agent`
   - `introduce_skill`
+  - `introduce_subagent`
   - `list_catalog_entries`
   - `clear_workspace_catalog`
   - `register_workspace_alias`
@@ -49,9 +50,9 @@ Implemented in the runnable local v1:
 - Global skills can be introduced directly with `scope: "global"` or promoted
   from workspace skills with `promote_skill_to_global`. Global skills are
   included in list and match by default; agents remain workspace-scoped.
-- Subagent suggestions are planned but not implemented. The planned feature
-  treats subagents as a third catalog entry type for reusable prompt profiles
-  with workspace/global scope.
+- Subagent suggestions are implemented for reusable prompt profiles with
+  workspace/global scope. Workspace and global subagents are included in list
+  and match by default, while health checks remain agent/skill-only.
 - Agent replacement uses immutable session identity: new agents register as
   active records, old records can be marked retired, and matching excludes
   retired agents by default.
@@ -118,9 +119,10 @@ Latest implementation verification:
   for v1 deterministic starter prompts for empty Codex chats and suggested
   metadata for later agent registration.
 - [Workspace Catalog Sync](feature-specs/workspace-catalog-sync.md): Implemented
-  for v1 skill-only workspace catalog sync with preview, confirmation-gated
-  apply, duplicate skipping, missing-skill reporting, and optional generated
-  agent starter prompt metadata. Technical planning is tracked in
+  for v1 workspace-local skill and subagent catalog sync with preview,
+  confirmation-gated apply, duplicate skipping, missing-entry reporting, and
+  optional generated agent starter prompt metadata. Technical planning is
+  tracked in
   [Workspace Catalog Sync Tool Surface](tech-specs/done/workspace-catalog-sync-tool-surface.md)
   and
   [Workspace Catalog Sync Service Flow](tech-specs/done/workspace-catalog-sync-service-flow.md).
@@ -145,19 +147,15 @@ Latest implementation verification:
   structured JSON workspace backups.
 - [Catalog Import](feature-specs/catalog-import.md): Implemented for v1
   structured JSON imports with skip/fail duplicate handling.
-- [Subagent Suggestions](feature-specs/subagent-suggestions.md): Planned.
-  Defines subagents as a third catalog entry type for reusable limited-scope
-  prompt profiles, with workspace/global scope, references to agents and skills,
-  inclusion in matching, rendered prompts in match/detail results, and workspace
-  sync/export/import support for workspace-local subagents. Technical planning
-  is tracked in
-  [Subagent Suggestions](tech-specs/future/subagent-suggestions.md).
+- [Subagent Suggestions](feature-specs/subagent-suggestions.md): Implemented for
+  v1 reusable limited-scope prompt profiles, with workspace/global scope,
+  references to agents and skills, inclusion in matching, rendered prompts in
+  introduction/detail/match results, and workspace sync/export/import support
+  for workspace-local subagents. Technical planning is tracked in
+  [Subagent Suggestions](tech-specs/done/subagent-suggestions.md).
 
 ## Next
 
-- Plan implementation for Subagent Suggestions: storage, tool schemas,
-  deterministic prompt rendering, matching integration, import/export/sync
-  behavior, and tests.
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can

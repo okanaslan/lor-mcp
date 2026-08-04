@@ -4,12 +4,12 @@
 
 Implemented for the current v1 runtime. This tech spec defines the first usable
 MCP tool set for Local Orchestration Router (LOR). The v1 surface supports
-introducing agents and skills, inspecting, updating, removing, clearing,
-exporting, and importing the catalog, registering workspace aliases, managing
-stored skill context updates, syncing approved skill context to local skill
-files, preparing manual agent handoff prompts, retiring replaced agents,
-generating empty-chat starter prompts, checking stored catalog health metadata,
-and finding a matching catalog entry for a task.
+introducing agents, skills, and subagent profiles; inspecting, updating,
+removing, clearing, exporting, and importing the catalog; registering workspace
+aliases; managing stored skill context updates; syncing approved skill context
+to local skill files; preparing manual agent handoff prompts; retiring replaced
+agents; generating empty-chat starter prompts; checking stored catalog health
+metadata; and finding matching catalog entries for a task.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -50,13 +50,15 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register twenty-two MCP tools with snake_case names:
+V1 should register twenty-four MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
+- `introduce_subagent`
 - `list_catalog_entries`
 - `clear_workspace_catalog`
 - `register_workspace_alias`
+- `promote_skill_to_global`
 - `get_catalog_entry_detail`
 - `update_catalog_entry`
 - `retire_agent`
@@ -159,6 +161,27 @@ It may return validation, session/setup, duplicate, or storage errors.
 `introduce_skill` output data should include the created skill entry metadata.
 It may return validation, session/setup, duplicate, or storage errors.
 
+`introduce_subagent` input:
+
+- `workspace`
+- optional `scope`, defaulting to `workspace`
+- `name`
+- `projectName`
+- `displayName`
+- `purpose`
+- `limitedScope`
+- `primarySpecialty`
+- `specialtyTags`
+- optional `agentReferences`
+- optional `skillReferences`
+- optional `promptTemplate`
+- optional `constraints`
+- optional `expectedOutput`
+
+`introduce_subagent` output data should include the created subagent profile
+metadata and rendered prompt. It may return validation, duplicate, or storage
+errors. It must not create, message, or manage Codex subagent tasks.
+
 `list_catalog_entries` input:
 
 - `workspace`
@@ -172,7 +195,7 @@ may return validation, session/setup, or storage errors.
 
 - `workspace`
 - `confirm`: literal `true`
-- optional `entryType`
+- optional `entryType`: `agent` or `skill`
 
 `clear_workspace_catalog` output data should include the requested workspace,
 optional entry type filter, deleted agent count, deleted skill count, and total
@@ -402,8 +425,8 @@ write to catalog storage.
 `find_matching_catalog_entry` output data should represent one of three
 non-error outcomes: match, no match, or conflict. It may return validation,
 session/setup, or storage errors. It should exclude retired agents from normal
-matching while keeping skills and active agents routable. Conflict output is
-agents-only in v1 and should include ambiguous candidates, candidate
+matching while keeping skills, subagents, and active agents routable. Conflict
+output is agents-only in v1 and should include ambiguous candidates, candidate
 explanations, differentiating fields/signals, a clarification question, and a
 recommended next action.
 
@@ -512,3 +535,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   replacement prompt preparation without catalog mutation.
 - 2026-07-26: Add `retire_agent` so replacement flows keep Codex session IDs
   immutable while excluding retired agents from normal routing.
+- 2026-08-04: Add `introduce_subagent` and include subagent profiles in list,
+  detail, match, remove, workspace export/import, and workspace sync behavior.

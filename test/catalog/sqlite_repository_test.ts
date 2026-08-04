@@ -7,6 +7,7 @@ import {
   FIXED_NOW,
   seedAgent,
   seedSkill,
+  seedSubagent,
 } from "@test/helpers/catalog_fixtures.ts";
 
 Deno.test("SqliteCatalogRepository stores agents and skills by workspace", async () => {
@@ -31,6 +32,97 @@ Deno.test("SqliteCatalogRepository stores agents and skills by workspace", async
     assertEquals(workspaceBEntries.map((entry) => entry.entryKey), [
       "backend-skill",
     ]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository stores workspace and global subagents", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedSubagent(repo, "workspace-a", "api-test-subagent", {
+      displayName: "Workspace API Test Subagent",
+      agentReferences: [{
+        entryType: "agent",
+        name: "Backend Agent",
+        entryKey: "agent-1",
+        required: true,
+      }],
+      skillReferences: [{
+        entryType: "skill",
+        name: "backend-skill",
+        scope: "workspace",
+      }],
+      unresolvedReferences: [{
+        entryType: "skill",
+        name: "missing-skill",
+        scope: "global",
+      }],
+    });
+    await seedSubagent(repo, "workspace-a", "global-review-subagent", {
+      scope: "global",
+      displayName: "Global Review Subagent",
+      primarySpecialty: "code review",
+      specialtyTags: ["review"],
+    });
+
+    const workspaceEntries = await repo.listEntries("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "subagent",
+    });
+    const otherEntries = await repo.listEntries("workspace-b", {
+      workspace: "workspace-b",
+      entryType: "subagent",
+    });
+    const detail = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "subagent",
+      entryKey: "api-test-subagent",
+      scope: "workspace",
+    });
+
+    assertEquals(
+      workspaceEntries.map((entry) => `${entry.scope}:${entry.entryKey}`)
+        .sort(),
+      ["global:global-review-subagent", "workspace:api-test-subagent"],
+    );
+    assertEquals(otherEntries.map((entry) => entry.entryKey), [
+      "global-review-subagent",
+    ]);
+    assertEquals(detail?.entryType, "subagent");
+    if (detail?.entryType === "subagent") {
+      assertEquals(detail.agentReferences[0]?.entryKey, "agent-1");
+      assertEquals(detail.skillReferences[0]?.name, "backend-skill");
+      assertEquals(detail.unresolvedReferences[0]?.name, "missing-skill");
+      assertEquals(detail.prompt.includes("Workspace API Test Subagent"), true);
+    }
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository allows same subagent name across scopes only", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedSubagent(repo, "workspace-a", "api-test-subagent");
+    await seedSubagent(repo, "workspace-a", "api-test-subagent", {
+      scope: "global",
+      displayName: "Global API Test Subagent",
+    });
+
+    await assertRejects(
+      () => seedSubagent(repo, "workspace-a", "api-test-subagent"),
+      Error,
+      "duplicate_entry",
+    );
+    await assertRejects(
+      () =>
+        seedSubagent(repo, "workspace-b", "api-test-subagent", {
+          scope: "global",
+        }),
+      Error,
+      "duplicate_entry",
+    );
   } finally {
     repo.close();
   }

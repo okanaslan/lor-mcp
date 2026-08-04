@@ -25,6 +25,8 @@ import {
   type IntroduceAgentToolInput,
   introduceSkillInputSchema,
   type IntroduceSkillToolInput,
+  introduceSubagentInputSchema,
+  type IntroduceSubagentToolInput,
   listCatalogEntriesInputSchema,
   type ListCatalogEntriesToolInput,
   prepareAgentHandoffInputSchema,
@@ -118,9 +120,31 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
+    "introduce_subagent",
+    {
+      description:
+        "Introduce a reusable subagent prompt profile to the catalog.",
+      inputSchema: introduceSubagentInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: IntroduceSubagentToolInput) =>
+      withLoggedRuntime(
+        "introduce_subagent",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.introduceSubagent(input);
+          return okResult(entry, `Introduced subagent ${entry.displayName}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
     "list_catalog_entries",
     {
-      description: "List introduced agents and skills in a workspace catalog.",
+      description:
+        "List introduced agents, skills, and subagents in a workspace catalog.",
       inputSchema: listCatalogEntriesInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -489,7 +513,7 @@ export function registerCatalogTools(
     "preview_workspace_catalog_sync",
     {
       description:
-        "Preview skill-only catalog sync from one workspace catalog into another.",
+        "Preview skill and subagent catalog sync from one workspace catalog into another.",
       inputSchema: previewWorkspaceCatalogSyncInputSchema,
       outputSchema: toolOutputSchema,
       annotations: {
@@ -511,7 +535,7 @@ export function registerCatalogTools(
           );
           return okResult(
             preview,
-            `Previewed ${preview.summary.skillsToCopy} skills to copy.`,
+            `Previewed ${preview.summary.skillsToCopy} skills and ${preview.summary.subagentsToCopy} subagents to copy.`,
           );
         },
       ),
@@ -521,7 +545,7 @@ export function registerCatalogTools(
     "apply_workspace_catalog_sync",
     {
       description:
-        "Copy previewed skill-only catalog entries into a target workspace after explicit confirmation.",
+        "Copy previewed skill and subagent catalog entries into a target workspace after explicit confirmation.",
       inputSchema: applyWorkspaceCatalogSyncInputSchema,
       outputSchema: toolOutputSchema,
       annotations: {
@@ -541,7 +565,7 @@ export function registerCatalogTools(
           const result = await runtime.service.applyWorkspaceCatalogSync(input);
           return okResult(
             result,
-            `Copied ${result.importResult.importedCount} skills into ${result.targetWorkspace}.`,
+            `Copied ${result.importResult.importedCount} catalog entries into ${result.targetWorkspace}.`,
           );
         },
       ),
@@ -645,7 +669,8 @@ export function registerCatalogTools(
   server.registerTool(
     "find_matching_catalog_entry",
     {
-      description: "Find matching introduced agents and skills for a task.",
+      description:
+        "Find matching introduced agents, skills, and subagents for a task.",
       inputSchema: findMatchingCatalogEntryInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -813,6 +838,9 @@ function safeInputFields(input: unknown): LogFields {
   if (typeof input.skillName === "string") {
     fields.skillName = input.skillName;
   }
+  if (typeof input.name === "string") {
+    fields.subagentName = input.name;
+  }
   if (typeof input.proposalId === "string") {
     fields.proposalId = input.proposalId;
   }
@@ -841,8 +869,13 @@ function safeResultFields(result: ToolResult): LogFields {
       "skillsToCopy",
       "duplicateSkills",
       "missingSkills",
+      "selectedSubagents",
+      "subagentsToCopy",
+      "duplicateSubagents",
+      "missingSubagents",
       "generatedAgentPrompts",
       "copiedSkills",
+      "copiedSubagents",
     ]
   ) {
     const value = data.summary[key];

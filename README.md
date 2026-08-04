@@ -1,10 +1,10 @@
 # Local Orchestration Router (LOR) MCP Server
 
 Local Orchestration Router (LOR) is a local MCP server that acts as a catalog
-for Codex agents and skills. It lets a configured workspace register known
-agents and skills, store routing metadata, find relevant catalog entries for a
-task, prepare agent handoff prompts, and improve registered skill context over
-time.
+for Codex agents, skills, and reusable subagent prompt profiles. It lets a
+configured workspace register known entries, store routing metadata, find
+relevant catalog entries for a task, prepare agent handoff prompts, and improve
+registered skill context over time.
 
 The current implementation is a Deno TypeScript MCP server that runs as a local
 Streamable HTTP server for Codex, with stdio kept as a compatibility and
@@ -31,18 +31,19 @@ LOR is implemented as a runnable local v1 MCP server.
   remain workspace-scoped.
 - Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
   tools remain responsible for sending work to registered Codex sessions.
-- Planned subagents: reusable prompt profiles for small, scoped delegation, with
-  workspace/global scope and ready-to-use prompts returned from matching and
-  detail flows.
+- Subagents: reusable prompt profiles for small, scoped delegation, with
+  workspace/global scope and ready-to-use prompts returned from introduction,
+  matching, and detail flows.
 
 ## Project Goals
 
-- Provide a workspace-scoped catalog of introduced Codex agents and skills.
+- Provide a workspace-scoped catalog of introduced Codex agents, skills, and
+  subagent prompt profiles.
 - Support shared global skills across workspaces while keeping agents
   workspace-specific.
-- Plan reusable subagent prompt profiles for scoped delegation when a full
+- Support reusable subagent prompt profiles for scoped delegation when a full
   registered agent is not needed.
-- Support task-based lookup for relevant agents and skills.
+- Support task-based lookup for relevant agents, skills, and subagent profiles.
 - Return structured MCP tool responses that Codex agents can consume reliably.
 - Keep catalog data durable, local, and isolated by client-supplied workspace.
 - Keep local skill-file writes explicit, previewed, and limited to managed
@@ -59,10 +60,10 @@ LOR is implemented as a runnable local v1 MCP server.
 - `docs/use-cases/`: use case scenario drafts and template.
 - `docs/tech-specs/`: technical specs, with completed specs under `done/`,
   future specs under `future/`, and `template.md` for new specs.
-- Planned subagent docs: `docs/feature-specs/subagent-suggestions.md`,
+- Subagent docs: `docs/feature-specs/subagent-suggestions.md`,
   `docs/use-cases/introduce-subagent-profile.md`,
   `docs/use-cases/suggest-subagents-for-scoped-work.md`, and
-  `docs/tech-specs/future/subagent-suggestions.md`.
+  `docs/tech-specs/done/subagent-suggestions.md`.
 
 ## MCP Tool Map
 
@@ -72,6 +73,7 @@ flowchart RL
 
   introduceAgent["introduce_agent"] --> catalog
   introduceSkill["introduce_skill"] --> catalog
+  introduceSubagent["introduce_subagent"] --> catalog
   promoteSkill["promote_skill_to_global"] --> catalog
   registerAlias["register_workspace_alias"] --> catalog
   catalog --> checkHealth["check_catalog_health"]
@@ -140,7 +142,7 @@ Common catalog improvement flow:
 4. `apply_skill_file_sync` with `confirm: true` after reviewing the rendered
    managed section.
 
-Catalog maintenance tools:
+Catalog maintenance and expansion tools:
 
 - `list_catalog_entries`
 - `check_catalog_health`
@@ -153,12 +155,11 @@ Catalog maintenance tools:
 - `import_catalog`
 - `preview_workspace_catalog_sync`
 - `apply_workspace_catalog_sync`
-
-Planned catalog expansion:
-
 - `introduce_subagent`
-- subagent results from `find_matching_catalog_entry`
-- subagent detail prompts from `get_catalog_entry_detail`
+
+Subagent profiles are included in `list_catalog_entries` and
+`find_matching_catalog_entry` by default. `get_catalog_entry_detail` returns
+their rendered prompts.
 
 ## Runtime
 

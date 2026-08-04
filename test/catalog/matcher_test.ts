@@ -58,6 +58,73 @@ Deno.test("findCatalogMatches returns separate ranked agent and skill lists", ()
     "api",
     "route",
   ]);
+  assertEquals(result.data.subagents, []);
+});
+
+Deno.test("findCatalogMatches returns ranked subagents capped at three", () => {
+  const entries: CatalogEntry[] = [
+    {
+      ...baseEntry,
+      entryType: "subagent",
+      entryKey: "api-test-subagent",
+      name: "api-test-subagent",
+      displayName: "API Test Subagent",
+      purpose: "Write focused backend API tests.",
+      limitedScope: "Only inspect API handlers and related tests.",
+      primarySpecialty: "backend api testing",
+      specialtyTags: ["backend", "api", "tests"],
+      agentReferences: [],
+      skillReferences: [],
+      unresolvedReferences: [],
+      constraints: [],
+      expectedOutput: "A concise test summary.",
+      prompt: "Use this prompt for API tests.",
+    },
+    ...["alpha", "beta", "gamma", "delta"].map((name) => ({
+      ...baseEntry,
+      scope: "global" as const,
+      entryType: "subagent" as const,
+      entryKey: `${name}-review-subagent`,
+      name: `${name}-review-subagent`,
+      displayName: `${name} Review Subagent`,
+      purpose: "Review backend api tests.",
+      limitedScope: "Only review focused test changes.",
+      primarySpecialty: "backend api review",
+      specialtyTags: ["backend", "api", "review"],
+      agentReferences: [],
+      skillReferences: [],
+      unresolvedReferences: [],
+      constraints: [],
+      expectedOutput: "Review notes.",
+      prompt: "Use this prompt for review.",
+    })),
+  ];
+
+  const result = findCatalogMatches(entries, {
+    workspace: "LOR-MCP",
+    task: "write backend api tests",
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.agentsAmbiguous, false);
+  assertEquals(result.data.conflict, undefined);
+  assertEquals(result.data.subagents.length, 3);
+  assertEquals(result.data.subagents[0]?.entryKey, "api-test-subagent");
+  assertEquals(
+    result.data.subagents[0]?.purpose,
+    "Write focused backend API tests.",
+  );
+  assertEquals(
+    result.data.subagents[0]?.prompt,
+    "Use this prompt for API tests.",
+  );
+  assertEquals(result.data.subagents[0]?.matchedFields, [
+    "primarySpecialty",
+    "specialtyTags",
+    "purpose",
+    "limitedScope",
+    "displayName",
+  ]);
 });
 
 Deno.test("findCatalogMatches returns conflict for near-equal top agents", () => {
@@ -222,6 +289,7 @@ Deno.test("findCatalogMatches filters by project and returns no_match", () => {
   assertEquals(result.status, "no_match");
   assertEquals(result.data.agents, []);
   assertEquals(result.data.skills, []);
+  assertEquals(result.data.subagents, []);
 });
 
 Deno.test("findCatalogMatches omits explanations when no candidates match", () => {

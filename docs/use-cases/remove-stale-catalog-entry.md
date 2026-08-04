@@ -19,9 +19,9 @@ agent to remove it from Local Orchestration Router (LOR).
 
 1. The Codex user identifies a stale catalog entry.
 2. The user asks the current Codex agent to remove the entry.
-3. The current agent calls LOR MCP with the entry type and
-   identifier.
-4. Local Orchestration Router (LOR) removes the entry from the requested workspace.
+3. The current agent calls LOR MCP with the entry type and identifier.
+4. Local Orchestration Router (LOR) removes the entry from the requested
+   workspace.
 5. The removed entry no longer appears in list, detail, or matching results.
 6. The current agent confirms removal to the user.
 

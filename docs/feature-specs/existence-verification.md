@@ -2,17 +2,18 @@
 
 ## 1. Summary
 
-Implemented for v1 metadata-only catalog health reporting; planned to include
-global skills. This feature defines how Local Orchestration Router (LOR) reports
-stored verification metadata for introduced Codex agents and Codex skills after
-they have already been registered in the catalog.
+Implemented for v1 metadata-only catalog health reporting, including global
+skills. This feature defines how Local Orchestration Router (LOR) reports stored
+verification metadata for introduced Codex agents and Codex skills after they
+have already been registered in the catalog.
 
 ## 2. Goals
 
 - Reduce stale or invalid catalog entries.
 - Report introduced agent, workspace skill, and global skill health from stored
   verification metadata.
-- Keep planned subagent reference resolution separate from catalog health in v1.
+- Keep subagent profile and reference resolution separate from catalog health in
+  v1.
 - Keep health reporting separate from normal introduction.
 
 ## 3. Non-Goals
@@ -40,8 +41,8 @@ they have already been registered in the catalog.
 - Health reporting must not expose entries from other workspaces.
 - Health reporting may expose global skills because they are intentionally
   shared.
-- Planned subagent profiles are not health-checked in v1; unresolved references
-  should remain detail/match metadata, not health issues.
+- Subagent profiles are not health-checked in v1; unresolved references should
+  remain detail/match metadata, not health issues.
 
 ## 5. User Stories / Use Cases
 
@@ -92,4 +93,4 @@ Conceptual `VerificationResult` fields:
 - 2026-07-17: Implement v1 as read-only `check_catalog_health` reporting from
   stored verification metadata only.
 - 2026-08-04: Implement health reporting support for shared global skills.
-- 2026-08-04: Decide planned subagent profiles are not health-checked in v1.
+- 2026-08-04: Decide subagent profiles are not health-checked in v1.

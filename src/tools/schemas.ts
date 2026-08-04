@@ -1,6 +1,8 @@
 import * as z from "zod/v4";
 
-export const entryTypeSchema = z.enum(["agent", "skill"]);
+export const entryTypeSchema = z.enum(["agent", "skill", "subagent"]);
+const clearEntryTypeSchema = z.enum(["agent", "skill"]);
+const healthEntryTypeSchema = z.enum(["agent", "skill"]);
 export const catalogScopeSchema = z.enum(["workspace", "global"]);
 export const agentStatusSchema = z.enum(["active", "retired"]);
 
@@ -52,6 +54,47 @@ export const introduceSkillInputSchema = z.object({
   ).optional(),
 });
 
+const catalogReferenceSchema = z.object({
+  entryType: z.enum(["agent", "skill"]),
+  name: z.string().trim().min(1),
+  scope: catalogScopeSchema.optional(),
+  entryKey: z.string().trim().min(1).optional(),
+  required: z.boolean().optional(),
+}).refine(
+  (input) => !(input.entryType === "agent" && input.scope === "global"),
+  {
+    message: "Agent references only support workspace scope.",
+    path: ["scope"],
+  },
+);
+
+export const introduceSubagentInputSchema = z.object({
+  workspace: workspaceSchema,
+  scope: catalogScopeSchema.optional(),
+  name: z.string().trim().min(1),
+  projectName: z.string().trim().min(1),
+  displayName: z.string().trim().min(1),
+  purpose: z.string().trim().min(1),
+  limitedScope: z.string().trim().min(1),
+  primarySpecialty: z.string().trim().min(1),
+  specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  agentReferences: z.array(
+    catalogReferenceSchema.refine((input) => input.entryType === "agent", {
+      message: "agentReferences must contain agent references.",
+      path: ["entryType"],
+    }),
+  ).optional(),
+  skillReferences: z.array(
+    catalogReferenceSchema.refine((input) => input.entryType === "skill", {
+      message: "skillReferences must contain skill references.",
+      path: ["entryType"],
+    }),
+  ).optional(),
+  promptTemplate: z.string().trim().min(1).optional(),
+  constraints: z.array(z.string().trim().min(1)).min(1).optional(),
+  expectedOutput: z.string().trim().min(1).optional(),
+});
+
 export const listCatalogEntriesInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema.optional(),
@@ -68,7 +111,7 @@ export const listCatalogEntriesInputSchema = z.object({
 export const clearWorkspaceCatalogInputSchema = z.object({
   workspace: workspaceSchema,
   confirm: z.literal(true),
-  entryType: entryTypeSchema.optional(),
+  entryType: clearEntryTypeSchema.optional(),
 });
 
 export const registerWorkspaceAliasInputSchema = z.object({
@@ -252,6 +295,27 @@ const exportSkillEntrySchema = z.object({
   skillContext: skillContextSchema.optional(),
 });
 
+const exportSubagentEntrySchema = z.object({
+  entryType: z.literal("subagent"),
+  name: z.string().trim().min(1),
+  projectName: z.string().trim().min(1),
+  displayName: z.string().trim().min(1),
+  purpose: z.string().trim().min(1),
+  limitedScope: z.string().trim().min(1),
+  primarySpecialty: z.string().trim().min(1),
+  specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  agentReferences: z.array(catalogReferenceSchema),
+  skillReferences: z.array(catalogReferenceSchema),
+  unresolvedReferences: z.array(catalogReferenceSchema),
+  promptTemplate: z.string().trim().min(1).optional(),
+  constraints: z.array(z.string().trim().min(1)),
+  expectedOutput: z.string().trim().min(1),
+  verificationStatus: verificationStatusSchema,
+  verificationSource: z.string().trim().min(1),
+  verifiedAt: z.string().trim().min(1),
+  verificationMessage: z.string().trim().min(1).optional(),
+});
+
 export const importCatalogInputSchema = z.object({
   workspace: workspaceSchema,
   conflictStrategy: z.enum(["skip", "fail"]).optional(),
@@ -266,6 +330,7 @@ export const importCatalogInputSchema = z.object({
     entries: z.array(z.discriminatedUnion("entryType", [
       exportAgentEntrySchema,
       exportSkillEntrySchema,
+      exportSubagentEntrySchema,
     ])),
   }),
 });
@@ -275,6 +340,7 @@ const workspaceCatalogSyncBaseInputSchema = z.object({
   targetWorkspace: workspaceSchema,
   projectName: z.string().trim().min(1).optional(),
   skillNames: z.array(z.string().trim().min(1)).min(1).optional(),
+  subagentNames: z.array(z.string().trim().min(1)).min(1).optional(),
   agentPromptRoles: z.array(z.string().trim().min(1)).min(1).optional(),
 });
 
@@ -288,7 +354,7 @@ export const applyWorkspaceCatalogSyncInputSchema =
 
 export const checkCatalogHealthInputSchema = z.object({
   workspace: workspaceSchema,
-  entryType: entryTypeSchema.optional(),
+  entryType: healthEntryTypeSchema.optional(),
   projectName: z.string().trim().min(1).optional(),
   entryKey: z.string().trim().min(1).optional(),
   scope: catalogScopeSchema.optional(),
@@ -341,6 +407,9 @@ export const findMatchingCatalogEntryInputSchema = z.object({
 
 export type IntroduceAgentToolInput = z.infer<typeof introduceAgentInputSchema>;
 export type IntroduceSkillToolInput = z.infer<typeof introduceSkillInputSchema>;
+export type IntroduceSubagentToolInput = z.infer<
+  typeof introduceSubagentInputSchema
+>;
 export type ListCatalogEntriesToolInput = z.infer<
   typeof listCatalogEntriesInputSchema
 >;

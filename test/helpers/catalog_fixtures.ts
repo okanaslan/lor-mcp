@@ -4,6 +4,7 @@ import { SqliteCatalogRepository } from "@src/catalog/sqlite_repository.ts";
 import type {
   IntroduceAgentInput,
   IntroduceSkillInput,
+  IntroduceSubagentInput,
   VerificationMetadata,
 } from "@src/catalog/types.ts";
 
@@ -91,6 +92,34 @@ export async function seedSkill(
   });
 }
 
+export async function seedSubagent(
+  repo: SqliteCatalogRepository,
+  workspace: string,
+  name: string,
+  overrides: SeedSubagentOverrides = {},
+): Promise<void> {
+  await repo.createSubagent(workspace, {
+    workspace,
+    scope: overrides.scope ?? "workspace",
+    name,
+    projectName: overrides.projectName ?? "Local Orchestration Router (LOR)",
+    displayName: overrides.displayName ?? `Subagent ${name}`,
+    purpose: overrides.purpose ?? "Handle focused backend implementation work.",
+    limitedScope: overrides.limitedScope ??
+      "Only inspect and edit files directly related to the delegated task.",
+    primarySpecialty: overrides.primarySpecialty ?? "backend api testing",
+    specialtyTags: overrides.specialtyTags ?? ["backend", "api", "tests"],
+    agentReferences: overrides.agentReferences,
+    skillReferences: overrides.skillReferences,
+    unresolvedReferences: overrides.unresolvedReferences,
+    promptTemplate: overrides.promptTemplate,
+    constraints: overrides.constraints,
+    expectedOutput: overrides.expectedOutput,
+    verification: overrides.verification ?? verification,
+    now: overrides.now ?? FIXED_NOW,
+  });
+}
+
 type SeedAgentOverrides =
   & Partial<Omit<IntroduceAgentInput, "workspace" | "codexSessionId">>
   & {
@@ -104,6 +133,13 @@ type SeedAgentOverrides =
 
 type SeedSkillOverrides =
   & Partial<Omit<IntroduceSkillInput, "workspace" | "skillName">>
+  & {
+    verification?: VerificationMetadata;
+    now?: string;
+  };
+
+type SeedSubagentOverrides =
+  & Partial<Omit<IntroduceSubagentInput, "workspace" | "name">>
   & {
     verification?: VerificationMetadata;
     now?: string;

@@ -14,6 +14,8 @@ interface FieldScore {
     | "displayName"
     | "skillContext.examplePrompts"
     | "skillContext.usageNotes"
+    | "purpose"
+    | "limitedScope"
     | "projectName";
   score: number;
   signals: string[];
@@ -51,11 +53,15 @@ export function findCatalogMatches(
   );
   const skills = rank(candidates.filter((entry) => entry.entryType === "skill"))
     .slice(0, 5);
+  const subagents = rank(
+    candidates.filter((entry) => entry.entryType === "subagent"),
+  ).slice(0, 3);
   const ambiguousAgents = topAgentsAreAmbiguous(agents, queryTokens);
 
   const data: MatchData = {
     agents: agents.map(toPublicCandidate),
     skills: skills.map(toPublicCandidate),
+    subagents: subagents.map(toPublicCandidate),
     agentsAmbiguous: ambiguousAgents,
   };
 
@@ -80,7 +86,7 @@ export function findCatalogMatches(
     return { status: "conflict", data };
   }
 
-  if (agents.length === 0 && skills.length === 0) {
+  if (agents.length === 0 && skills.length === 0 && subagents.length === 0) {
     return { status: "no_match", data };
   }
 
@@ -100,6 +106,7 @@ function scoreEntry(
     scoreField("primarySpecialty", entry.primarySpecialty, queryTokens, 10),
     scoreField("specialtyTags", entry.specialtyTags.join(" "), queryTokens, 8),
     ...scoreSkillContext(entry, queryTokens),
+    ...scoreSubagentFields(entry, queryTokens),
     scoreField("displayName", entry.displayName, queryTokens, 5),
     request.projectName
       ? undefined
@@ -128,6 +135,20 @@ function scoreEntry(
     primarySpecialty: entry.primarySpecialty,
     specialtyTags: entry.specialtyTags,
     skillContext: entry.entryType === "skill" ? entry.skillContext : undefined,
+    purpose: entry.entryType === "subagent" ? entry.purpose : undefined,
+    limitedScope: entry.entryType === "subagent"
+      ? entry.limitedScope
+      : undefined,
+    prompt: entry.entryType === "subagent" ? entry.prompt : undefined,
+    agentReferences: entry.entryType === "subagent"
+      ? entry.agentReferences
+      : undefined,
+    skillReferences: entry.entryType === "subagent"
+      ? entry.skillReferences
+      : undefined,
+    unresolvedReferences: entry.entryType === "subagent"
+      ? entry.unresolvedReferences
+      : undefined,
     score,
     matchedFields,
     matchedSignals,
@@ -172,6 +193,10 @@ function fieldLabel(field: FieldScore["field"]): string {
       return "skill context example prompts";
     case "skillContext.usageNotes":
       return "skill context usage notes";
+    case "purpose":
+      return "subagent purpose";
+    case "limitedScope":
+      return "subagent limited scope";
     case "projectName":
       return "project name";
   }
@@ -210,6 +235,20 @@ function scoreSkillContext(
         3,
       )
       : undefined,
+  ].filter((score): score is FieldScore => score !== undefined);
+}
+
+function scoreSubagentFields(
+  entry: CatalogEntry,
+  queryTokens: string[],
+): FieldScore[] {
+  if (entry.entryType !== "subagent") {
+    return [];
+  }
+
+  return [
+    scoreField("purpose", entry.purpose, queryTokens, 7),
+    scoreField("limitedScope", entry.limitedScope, queryTokens, 6),
   ].filter((score): score is FieldScore => score !== undefined);
 }
 

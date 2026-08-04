@@ -8,6 +8,7 @@ import {
   type CatalogExport,
   type CatalogExportFilter,
   type CatalogExportSkillEntry,
+  type CatalogExportSubagentEntry,
   type CatalogHealthEntry,
   type CatalogHealthFilter,
   type CatalogHealthIssue,
@@ -23,6 +24,7 @@ import {
   type EntryLookup,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
+  type IntroduceSubagentInput,
   type ListEntriesFilter,
   type MatchRequest,
   type MatchResult,
@@ -46,6 +48,7 @@ import {
   type SkillMetadataUpdate,
   type SkillUpdateProposal,
   type SkillUpdateProposalResult,
+  type SubagentCatalogEntry,
   type VerificationMetadata,
   type WorkspaceCatalogSyncApplyResult,
   type WorkspaceCatalogSyncInput,
@@ -62,6 +65,7 @@ import {
   validateEntryLookup,
   validateIntroduceAgent,
   validateIntroduceSkill,
+  validateIntroduceSubagent,
   validatePrepareAgentHandoff,
   validatePrepareAgentRegeneration,
   validatePromoteSkillToGlobal,
@@ -129,6 +133,21 @@ export class CatalogService {
     });
   }
 
+  async introduceSubagent(
+    input: IntroduceSubagentInput,
+  ): Promise<CatalogEntry> {
+    const validated = validateIntroduceSubagent(input);
+    const now = this.#now();
+    const workspace = await this.resolveWorkspace(validated.workspace, now);
+    return await this.#repository.createSubagent(workspace, {
+      ...validated,
+      workspace,
+      scope: validated.scope ?? "workspace",
+      verification: introductionVerification(now),
+      now,
+    });
+  }
+
   async listEntries(
     filter: ListEntriesFilter,
   ): Promise<CatalogEntry[]> {
@@ -163,8 +182,8 @@ export class CatalogService {
   ): Promise<CatalogEntry | undefined> {
     const validated = validateEntryLookup(lookup);
     const workspace = await this.resolveWorkspace(validated.workspace);
-    if (validated.entryType === "skill") {
-      return await this.resolveSkillEntry(workspace, validated);
+    if (validated.entryType === "skill" || validated.entryType === "subagent") {
+      return await this.resolveScopedEntry(workspace, validated);
     }
     return await this.#repository.getEntry(workspace, {
       ...validated,
@@ -177,8 +196,9 @@ export class CatalogService {
   ): Promise<CatalogEntry> {
     const validated = validateCatalogEntryUpdate(input);
     const workspace = await this.resolveWorkspace(validated.workspace);
-    const scopedInput = validated.entryType === "skill"
-      ? await this.resolveSkillLookup(workspace, validated)
+    const scopedInput = validated.entryType === "skill" ||
+        validated.entryType === "subagent"
+      ? await this.resolveScopedLookup(workspace, validated)
       : { ...validated, workspace };
     const updated = await this.#repository.updateEntry(workspace, {
       ...scopedInput,
@@ -299,7 +319,7 @@ export class CatalogService {
   ): Promise<SkillUpdateProposalResult> {
     const validated = validateProposeSkillUpdate(input);
     const workspace = await this.resolveWorkspace(validated.workspace);
-    const scopedLookup = await this.resolveSkillLookup(workspace, {
+    const scopedLookup = await this.resolveScopedLookup(workspace, {
       workspace,
       entryType: "skill",
       entryKey: validated.skillName,
@@ -445,8 +465,9 @@ export class CatalogService {
   ): Promise<RemoveCatalogEntryResult> {
     const validated = validateEntryLookup(lookup);
     const workspace = await this.resolveWorkspace(validated.workspace);
-    const scopedLookup = validated.entryType === "skill"
-      ? await this.resolveSkillLookup(workspace, validated)
+    const scopedLookup = validated.entryType === "skill" ||
+        validated.entryType === "subagent"
+      ? await this.resolveScopedLookup(workspace, validated)
       : { ...validated, workspace };
     const removed = await this.#repository.removeEntry(
       workspace,
@@ -510,12 +531,11 @@ export class CatalogService {
     const now = this.#now();
     for (let index = 0; index < resolvedInput.catalog.entries.length; index++) {
       const entry = resolvedInput.catalog.entries[index];
+      const entryKey = exportEntryKey(entry);
       const existing = await this.#repository.getEntry(workspace, {
         workspace,
         entryType: entry.entryType,
-        entryKey: entry.entryType === "agent"
-          ? entry.codexSessionId
-          : entry.skillName,
+        entryKey,
         scope: "workspace",
       });
       if (existing) {
@@ -545,7 +565,7 @@ export class CatalogService {
           retirementReason: entry.retirementReason,
           replacedByAgentEntryKey: entry.replacedByAgentEntryKey,
         });
-      } else {
+      } else if (entry.entryType === "skill") {
         await this.#repository.createSkill(workspace, {
           workspace,
           scope: "workspace",
@@ -555,6 +575,31 @@ export class CatalogService {
           primarySpecialty: entry.primarySpecialty,
           specialtyTags: entry.specialtyTags,
           skillContext: entry.skillContext,
+          verification: {
+            verificationStatus: entry.verificationStatus,
+            verificationSource: entry.verificationSource,
+            verifiedAt: entry.verifiedAt,
+            verificationMessage: entry.verificationMessage,
+          },
+          now,
+        });
+      } else {
+        await this.#repository.createSubagent(workspace, {
+          workspace,
+          scope: "workspace",
+          name: entry.name,
+          projectName: entry.projectName,
+          displayName: entry.displayName,
+          purpose: entry.purpose,
+          limitedScope: entry.limitedScope,
+          primarySpecialty: entry.primarySpecialty,
+          specialtyTags: entry.specialtyTags,
+          agentReferences: entry.agentReferences,
+          skillReferences: entry.skillReferences,
+          unresolvedReferences: entry.unresolvedReferences,
+          promptTemplate: entry.promptTemplate,
+          constraints: entry.constraints,
+          expectedOutput: entry.expectedOutput,
           verification: {
             verificationStatus: entry.verificationStatus,
             verificationSource: entry.verificationSource,
@@ -598,22 +643,33 @@ export class CatalogService {
         exportedAt: this.#now(),
         workspace: preview.sourceWorkspace,
         filters: {
-          entryType: "skill",
           projectName: preview.projectName,
         },
-        entries: preview.skillsToCopy,
+        entries: [...preview.skillsToCopy, ...preview.subagentsToCopy],
       },
     });
+
+    const copiedSkills = preview.skillsToCopy.filter((entry) =>
+      !importResult.errors.some((issue) =>
+        issue.entryType === "skill" && issue.entryKey === entry.skillName
+      )
+    ).slice(0, importResult.importedCount).map((entry) => entry.skillName);
+    const copiedSubagents = preview.subagentsToCopy.filter((entry) =>
+      !importResult.errors.some((issue) =>
+        issue.entryType === "subagent" && issue.entryKey === entry.name
+      )
+    ).slice(0, Math.max(0, importResult.importedCount - copiedSkills.length))
+      .map((entry) => entry.name);
 
     return {
       ...preview,
       summary: {
         ...preview.summary,
-        copiedSkills: importResult.importedCount,
+        copiedSkills: copiedSkills.length,
+        copiedSubagents: copiedSubagents.length,
       },
-      copiedSkills: preview.skillsToCopy
-        .slice(0, importResult.importedCount)
-        .map((entry) => entry.skillName),
+      copiedSkills,
+      copiedSubagents,
       importResult,
     };
   }
@@ -632,13 +688,17 @@ export class CatalogService {
     const filteredEntries = validated.entryKey
       ? entries.filter((entry) => entry.entryKey === validated.entryKey)
       : entries;
-    const healthEntries = filteredEntries.map(toHealthEntry);
+    const healthEntries = filteredEntries.filter(isHealthEntry).map(
+      toHealthEntry,
+    );
 
     return {
       checkedAt: this.#now(),
       workspace,
       filters: {
-        entryType: validated.entryType,
+        entryType: validated.entryType === "subagent"
+          ? undefined
+          : validated.entryType,
         projectName: validated.projectName,
         scope: validated.scope,
         entryKey: validated.entryKey,
@@ -853,19 +913,19 @@ export class CatalogService {
     return { workspace, proposal, entry };
   }
 
-  private async resolveSkillEntry(
+  private async resolveScopedEntry(
     workspace: string,
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined> {
-    const scopedLookup = await this.resolveSkillLookup(workspace, lookup);
+    const scopedLookup = await this.resolveScopedLookup(workspace, lookup);
     return await this.#repository.getEntry(workspace, scopedLookup);
   }
 
-  private async resolveSkillLookup(
+  private async resolveScopedLookup(
     workspace: string,
     lookup: EntryLookup,
   ): Promise<EntryLookup> {
-    if (lookup.entryType !== "skill") {
+    if (lookup.entryType !== "skill" && lookup.entryType !== "subagent") {
       return { ...lookup, workspace };
     }
     if (lookup.scope) {
@@ -889,10 +949,10 @@ export class CatalogService {
     if (workspaceEntry && globalEntry) {
       throw new LorError(
         "validation_error",
-        "scope is required when workspace and global skills share the same entryKey.",
+        `scope is required when workspace and global ${lookup.entryType}s share the same entryKey.`,
         {
           field: "scope",
-          entryType: "skill",
+          entryType: lookup.entryType,
           entryKey: lookup.entryKey,
           allowedScopes: ["workspace", "global"],
         },
@@ -923,13 +983,11 @@ export class CatalogService {
 
     const sourceEntries = await this.#repository.listEntries(sourceWorkspace, {
       workspace: sourceWorkspace,
-      entryType: "skill",
       projectName: input.projectName,
       scope: "workspace",
     });
     const targetEntries = await this.#repository.listEntries(targetWorkspace, {
       workspace: targetWorkspace,
-      entryType: "skill",
       scope: "workspace",
     });
     const targetSkillNames = new Set(
@@ -942,19 +1000,45 @@ export class CatalogService {
     const sourceSkills = sourceEntries.filter((
       entry,
     ): entry is SkillCatalogEntry => entry.entryType === "skill");
+    const sourceSubagents = sourceEntries.filter((
+      entry,
+    ): entry is SubagentCatalogEntry => entry.entryType === "subagent");
     const selectedSkills = selectSyncSkills(sourceSkills, input.skillNames);
+    const selectedSubagents = selectSyncSubagents(
+      sourceSubagents,
+      input.subagentNames,
+    );
     const sourceSkillNames = new Set(
       sourceSkills.map((entry) => entry.skillName),
+    );
+    const targetSubagentNames = new Set(
+      targetEntries
+        .filter((entry): entry is SubagentCatalogEntry =>
+          entry.entryType === "subagent"
+        )
+        .map((entry) => entry.name),
+    );
+    const sourceSubagentNames = new Set(
+      sourceSubagents.map((entry) => entry.name),
     );
     const missingSkills = (input.skillNames ?? []).filter((skillName) =>
       !sourceSkillNames.has(skillName)
     );
+    const missingSubagents = (input.subagentNames ?? []).filter((name) =>
+      !sourceSubagentNames.has(name)
+    );
     const duplicateSkills = selectedSkills
       .filter((entry) => targetSkillNames.has(entry.skillName))
       .map((entry) => entry.skillName);
+    const duplicateSubagents = selectedSubagents
+      .filter((entry) => targetSubagentNames.has(entry.name))
+      .map((entry) => entry.name);
     const skillsToCopy = selectedSkills
       .filter((entry) => !targetSkillNames.has(entry.skillName))
       .map(toExportSkillEntry);
+    const subagentsToCopy = selectedSubagents
+      .filter((entry) => !targetSubagentNames.has(entry.name))
+      .map(toExportSubagentEntry);
     const generatedAgentPrompts = (input.agentPromptRoles ?? []).map((role) =>
       generateAgentPrompt({
         workspace: targetWorkspace,
@@ -968,16 +1052,24 @@ export class CatalogService {
       targetWorkspace,
       projectName: input.projectName,
       requestedSkillNames: input.skillNames,
+      requestedSubagentNames: input.subagentNames,
       requestedAgentPromptRoles: input.agentPromptRoles,
       skillsToCopy,
+      subagentsToCopy,
       duplicateSkills,
+      duplicateSubagents,
       missingSkills,
+      missingSubagents,
       generatedAgentPrompts,
       summary: {
         selectedSkills: selectedSkills.length,
         skillsToCopy: skillsToCopy.length,
         duplicateSkills: duplicateSkills.length,
         missingSkills: missingSkills.length,
+        selectedSubagents: selectedSubagents.length,
+        subagentsToCopy: subagentsToCopy.length,
+        duplicateSubagents: duplicateSubagents.length,
+        missingSubagents: missingSubagents.length,
         generatedAgentPrompts: generatedAgentPrompts.length,
       },
     };
@@ -994,9 +1086,7 @@ export class CatalogService {
     const seen = new Set<string>();
     for (let index = 0; index < input.catalog.entries.length; index++) {
       const entry = input.catalog.entries[index];
-      const entryKey = entry.entryType === "agent"
-        ? entry.codexSessionId
-        : entry.skillName;
+      const entryKey = exportEntryKey(entry);
       const duplicateKey = `${entry.entryType}:${entryKey}`;
       if (seen.has(duplicateKey)) {
         issues.push({
@@ -1064,11 +1154,27 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
     };
   }
 
+  if (entry.entryType === "skill") {
+    return {
+      ...base,
+      entryType: "skill",
+      skillName: entry.skillName,
+      skillContext: entry.skillContext,
+    };
+  }
+
   return {
     ...base,
-    entryType: "skill",
-    skillName: entry.skillName,
-    skillContext: entry.skillContext,
+    entryType: "subagent",
+    name: entry.name,
+    purpose: entry.purpose,
+    limitedScope: entry.limitedScope,
+    agentReferences: entry.agentReferences,
+    skillReferences: entry.skillReferences,
+    unresolvedReferences: entry.unresolvedReferences,
+    promptTemplate: entry.promptTemplate,
+    constraints: entry.constraints,
+    expectedOutput: entry.expectedOutput,
   };
 }
 
@@ -1089,8 +1195,41 @@ function selectSyncSkills(
   });
 }
 
+function selectSyncSubagents(
+  sourceSubagents: readonly SubagentCatalogEntry[],
+  subagentNames?: readonly string[],
+): SubagentCatalogEntry[] {
+  if (subagentNames === undefined) {
+    return [...sourceSubagents];
+  }
+
+  const sourceByName = new Map(
+    sourceSubagents.map((entry) => [entry.name, entry]),
+  );
+  return subagentNames.flatMap((name) => {
+    const entry = sourceByName.get(name);
+    return entry ? [entry] : [];
+  });
+}
+
 function toExportSkillEntry(entry: SkillCatalogEntry): CatalogExportSkillEntry {
   return toExportEntry(entry) as CatalogExportSkillEntry;
+}
+
+function toExportSubagentEntry(
+  entry: SubagentCatalogEntry,
+): CatalogExportSubagentEntry {
+  return toExportEntry(entry) as CatalogExportSubagentEntry;
+}
+
+function exportEntryKey(entry: CatalogExport["entries"][number]): string {
+  if (entry.entryType === "agent") {
+    return entry.codexSessionId;
+  }
+  if (entry.entryType === "skill") {
+    return entry.skillName;
+  }
+  return entry.name;
 }
 
 function toHandoffTargetAgent(entry: AgentCatalogEntry) {
@@ -1106,6 +1245,12 @@ function toHandoffTargetAgent(entry: AgentCatalogEntry) {
 
 function isRoutableEntry(entry: CatalogEntry): boolean {
   return entry.entryType !== "agent" || entry.agentStatus === "active";
+}
+
+function isHealthEntry(
+  entry: CatalogEntry,
+): entry is AgentCatalogEntry | SkillCatalogEntry {
+  return entry.entryType === "agent" || entry.entryType === "skill";
 }
 
 function mergeSkillUpdate(
@@ -1142,7 +1287,9 @@ function mergeSkillContext(
   };
 }
 
-function toHealthEntry(entry: CatalogEntry): CatalogHealthEntry {
+function toHealthEntry(
+  entry: AgentCatalogEntry | SkillCatalogEntry,
+): CatalogHealthEntry {
   return {
     scope: entry.scope,
     entryType: entry.entryType,

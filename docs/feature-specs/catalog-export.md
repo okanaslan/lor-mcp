@@ -9,10 +9,8 @@ representation.
 ## 2. Goals
 
 - Let users back up or reuse catalog entries.
-- Export introduced agents and workspace-local skills from the requested
-  workspace.
-- Plan to export workspace-local subagent profiles once Subagent Suggestions is
-  implemented.
+- Export introduced agents, workspace-local skills, and workspace-local subagent
+  profiles from the requested workspace.
 - Provide a format that can later be used by Catalog Import.
 
 ## 3. Non-Goals
@@ -27,10 +25,11 @@ representation.
 ## 4. Functional Requirements
 
 - The server must export catalog entries scoped to the requested workspace.
-- The export must include introduced agents and introduced skills by default.
+- The export must include introduced agents, introduced skills, and subagent
+  profiles by default.
 - The export must exclude global skills by default.
-- Planned subagent support must export workspace-local subagents by default and
-  exclude global subagents from normal workspace export.
+- The export must include workspace-local subagents by default and exclude
+  global subagents from normal workspace export.
 - The caller may filter export by entry type or project name.
 - The export must include stored catalog metadata needed to recreate entries.
 - The export must not include session-private runtime identifiers unless needed
@@ -50,8 +49,7 @@ Conceptual `CatalogExport` fields:
 
 - `version`: identifies the export format version.
 - `exportedAt`: records when the export was generated.
-- `entries`: lists exported agents, skills, and planned workspace-local
-  subagents.
+- `entries`: lists exported agents, skills, and workspace-local subagents.
 - `filters`: records filters used to produce the export.
 
 ## 7. Error Handling
@@ -84,5 +82,5 @@ Conceptual `CatalogExport` fields:
   `export_catalog`; it includes verification metadata and is scoped by
   `workspace`.
 - 2026-08-04: Keep workspace exports workspace-local and exclude global skills.
-- 2026-08-04: Plan workspace exports to include workspace-local subagents and
-  exclude global subagents.
+- 2026-08-04: Implement workspace exports to include workspace-local subagents
+  and exclude global subagents.

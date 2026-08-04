@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Describe the scenario in a few sentences. Keep this focused on what the actor
-is trying to accomplish and why it matters.
+Describe the scenario in a few sentences. Keep this focused on what the actor is
+trying to accomplish and why it matters.
 
 ## 2. Actor
 

@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Draft. This feature defines how Local Orchestration Router (LOR) uses the MCP initialization
-lifecycle as the session boundary for catalog operations instead of adding a
-custom `create_session` tool.
+Draft. This feature defines how Local Orchestration Router (LOR) uses the MCP
+initialization lifecycle as the session boundary for catalog operations instead
+of adding a custom `create_session` tool.
 
 ## 2. Goals
 
@@ -47,8 +47,8 @@ custom `create_session` tool.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that an MCP host connects
-to Local Orchestration Router (LOR), completes initialization, and can then call catalog tools
-without first creating an application-specific session.
+to Local Orchestration Router (LOR), completes initialization, and can then call
+catalog tools without first creating an application-specific session.
 
 ## 6. Data Model
 
@@ -89,8 +89,8 @@ database schema.
 - Which MCP transport will the first implementation support?
 - Should catalog records survive reconnects when a host creates a new MCP
   session?
-- What exact server capabilities should Local Orchestration Router (LOR) advertise at
-  initialization?
+- What exact server capabilities should Local Orchestration Router (LOR)
+  advertise at initialization?
 
 ## 10. Decision Log
 
@@ -98,7 +98,7 @@ database schema.
   `create_session` tool.
 - 2026-07-10: Initially scoped catalog operations to the active initialized MCP
   session.
-- 2026-07-13: Use the workspace as the durable catalog scope
-  while keeping MCP initialization as the readiness boundary.
+- 2026-07-13: Use the workspace as the durable catalog scope while keeping MCP
+  initialization as the readiness boundary.
 - 2026-07-10: Treat `clientInfo` as descriptive metadata only.
 - 2026-07-10: Defer user authentication and durable cross-session identity.

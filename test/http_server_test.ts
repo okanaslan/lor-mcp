@@ -57,6 +57,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
     [
       "introduce_agent",
       "introduce_skill",
+      "introduce_subagent",
       "list_catalog_entries",
       "clear_workspace_catalog",
       "register_workspace_alias",
@@ -80,6 +81,53 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "find_matching_catalog_entry",
     ],
   );
+});
+
+Deno.test("HTTP MCP handler calls introduce_subagent", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const response = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "introduce_subagent",
+        arguments: {
+          workspace: "LOR-MCP",
+          name: "api-test-subagent",
+          projectName: "Local Orchestration Router (LOR)",
+          displayName: "API Test Subagent",
+          purpose: "Write focused backend API tests.",
+          limitedScope: "Only inspect API handlers and related tests.",
+          primarySpecialty: "backend api testing",
+          specialtyTags: ["backend", "api", "tests"],
+          expectedOutput: "A concise test summary.",
+        },
+      },
+    });
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body.result.structuredContent.status, "ok");
+    assertEquals(
+      body.result.structuredContent.data.entryType,
+      "subagent",
+    );
+    assertEquals(
+      body.result.structuredContent.data.prompt.includes("API Test Subagent"),
+      true,
+    );
+  } finally {
+    repo.close();
+  }
 });
 
 Deno.test("HTTP MCP handler calls update_catalog_entry", async () => {
