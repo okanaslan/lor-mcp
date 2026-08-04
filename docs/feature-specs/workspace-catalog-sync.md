@@ -2,14 +2,15 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature defines helper tools for syncing skill catalog
-entries from one LOR workspace catalog into another. Initializing an empty
-workspace is the primary use case, but the tools are general catalog
-sync/migration helpers that can be used any time a target workspace should
-receive selected skills from a source workspace.
+Implemented for v1 skills. Planned subagent support will extend these helper
+tools to sync workspace-local subagent prompt profiles from one LOR workspace
+catalog into another. Initializing an empty workspace is the primary use case,
+but the tools are general catalog sync/migration helpers.
 
 V1 copies skill catalog entries only, then returns starter prompt metadata that
-can help the user create fresh workspace-specific Codex agents when needed.
+can help the user create fresh workspace-specific Codex agents when needed. Once
+Subagent Suggestions is implemented, workspace-local subagents should be copied
+by default alongside skills.
 
 ## 2. Goals
 
@@ -19,12 +20,15 @@ can help the user create fresh workspace-specific Codex agents when needed.
 - Support later workspace maintenance and migration flows without requiring the
   target workspace to be empty.
 - Preserve copied skill metadata, including stored `skillContext`.
+- Preserve copied subagent metadata, rendered prompt inputs, and references once
+  subagent sync is implemented.
 - Preview the sync before mutating the target workspace.
 - Support new-agent bootstrapping through existing generated prompt flows.
 
 ## 3. Non-Goals
 
 - Copy registered agents or `codexSessionId` values.
+- Copy global subagents during normal workspace-to-workspace sync.
 - Create Codex chats.
 - Dispatch prompts to Codex agents.
 - Write local `SKILL.md` files during workspace catalog sync.
@@ -46,10 +50,15 @@ can help the user create fresh workspace-specific Codex agents when needed.
 - `apply_workspace_catalog_sync` must accept the same selection fields and
   require `confirm: true`.
 - The server must copy only skill catalog entries in v1.
+- Planned subagent support must copy workspace-local subagents by default.
 - The server must copy only workspace-local skills from the source workspace.
+- Planned subagent support must copy only workspace-local subagents from the
+  source workspace.
 - Copied skills must be stored under the resolved target workspace.
 - Copied skills must preserve skill metadata, verification metadata, and
   `skillContext`.
+- Copied subagents must preserve subagent metadata, references, and prompt
+  template inputs.
 - Existing target skills must be skipped by default.
 - Requested skills missing from the source workspace must be reported.
 - The preview and apply outputs must include:
@@ -58,6 +67,7 @@ can help the user create fresh workspace-specific Codex agents when needed.
   - duplicates that will be skipped
   - missing requested skills
   - generated starter prompt metadata for requested roles
+  - subagents selected for copy once subagent sync is implemented
   - summary counts
 - The apply output must also include copied skill names and the internal import
   result.
@@ -75,6 +85,8 @@ Conceptual `WorkspaceCatalogSyncPreview` fields:
 - `sourceWorkspace`: resolved source workspace.
 - `targetWorkspace`: resolved target workspace.
 - `skillsToCopy`: selected skill entries from the source workspace.
+- `subagentsToCopy`: planned selected subagent entries from the source
+  workspace.
 - `duplicateSkills`: skills already present in the target workspace.
 - `missingSkills`: requested skill names that were not found in the source
   workspace.
@@ -102,6 +114,7 @@ Conceptual `WorkspaceCatalogSyncPreview` fields:
 - V1 must not delete or mutate source workspace entries.
 - V1 must keep source and target workspace catalog records isolated.
 - V1 must not create, update, or delete global skills.
+- Workspace sync must not create, update, or delete global subagents.
 - Tool responses must not expose entries outside the requested source and target
   workspaces.
 
@@ -126,3 +139,5 @@ Conceptual `WorkspaceCatalogSyncPreview` fields:
   the resolved target workspace.
 - 2026-08-04: Keep workspace catalog sync workspace-local; use Global Skill
   Scope for shared cross-workspace skills.
+- 2026-08-04: Plan workspace catalog sync to copy workspace-local subagents by
+  default after Subagent Suggestions is implemented.

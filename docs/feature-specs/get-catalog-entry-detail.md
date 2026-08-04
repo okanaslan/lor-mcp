@@ -2,14 +2,15 @@
 
 ## 1. Summary
 
-Implemented for v1, including explicit shared global skill lookup. This feature
-lets a user fetch the full metadata for one introduced agent or skill from the
-requested workspace, or one shared global skill.
+Implemented for v1 agents and skills, including explicit shared global skill
+lookup. Planned subagent support will let a user fetch full metadata and a
+rendered starter prompt for one reusable subagent profile.
 
 ## 2. Goals
 
 - Retrieve one catalog entry by type and identifier.
 - Return all stored metadata for the entry.
+- Return rendered prompt text for planned subagent detail lookups.
 - Keep detail lookup separate from listing and matching.
 
 ## 3. Non-Goals
@@ -30,6 +31,10 @@ requested workspace, or one shared global skill.
 - The server must return a not-found result when the entry does not exist in the
   requested workspace.
 - The server must support introduced agents and introduced skills.
+- Planned subagent support must allow detail lookup for workspace-local and
+  global subagents.
+- Planned subagent detail must include the rendered prompt, stored references,
+  and unresolved reference metadata.
 - The server must not return entries from another workspace.
 - The server may return global skill entries because they are intentionally
   shared.
@@ -44,10 +49,13 @@ metadata.
 
 Conceptual `CatalogEntryDetail` fields:
 
-- `entryType`: identifies `agent` or `skill`.
+- `entryType`: identifies `agent`, `skill`, or planned `subagent`.
 - `entryKey`: identifies the entry within the workspace.
-- `scope`: identifies `workspace` or `global` for skill entries.
+- `scope`: identifies `workspace` or `global` for skill and planned subagent
+  entries.
 - `metadata`: contains the stored fields for the entry type.
+- `renderedPrompt`: contains ready-to-use prompt text for planned subagent
+  detail results.
 - `createdAt`: records when the entry was introduced.
 - `updatedAt`: records when the entry was last changed, if updates exist.
 
@@ -78,3 +86,5 @@ Conceptual `CatalogEntryDetail` fields:
 - 2026-07-11: Require entry type plus identifier to avoid cross-type ambiguity.
 - 2026-07-13: Implement detail lookup against the client-supplied workspace.
 - 2026-08-04: Implement detail lookup for shared global skills.
+- 2026-08-04: Plan subagent detail lookup to return rendered prompt text and
+  reference metadata.

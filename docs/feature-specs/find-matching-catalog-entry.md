@@ -2,20 +2,21 @@
 
 ## 1. Summary
 
-Implemented for v1, including shared global skills by default. This feature lets
-Local Orchestration Router (LOR) evaluate a user request and return matching
-introduced agents and skills from the requested workspace plus shared global
-skills.
+Implemented for v1 agents and skills, including shared global skills by default.
+Planned subagent support will extend this feature so Local Orchestration Router
+(LOR) can also return matching reusable subagent prompt profiles for scoped
+delegation.
 
 ## 2. Goals
 
-- Match task intent against introduced agents and skills.
-- Return the best available catalog entry for a request.
+- Match task intent against introduced agents, skills, and planned subagent
+  profiles.
+- Return ranked available catalog candidates for a request.
 - Provide enough matching metadata for later recommendation explanation.
 
 ## 3. Non-Goals
 
-- Introduce new agents or skills.
+- Introduce new agents, skills, or subagent profiles.
 - Modify catalog entries.
 - Define final ranking weights for every possible specialty.
 - Search agents outside the requested workspace.
@@ -35,10 +36,18 @@ skills.
 - The server must not score `skillContext.constraints` in v1.
 - The server must return ranked matching agents and skills when relevant entries
   exist.
+- Planned subagent support must return a separate ranked `subagents` list.
+- Planned subagent matching must include workspace-local and global subagents by
+  default.
+- Planned subagent matching must limit subagent results to 3 by default.
+- Planned subagent matching must not score references, unresolved references,
+  `constraints`, or `expectedOutput`.
 - The server must return a no-match result when no introduced entry is relevant.
 - The server must return a conflict result when top agent recommendations are
   ambiguous under the Conflict Handling feature.
 - Skills must remain ranked and must not create conflicts in v1.
+- Subagents must remain ranked and must not create conflicts in the planned
+  subagent feature.
 - The server must not return entries from another workspace.
 - The server may return global skill entries because they are intentionally
   shared across workspaces.
@@ -55,12 +64,14 @@ Conceptual `CatalogMatchRequest` fields:
 
 - `task`: describes what the user wants to do.
 - `projectName`: optionally narrows matching to a project.
-- `preferredType`: optionally narrows matching to `agent` or `skill`.
+- `preferredType`: optionally narrows matching to `agent`, `skill`, or planned
+  `subagent`.
 - `specialtyHints`: optional tags or specialties supplied by the caller.
 
 Conceptual `CatalogMatchResult` fields:
 
-- `entryType`: identifies whether the result is an agent or skill.
+- `entryType`: identifies whether the result is an agent, skill, or planned
+  subagent.
 - `entryKey`: identifies the matched catalog entry.
 - `matchedFields`: lists fields that contributed to the match.
 - `confidence`: describes the match strength.
@@ -98,3 +109,5 @@ Conceptual `CatalogMatchResult` fields:
   recommendations.
 - 2026-08-04: Implement matching to include global skills by default while
   keeping agents workspace-only.
+- 2026-08-04: Plan matching support for subagents as a separate ranked result
+  list with global subagents included by default and a default limit of 3.

@@ -12,6 +12,7 @@ they have already been registered in the catalog.
 - Reduce stale or invalid catalog entries.
 - Report introduced agent, workspace skill, and global skill health from stored
   verification metadata.
+- Keep planned subagent reference resolution separate from catalog health in v1.
 - Keep health reporting separate from normal introduction.
 
 ## 3. Non-Goals
@@ -22,6 +23,7 @@ they have already been registered in the catalog.
 - Probe external Codex sessions, skill roots, filesystems, registries, or remote
   APIs in v1.
 - Update stored verification metadata during health checks.
+- Health-check subagent profiles or unresolved subagent references in v1.
 
 ## 4. Functional Requirements
 
@@ -38,6 +40,8 @@ they have already been registered in the catalog.
 - Health reporting must not expose entries from other workspaces.
 - Health reporting may expose global skills because they are intentionally
   shared.
+- Planned subagent profiles are not health-checked in v1; unresolved references
+  should remain detail/match metadata, not health issues.
 
 ## 5. User Stories / Use Cases
 
@@ -88,3 +92,4 @@ Conceptual `VerificationResult` fields:
 - 2026-07-17: Implement v1 as read-only `check_catalog_health` reporting from
   stored verification metadata only.
 - 2026-08-04: Implement health reporting support for shared global skills.
+- 2026-08-04: Decide planned subagent profiles are not health-checked in v1.

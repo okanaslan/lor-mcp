@@ -7,7 +7,9 @@ LOR is currently a runnable local Deno TypeScript MCP server with Streamable
 HTTP, SQLite-backed workspace catalog storage, deterministic matching, agent
 handoff and regeneration prompt preparation, agent retirement, workspace catalog
 sync, shared global skill scope, registered skill context updates, and
-approval-gated local `SKILL.md` sync.
+approval-gated local `SKILL.md` sync. Planned subagent support will add reusable
+workspace/global prompt profiles for small, scoped delegation without requiring
+a registered Codex agent session.
 
 ## Contents
 
@@ -42,6 +44,8 @@ The main user flows are:
   section.
 - Export, import, sync, inspect, update, remove, clear, and health-check
   workspace catalog entries.
+- Plan and later introduce subagent prompt profiles for limited-scope work when
+  no existing registered agent is appropriate.
 
 Local skill-file sync is intentionally separate from stored catalog updates:
 preview first, then apply with `confirm: true`.
@@ -58,3 +62,5 @@ preview first, then apply with `confirm: true`.
 - Update `VERSION` and `CHANGELOG.md` when cutting a version.
 - Keep root `README.md`, this docs index, and `roadmap.md` aligned whenever the
   public MCP tool surface changes.
+- Keep planned-tool language explicit so future docs do not imply unimplemented
+  MCP tools are available.

@@ -31,12 +31,17 @@ LOR is implemented as a runnable local v1 MCP server.
   remain workspace-scoped.
 - Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
   tools remain responsible for sending work to registered Codex sessions.
+- Planned subagents: reusable prompt profiles for small, scoped delegation, with
+  workspace/global scope and ready-to-use prompts returned from matching and
+  detail flows.
 
 ## Project Goals
 
 - Provide a workspace-scoped catalog of introduced Codex agents and skills.
 - Support shared global skills across workspaces while keeping agents
   workspace-specific.
+- Plan reusable subagent prompt profiles for scoped delegation when a full
+  registered agent is not needed.
 - Support task-based lookup for relevant agents and skills.
 - Return structured MCP tool responses that Codex agents can consume reliably.
 - Keep catalog data durable, local, and isolated by client-supplied workspace.
@@ -54,6 +59,10 @@ LOR is implemented as a runnable local v1 MCP server.
 - `docs/use-cases/`: use case scenario drafts and template.
 - `docs/tech-specs/`: technical specs, with completed specs under `done/`,
   future specs under `future/`, and `template.md` for new specs.
+- Planned subagent docs: `docs/feature-specs/subagent-suggestions.md`,
+  `docs/use-cases/introduce-subagent-profile.md`,
+  `docs/use-cases/suggest-subagents-for-scoped-work.md`, and
+  `docs/tech-specs/future/subagent-suggestions.md`.
 
 ## MCP Tool Map
 
@@ -144,6 +153,12 @@ Catalog maintenance tools:
 - `import_catalog`
 - `preview_workspace_catalog_sync`
 - `apply_workspace_catalog_sync`
+
+Planned catalog expansion:
+
+- `introduce_subagent`
+- subagent results from `find_matching_catalog_entry`
+- subagent detail prompts from `get_catalog_entry_detail`
 
 ## Runtime
 

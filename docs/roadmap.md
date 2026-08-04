@@ -49,6 +49,9 @@ Implemented in the runnable local v1:
 - Global skills can be introduced directly with `scope: "global"` or promoted
   from workspace skills with `promote_skill_to_global`. Global skills are
   included in list and match by default; agents remain workspace-scoped.
+- Subagent suggestions are planned but not implemented. The planned feature
+  treats subagents as a third catalog entry type for reusable prompt profiles
+  with workspace/global scope.
 - Agent replacement uses immutable session identity: new agents register as
   active records, old records can be marked retired, and matching excludes
   retired agents by default.
@@ -142,9 +145,19 @@ Latest implementation verification:
   structured JSON workspace backups.
 - [Catalog Import](feature-specs/catalog-import.md): Implemented for v1
   structured JSON imports with skip/fail duplicate handling.
+- [Subagent Suggestions](feature-specs/subagent-suggestions.md): Planned.
+  Defines subagents as a third catalog entry type for reusable limited-scope
+  prompt profiles, with workspace/global scope, references to agents and skills,
+  inclusion in matching, rendered prompts in match/detail results, and workspace
+  sync/export/import support for workspace-local subagents. Technical planning
+  is tracked in
+  [Subagent Suggestions](tech-specs/future/subagent-suggestions.md).
 
 ## Next
 
+- Plan implementation for Subagent Suggestions: storage, tool schemas,
+  deterministic prompt rendering, matching integration, import/export/sync
+  behavior, and tests.
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can

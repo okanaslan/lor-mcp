@@ -19,6 +19,8 @@ workspace-scoped only.
 ## 3. Non-Goals
 
 - Support global agents.
+- Define global subagent scope; that is covered by the planned Subagent
+  Suggestions feature.
 - Copy or move Codex agent sessions between workspaces.
 - Export global skills as part of a normal workspace export.
 - Create a remote public marketplace or hosted registry.
@@ -119,3 +121,5 @@ workspace skill identifiers in caller-facing results.
 - 2026-08-04: Keep workspace exports workspace-local and exclude global skills.
 - 2026-08-04: Implement global skill scope in v1 with duplicate promotion
   failure and scope-aware exact skill operations.
+- 2026-08-04: Keep this spec skill-only; planned global subagent behavior is
+  tracked separately in Subagent Suggestions.

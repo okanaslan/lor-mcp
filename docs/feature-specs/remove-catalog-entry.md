@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Implemented for v1, including explicitly targeted shared global skills. This
-feature lets a user remove an introduced agent or skill from the requested
-workspace, or remove a shared global skill when explicitly targeted.
+Implemented for v1 agents and skills, including explicitly targeted shared
+global skills. Planned subagent support will let a user remove workspace-local
+or explicitly targeted global subagent prompt profiles.
 
 ## 2. Goals
 
@@ -12,13 +12,14 @@ workspace, or remove a shared global skill when explicitly targeted.
 - Keep removal scoped to the requested workspace.
 - Allow global skill removal from any workspace context when global scope is
   explicitly targeted.
+- Plan explicit global subagent removal from any workspace context.
 - Preserve simple behavior for missing entries.
 
 ## 3. Non-Goals
 
 - Delete the underlying Codex agent session.
 - Delete the underlying Codex skill from disk.
-- Delete the underlying Codex skill from disk.
+- Delete any Codex-native subagent task or chat.
 - Remove entries from other workspaces.
 - Clear the entire workspace catalog.
 - Implement restore or archival behavior.
@@ -32,6 +33,8 @@ workspace, or remove a shared global skill when explicitly targeted.
 - The server must support removing global skills when global scope is explicitly
   targeted.
 - The server must support removing introduced agents and introduced skills.
+- Planned subagent support must allow removing workspace-local subagents and
+  explicitly targeted global subagents.
 - The server must return a success result when an entry is removed.
 - The server must return a not-found result when the entry does not exist in the
   active session.
@@ -49,9 +52,10 @@ agent or skill by mistake and wants to remove it from future recommendations.
 
 Conceptual `CatalogEntryRemoval` fields:
 
-- `entryType`: identifies `agent` or `skill`.
+- `entryType`: identifies `agent`, `skill`, or planned `subagent`.
 - `entryKey`: identifies the entry to remove.
-- `scope`: optionally identifies `workspace` or `global` for skill removal.
+- `scope`: optionally identifies `workspace` or `global` for skill and planned
+  subagent removal.
 
 ## 7. Error Handling
 
@@ -65,6 +69,7 @@ Conceptual `CatalogEntryRemoval` fields:
 
 - Removal must only affect entries in the requested workspace.
 - Removal may affect explicitly targeted global skills.
+- Removal may affect explicitly targeted global subagents once implemented.
 - Not-found responses must not reveal whether the same identifier exists in
   another workspace.
 - Removing a global skill is intentionally visible to all workspaces that used
@@ -81,3 +86,5 @@ Conceptual `CatalogEntryRemoval` fields:
 - 2026-07-11: Restore behavior is out of scope.
 - 2026-07-17: V1 remove is not idempotent; missing entries return `not_found`.
 - 2026-08-04: Implement explicit global skill removal support.
+- 2026-08-04: Plan explicit workspace/global subagent removal without a separate
+  retirement lifecycle.

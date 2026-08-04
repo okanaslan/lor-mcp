@@ -10,6 +10,8 @@ entries into the requested workspace from a versioned structured JSON export.
 - Reduce repeated manual introduction of agents and skills.
 - Import multiple catalog entries in one operation.
 - Validate imported entries before storing them.
+- Plan to import workspace-local subagent profiles once Subagent Suggestions is
+  implemented.
 
 ## 3. Non-Goals
 
@@ -17,17 +19,22 @@ entries into the requested workspace from a versioned structured JSON export.
 - Import entries into other initialized MCP sessions.
 - Define a public marketplace or remote registry.
 - Import directly into global skill scope.
+- Import directly into global subagent scope.
 - Export catalog entries.
 
 ## 4. Functional Requirements
 
 - The server must accept a versioned catalog export object as the import source.
 - The server must parse import data into agent and skill catalog entries.
+- Planned subagent support must parse import data into workspace-local subagent
+  catalog entries.
 - Imported entries must follow the same required metadata rules as manual
   introduction.
 - Imported entries must be scoped to the requested workspace, regardless of the
   source export workspace.
 - Imported skills must remain workspace-local unless a later explicit global
+  import mode is added.
+- Imported subagents must remain workspace-local unless a later explicit global
   import mode is added.
 - Duplicate entries within the requested workspace must be skipped by default or
   reported as failures when `conflictStrategy` is `fail`.
@@ -84,3 +91,5 @@ Conceptual `CatalogImportResult` fields:
   reported when `conflictStrategy` is `fail`.
 - 2026-08-04: Plan to keep normal imports workspace-local and defer explicit
   global import behavior.
+- 2026-08-04: Plan normal imports to support workspace-local subagents while
+  deferring explicit global subagent import behavior.

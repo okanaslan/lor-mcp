@@ -13,7 +13,10 @@ The project follows Semantic Versioning:
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Added
+
+- Document planned Subagent Suggestions catalog feature, including use cases,
+  feature behavior, future technical design, and related catalog spec updates.
 
 ## [1.0.0] - 2026-08-04
 
