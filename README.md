@@ -25,12 +25,17 @@ LOR is implemented as a runnable local v1 MCP server.
   conflict reporting, and registered skill context signals.
 - Skill improvement: approval-gated stored skill context updates, with optional
   approval-gated sync into a LOR-managed `SKILL.md` section.
+- Global skills: shared skills can be introduced or promoted with
+  `scope: "global"` and are included in list/match by default, while agents
+  remain workspace-scoped.
 - Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
   tools remain responsible for sending work to registered Codex sessions.
 
 ## Project Goals
 
 - Provide a workspace-scoped catalog of introduced Codex agents and skills.
+- Support shared global skills across workspaces while keeping agents
+  workspace-specific.
 - Support task-based lookup for relevant agents and skills.
 - Return structured MCP tool responses that Codex agents can consume reliably.
 - Keep catalog data durable, local, and isolated by client-supplied workspace.
@@ -54,6 +59,7 @@ flowchart RL
 
   introduceAgent["introduce_agent"] --> catalog
   introduceSkill["introduce_skill"] --> catalog
+  promoteSkill["promote_skill_to_global"] --> catalog
   registerAlias["register_workspace_alias"] --> catalog
   catalog --> checkHealth["check_catalog_health"]
   catalog --> exportCatalog["export_catalog"]
@@ -126,6 +132,7 @@ Catalog maintenance tools:
 - `list_catalog_entries`
 - `check_catalog_health`
 - `update_catalog_entry`
+- `promote_skill_to_global`
 - `retire_agent`
 - `remove_catalog_entry`
 - `clear_workspace_catalog`

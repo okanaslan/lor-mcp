@@ -1,4 +1,5 @@
 export type EntryType = "agent" | "skill";
+export type CatalogScope = "workspace" | "global";
 export type AgentStatus = "active" | "retired";
 export type VerificationStatus = "verified" | "unverified" | "unknown";
 export type Confidence = "low" | "medium" | "high";
@@ -28,6 +29,7 @@ export interface SkillContext {
 
 export interface BaseCatalogEntry extends VerificationMetadata {
   workspace: string;
+  scope: CatalogScope;
   entryType: EntryType;
   entryKey: string;
   projectName: string;
@@ -40,6 +42,7 @@ export interface BaseCatalogEntry extends VerificationMetadata {
 
 export interface AgentCatalogEntry extends BaseCatalogEntry {
   entryType: "agent";
+  scope: "workspace";
   codexSessionId: string;
   agentStatus: AgentStatus;
   retiredAt?: string;
@@ -51,6 +54,7 @@ export interface AgentCatalogEntry extends BaseCatalogEntry {
 
 export interface SkillCatalogEntry extends BaseCatalogEntry {
   entryType: "skill";
+  scope: CatalogScope;
   skillName: string;
   skillContext?: SkillContext;
 }
@@ -70,6 +74,7 @@ export interface IntroduceAgentInput {
 
 export interface IntroduceSkillInput {
   workspace: string;
+  scope?: CatalogScope;
   skillName: string;
   projectName: string;
   displayName: string;
@@ -82,6 +87,7 @@ export interface ListEntriesFilter {
   workspace: string;
   entryType?: EntryType;
   projectName?: string;
+  scope?: CatalogScope;
 }
 
 export interface ClearWorkspaceCatalogInput {
@@ -118,6 +124,18 @@ export interface CatalogEntryUpdate extends EntryLookup {
   specialtyTags?: readonly string[];
 }
 
+export interface PromoteSkillToGlobalInput {
+  workspace: string;
+  skillName: string;
+}
+
+export interface PromoteSkillToGlobalResult {
+  workspace: string;
+  sourceSkill: SkillCatalogEntry;
+  globalSkill: SkillCatalogEntry;
+  promoted: true;
+}
+
 export interface RetireAgentInput {
   workspace: string;
   agentEntryKey: string;
@@ -144,6 +162,7 @@ export type SkillUpdateProposalStatus = "pending" | "applied";
 
 export interface ProposeSkillUpdateInput {
   workspace: string;
+  scope?: CatalogScope;
   skillName: string;
   reason: string;
   skillContext?: SkillContext;
@@ -152,6 +171,7 @@ export interface ProposeSkillUpdateInput {
 
 export interface ApplySkillUpdateInput {
   workspace: string;
+  scope?: CatalogScope;
   proposalId: string;
   confirm: true;
 }
@@ -159,6 +179,7 @@ export interface ApplySkillUpdateInput {
 export interface SkillUpdateProposal {
   proposalId: string;
   workspace: string;
+  scope: CatalogScope;
   skillName: string;
   reason: string;
   proposedSkillContext?: SkillContext;
@@ -176,6 +197,7 @@ export interface SkillUpdateProposalResult {
 
 export interface SkillFileSyncInput {
   workspace: string;
+  scope?: CatalogScope;
   skillName: string;
   proposalId: string;
 }
@@ -339,6 +361,7 @@ export interface CatalogHealthFilter {
   entryType?: EntryType;
   projectName?: string;
   entryKey?: string;
+  scope?: CatalogScope;
 }
 
 export interface CatalogHealthIssue {
@@ -347,6 +370,7 @@ export interface CatalogHealthIssue {
 }
 
 export interface CatalogHealthEntry {
+  scope: CatalogScope;
   entryType: EntryType;
   entryKey: string;
   displayName: string;
@@ -375,6 +399,7 @@ export interface CatalogHealthReport {
   filters: {
     entryType?: EntryType;
     projectName?: string;
+    scope?: CatalogScope;
     entryKey?: string;
   };
   summary: CatalogHealthSummary;
@@ -452,6 +477,7 @@ export interface EntryLookup {
   workspace: string;
   entryType: EntryType;
   entryKey: string;
+  scope?: CatalogScope;
 }
 
 export interface MatchRequest {
@@ -471,6 +497,7 @@ export interface MatchExplanation {
 }
 
 export interface MatchCandidate {
+  scope: CatalogScope;
   entryType: EntryType;
   entryKey: string;
   displayName: string;
@@ -531,10 +558,12 @@ export interface CatalogRepository {
   getSkillUpdateProposal(
     workspace: string,
     proposalId: string,
+    scope?: CatalogScope,
   ): Promise<SkillUpdateProposal | undefined>;
   applySkillUpdateProposal(
     workspace: string,
     proposalId: string,
+    scope: CatalogScope | undefined,
     input: {
       entry: SkillCatalogEntry;
       appliedAt: string;

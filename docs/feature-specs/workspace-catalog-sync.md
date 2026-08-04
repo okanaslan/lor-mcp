@@ -14,6 +14,7 @@ can help the user create fresh workspace-specific Codex agents when needed.
 ## 2. Goals
 
 - Copy selected skills from a source workspace into a target workspace.
+- Keep workspace-to-workspace sync separate from global skill sharing.
 - Support empty-workspace initialization as one use case of catalog sync.
 - Support later workspace maintenance and migration flows without requiring the
   target workspace to be empty.
@@ -30,6 +31,7 @@ can help the user create fresh workspace-specific Codex agents when needed.
 - Delete source workspace entries.
 - Overwrite existing target skills in v1.
 - Replace lower-level catalog import/export tools.
+- Promote skills into global scope.
 
 ## 4. Functional Requirements
 
@@ -44,6 +46,7 @@ can help the user create fresh workspace-specific Codex agents when needed.
 - `apply_workspace_catalog_sync` must accept the same selection fields and
   require `confirm: true`.
 - The server must copy only skill catalog entries in v1.
+- The server must copy only workspace-local skills from the source workspace.
 - Copied skills must be stored under the resolved target workspace.
 - Copied skills must preserve skill metadata, verification metadata, and
   `skillContext`.
@@ -98,6 +101,7 @@ Conceptual `WorkspaceCatalogSyncPreview` fields:
 - V1 must not create or message Codex chats.
 - V1 must not delete or mutate source workspace entries.
 - V1 must keep source and target workspace catalog records isolated.
+- V1 must not create, update, or delete global skills.
 - Tool responses must not expose entries outside the requested source and target
   workspaces.
 
@@ -120,3 +124,5 @@ Conceptual `WorkspaceCatalogSyncPreview` fields:
 - 2026-07-23: Implement v1 as `preview_workspace_catalog_sync` and
   `apply_workspace_catalog_sync`, copying only non-duplicate skill entries into
   the resolved target workspace.
+- 2026-08-04: Keep workspace catalog sync workspace-local; use Global Skill
+  Scope for shared cross-workspace skills.

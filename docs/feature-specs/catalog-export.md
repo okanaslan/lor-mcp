@@ -2,18 +2,21 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets a user export catalog entries from the
-requested workspace into a portable structured JSON representation.
+Implemented for v1. This feature lets a user export workspace-local catalog
+entries from the requested workspace into a portable structured JSON
+representation.
 
 ## 2. Goals
 
 - Let users back up or reuse catalog entries.
-- Export introduced agents and skills from the active session.
+- Export introduced agents and workspace-local skills from the requested
+  workspace.
 - Provide a format that can later be used by Catalog Import.
 
 ## 3. Non-Goals
 
 - Export entries from other initialized MCP sessions.
+- Export shared global skills as part of normal workspace export.
 - Export secrets, credentials, or private runtime state.
 - Define remote sync behavior.
 - Import catalog entries.
@@ -22,6 +25,7 @@ requested workspace into a portable structured JSON representation.
 
 - The server must export catalog entries scoped to the requested workspace.
 - The export must include introduced agents and introduced skills by default.
+- The export must exclude global skills by default.
 - The caller may filter export by entry type or project name.
 - The export must include stored catalog metadata needed to recreate entries.
 - The export must not include session-private runtime identifiers unless needed
@@ -55,6 +59,8 @@ Conceptual `CatalogExport` fields:
 ## 8. Security and Permissions
 
 - Export must only include entries from the requested workspace.
+- Export must not include global skills unless a later explicit global export
+  mode is added.
 - Export must not include secrets, credentials, or sensitive host metadata.
 - Export output must avoid leaking entries from other sessions through counts or
   errors.
@@ -71,3 +77,4 @@ Conceptual `CatalogExport` fields:
 - 2026-07-17: V1 exports a versioned structured JSON object through
   `export_catalog`; it includes verification metadata and is scoped by
   `workspace`.
+- 2026-08-04: Keep workspace exports workspace-local and exclude global skills.

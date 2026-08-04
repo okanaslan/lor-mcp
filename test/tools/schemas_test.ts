@@ -7,12 +7,15 @@ import {
   clearWorkspaceCatalogInputSchema,
   exportCatalogInputSchema,
   generateAgentPromptInputSchema,
+  getCatalogEntryDetailInputSchema,
   importCatalogInputSchema,
   introduceAgentInputSchema,
+  introduceSkillInputSchema,
   prepareAgentHandoffInputSchema,
   prepareAgentRegenerationInputSchema,
   previewSkillFileSyncInputSchema,
   previewWorkspaceCatalogSyncInputSchema,
+  promoteSkillToGlobalInputSchema,
   proposeSkillUpdateInputSchema,
   registerWorkspaceAliasInputSchema,
   removeCatalogEntryInputSchema,
@@ -42,6 +45,21 @@ Deno.test("introduceAgentInputSchema accepts optional replacement pointer", () =
       primarySpecialty: "backend api",
       specialtyTags: ["api"],
       replacesAgentEntryKey: " ",
+    }).success,
+    false,
+  );
+});
+
+Deno.test("introduceAgentInputSchema rejects global scope", () => {
+  assertEquals(
+    introduceAgentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      scope: "global",
+      codexSessionId: "agent-new",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
     }).success,
     false,
   );
@@ -278,6 +296,49 @@ Deno.test("skill update schemas require proposal content and confirmation", () =
       proposalId: "proposal-1",
     }).success,
     false,
+  );
+});
+
+Deno.test("skill schemas accept explicit global scope", () => {
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      scope: "global",
+      skillName: "backend-skill",
+      projectName: "Global Backend",
+      displayName: "Global Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    }).success,
+    true,
+  );
+  assertEquals(
+    getCatalogEntryDetailInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      entryKey: "backend-skill",
+      scope: "global",
+    }).success,
+    true,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      scope: "global",
+      reason: "Improve routing metadata.",
+      metadata: {
+        specialtyTags: ["deno", "mcp"],
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    promoteSkillToGlobalInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+    }).success,
+    true,
   );
 });
 

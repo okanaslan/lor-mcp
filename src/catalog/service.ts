@@ -17,6 +17,7 @@ import {
   type CatalogImportIssue,
   type CatalogImportResult,
   type CatalogRepository,
+  type CatalogScope,
   type ClearWorkspaceCatalogInput,
   type ClearWorkspaceCatalogResult,
   type EntryLookup,
@@ -29,6 +30,8 @@ import {
   type PrepareAgentHandoffResult,
   type PrepareAgentRegenerationInput,
   type PrepareAgentRegenerationResult,
+  type PromoteSkillToGlobalInput,
+  type PromoteSkillToGlobalResult,
   type ProposeSkillUpdateInput,
   type RegisterWorkspaceAliasInput,
   type RegisterWorkspaceAliasResult,
@@ -61,6 +64,7 @@ import {
   validateIntroduceSkill,
   validatePrepareAgentHandoff,
   validatePrepareAgentRegeneration,
+  validatePromoteSkillToGlobal,
   validateProposeSkillUpdate,
   validateRegisterWorkspaceAlias,
   validateRetireAgent,
@@ -119,6 +123,7 @@ export class CatalogService {
     return await this.#repository.createSkill(workspace, {
       ...validated,
       workspace,
+      scope: validated.scope ?? "workspace",
       verification: introductionVerification(now),
       now,
     });
@@ -128,6 +133,7 @@ export class CatalogService {
     filter: ListEntriesFilter,
   ): Promise<CatalogEntry[]> {
     const workspace = await this.resolveWorkspace(filter.workspace);
+    validateListScope(filter.entryType, filter.scope);
     return await this.#repository.listEntries(workspace, {
       ...filter,
       workspace,
@@ -157,6 +163,9 @@ export class CatalogService {
   ): Promise<CatalogEntry | undefined> {
     const validated = validateEntryLookup(lookup);
     const workspace = await this.resolveWorkspace(validated.workspace);
+    if (validated.entryType === "skill") {
+      return await this.resolveSkillEntry(workspace, validated);
+    }
     return await this.#repository.getEntry(workspace, {
       ...validated,
       workspace,
@@ -168,9 +177,11 @@ export class CatalogService {
   ): Promise<CatalogEntry> {
     const validated = validateCatalogEntryUpdate(input);
     const workspace = await this.resolveWorkspace(validated.workspace);
+    const scopedInput = validated.entryType === "skill"
+      ? await this.resolveSkillLookup(workspace, validated)
+      : { ...validated, workspace };
     const updated = await this.#repository.updateEntry(workspace, {
-      ...validated,
-      workspace,
+      ...scopedInput,
       now: this.#now(),
     });
     if (!updated) {
@@ -181,6 +192,52 @@ export class CatalogService {
       );
     }
     return updated;
+  }
+
+  async promoteSkillToGlobal(
+    input: PromoteSkillToGlobalInput,
+  ): Promise<PromoteSkillToGlobalResult> {
+    const validated = validatePromoteSkillToGlobal(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const source = await this.#repository.getEntry(workspace, {
+      workspace,
+      entryType: "skill",
+      entryKey: validated.skillName,
+      scope: "workspace",
+    });
+    if (!source || source.entryType !== "skill") {
+      throw new LorError(
+        "not_found",
+        "Workspace skill was not found.",
+        { entryType: "skill" },
+      );
+    }
+
+    const now = this.#now();
+    const globalSkill = await this.#repository.createSkill(workspace, {
+      workspace,
+      scope: "global",
+      skillName: source.skillName,
+      projectName: source.projectName,
+      displayName: source.displayName,
+      primarySpecialty: source.primarySpecialty,
+      specialtyTags: source.specialtyTags,
+      skillContext: source.skillContext,
+      verification: {
+        verificationStatus: source.verificationStatus,
+        verificationSource: source.verificationSource,
+        verifiedAt: source.verifiedAt,
+        verificationMessage: source.verificationMessage,
+      },
+      now,
+    });
+
+    return {
+      workspace,
+      sourceSkill: source,
+      globalSkill,
+      promoted: true,
+    };
   }
 
   async retireAgent(
@@ -242,11 +299,13 @@ export class CatalogService {
   ): Promise<SkillUpdateProposalResult> {
     const validated = validateProposeSkillUpdate(input);
     const workspace = await this.resolveWorkspace(validated.workspace);
-    const existing = await this.#repository.getEntry(workspace, {
+    const scopedLookup = await this.resolveSkillLookup(workspace, {
       workspace,
       entryType: "skill",
       entryKey: validated.skillName,
+      scope: validated.scope,
     });
+    const existing = await this.#repository.getEntry(workspace, scopedLookup);
     if (!existing || existing.entryType !== "skill") {
       throw new LorError(
         "not_found",
@@ -264,6 +323,7 @@ export class CatalogService {
     const proposal: SkillUpdateProposal = {
       proposalId: crypto.randomUUID(),
       workspace,
+      scope: scopedLookup.scope ?? "workspace",
       skillName: validated.skillName,
       reason: validated.reason,
       proposedSkillContext: validated.skillContext,
@@ -284,6 +344,7 @@ export class CatalogService {
     const proposal = await this.#repository.getSkillUpdateProposal(
       workspace,
       validated.proposalId,
+      validated.scope,
     );
     if (!proposal) {
       throw new LorError(
@@ -303,6 +364,7 @@ export class CatalogService {
       workspace,
       entryType: "skill",
       entryKey: proposal.skillName,
+      scope: proposal.scope,
     });
     if (!existing || existing.entryType !== "skill") {
       throw new LorError(
@@ -321,6 +383,7 @@ export class CatalogService {
     const applied = await this.#repository.applySkillUpdateProposal(
       workspace,
       proposal.proposalId,
+      proposal.scope,
       { entry: after, appliedAt },
     );
     if (!applied) {
@@ -382,9 +445,12 @@ export class CatalogService {
   ): Promise<RemoveCatalogEntryResult> {
     const validated = validateEntryLookup(lookup);
     const workspace = await this.resolveWorkspace(validated.workspace);
+    const scopedLookup = validated.entryType === "skill"
+      ? await this.resolveSkillLookup(workspace, validated)
+      : { ...validated, workspace };
     const removed = await this.#repository.removeEntry(
       workspace,
-      { ...validated, workspace },
+      scopedLookup,
     );
     if (!removed) {
       throw new LorError(
@@ -393,7 +459,7 @@ export class CatalogService {
         { entryType: validated.entryType },
       );
     }
-    return { ...validated, workspace, removed: true };
+    return { ...scopedLookup, removed: true };
   }
 
   async exportCatalog(
@@ -405,6 +471,7 @@ export class CatalogService {
       workspace,
       entryType: validated.entryType,
       projectName: validated.projectName,
+      scope: "workspace",
     });
 
     return {
@@ -449,6 +516,7 @@ export class CatalogService {
         entryKey: entry.entryType === "agent"
           ? entry.codexSessionId
           : entry.skillName,
+        scope: "workspace",
       });
       if (existing) {
         skippedCount++;
@@ -480,6 +548,7 @@ export class CatalogService {
       } else {
         await this.#repository.createSkill(workspace, {
           workspace,
+          scope: "workspace",
           skillName: entry.skillName,
           projectName: entry.projectName,
           displayName: entry.displayName,
@@ -558,6 +627,7 @@ export class CatalogService {
       workspace,
       entryType: validated.entryType,
       projectName: validated.projectName,
+      scope: validated.scope,
     });
     const filteredEntries = validated.entryKey
       ? entries.filter((entry) => entry.entryKey === validated.entryKey)
@@ -570,6 +640,7 @@ export class CatalogService {
       filters: {
         entryType: validated.entryType,
         projectName: validated.projectName,
+        scope: validated.scope,
         entryKey: validated.entryKey,
       },
       summary: summarizeHealth(healthEntries),
@@ -742,6 +813,7 @@ export class CatalogService {
     const proposal = await this.#repository.getSkillUpdateProposal(
       workspace,
       input.proposalId,
+      input.scope,
     );
     if (!proposal) {
       throw new LorError(
@@ -768,6 +840,7 @@ export class CatalogService {
       workspace,
       entryType: "skill",
       entryKey: input.skillName,
+      scope: proposal.scope,
     });
     if (!entry || entry.entryType !== "skill") {
       throw new LorError(
@@ -778,6 +851,54 @@ export class CatalogService {
     }
 
     return { workspace, proposal, entry };
+  }
+
+  private async resolveSkillEntry(
+    workspace: string,
+    lookup: EntryLookup,
+  ): Promise<CatalogEntry | undefined> {
+    const scopedLookup = await this.resolveSkillLookup(workspace, lookup);
+    return await this.#repository.getEntry(workspace, scopedLookup);
+  }
+
+  private async resolveSkillLookup(
+    workspace: string,
+    lookup: EntryLookup,
+  ): Promise<EntryLookup> {
+    if (lookup.entryType !== "skill") {
+      return { ...lookup, workspace };
+    }
+    if (lookup.scope) {
+      return { ...lookup, workspace };
+    }
+
+    const workspaceLookup = {
+      ...lookup,
+      workspace,
+      scope: "workspace" as const,
+    };
+    const globalLookup = {
+      ...lookup,
+      workspace,
+      scope: "global" as const,
+    };
+    const [workspaceEntry, globalEntry] = await Promise.all([
+      this.#repository.getEntry(workspace, workspaceLookup),
+      this.#repository.getEntry(workspace, globalLookup),
+    ]);
+    if (workspaceEntry && globalEntry) {
+      throw new LorError(
+        "validation_error",
+        "scope is required when workspace and global skills share the same entryKey.",
+        {
+          field: "scope",
+          entryType: "skill",
+          entryKey: lookup.entryKey,
+          allowedScopes: ["workspace", "global"],
+        },
+      );
+    }
+    return globalEntry ? globalLookup : workspaceLookup;
   }
 
   private async buildWorkspaceCatalogSyncPlan(
@@ -804,10 +925,12 @@ export class CatalogService {
       workspace: sourceWorkspace,
       entryType: "skill",
       projectName: input.projectName,
+      scope: "workspace",
     });
     const targetEntries = await this.#repository.listEntries(targetWorkspace, {
       workspace: targetWorkspace,
       entryType: "skill",
+      scope: "workspace",
     });
     const targetSkillNames = new Set(
       targetEntries
@@ -891,6 +1014,7 @@ export class CatalogService {
         workspace: input.workspace,
         entryType: entry.entryType,
         entryKey,
+        scope: "workspace",
       });
       if (existing) {
         issues.push({
@@ -1020,6 +1144,7 @@ function mergeSkillContext(
 
 function toHealthEntry(entry: CatalogEntry): CatalogHealthEntry {
   return {
+    scope: entry.scope,
     entryType: entry.entryType,
     entryKey: entry.entryKey,
     displayName: entry.displayName,
@@ -1032,6 +1157,19 @@ function toHealthEntry(entry: CatalogEntry): CatalogHealthEntry {
     verificationMessage: entry.verificationMessage,
     issues: verificationIssues(entry),
   };
+}
+
+function validateListScope(
+  entryType: string | undefined,
+  scope: CatalogScope | undefined,
+): void {
+  if (entryType === "agent" && scope === "global") {
+    throw new LorError(
+      "validation_error",
+      "Agents only support workspace scope.",
+      { field: "scope" },
+    );
+  }
 }
 
 function summarizeHealth(

@@ -9,12 +9,14 @@ import {
   type CatalogHealthFilter,
   type CatalogImportConflictStrategy,
   type CatalogImportInput,
+  type CatalogScope,
   type EntryLookup,
   type HandoffMetadata,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type PrepareAgentHandoffInput,
   type PrepareAgentRegenerationInput,
+  type PromoteSkillToGlobalInput,
   type ProposeSkillUpdateInput,
   type RegisterWorkspaceAliasInput,
   type RetireAgentInput,
@@ -29,6 +31,7 @@ import { requireWorkspace } from "@src/catalog/workspace.ts";
 export function validateIntroduceAgent(
   input: IntroduceAgentInput,
 ): IntroduceAgentInput {
+  rejectGlobalAgentScope(input);
   return {
     workspace: requireWorkspace(input.workspace),
     codexSessionId: requireString(input.codexSessionId, "codexSessionId"),
@@ -46,6 +49,10 @@ export function validateIntroduceSkill(
 ): IntroduceSkillInput {
   return {
     workspace: requireWorkspace(input.workspace),
+    scope: input.scope === undefined ? undefined : requireCatalogScope(
+      input.scope,
+      "scope",
+    ),
     skillName: requireString(input.skillName, "skillName"),
     projectName: requireString(input.projectName, "projectName"),
     displayName: requireString(input.displayName, "displayName"),
@@ -68,6 +75,10 @@ export function validateCatalogEntryUpdate(
     workspace: requireWorkspace(input.workspace),
     entryType: requireEntryType(input.entryType),
     entryKey: requireString(input.entryKey, "entryKey"),
+    scope: input.scope === undefined ? undefined : requireLookupScope(
+      input.entryType,
+      input.scope,
+    ),
   };
 
   if (input.projectName !== undefined) {
@@ -121,6 +132,10 @@ export function validateEntryLookup(input: EntryLookup): EntryLookup {
     workspace: requireWorkspace(input.workspace),
     entryType: requireEntryType(input.entryType),
     entryKey: requireString(input.entryKey, "entryKey"),
+    scope: input.scope === undefined ? undefined : requireLookupScope(
+      input.entryType,
+      input.scope,
+    ),
   };
 }
 
@@ -156,7 +171,20 @@ export function validateCatalogHealthFilter(
       ? undefined
       : requireEntryType(input.entryType),
     projectName: projectName || undefined,
+    scope: input.scope === undefined ? undefined : requireListScope(
+      input.entryType,
+      input.scope,
+    ),
     entryKey: entryKey || undefined,
+  };
+}
+
+export function validatePromoteSkillToGlobal(
+  input: PromoteSkillToGlobalInput,
+): PromoteSkillToGlobalInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    skillName: requireString(input.skillName, "skillName"),
   };
 }
 
@@ -294,6 +322,10 @@ export function validateProposeSkillUpdate(
 
   return {
     workspace: requireWorkspace(input.workspace),
+    scope: input.scope === undefined ? undefined : requireCatalogScope(
+      input.scope,
+      "scope",
+    ),
     skillName: requireString(input.skillName, "skillName"),
     reason: requireString(input.reason, "reason"),
     skillContext,
@@ -314,6 +346,10 @@ export function validateApplySkillUpdate(
 
   return {
     workspace: requireWorkspace(input.workspace),
+    scope: input.scope === undefined ? undefined : requireCatalogScope(
+      input.scope,
+      "scope",
+    ),
     proposalId: requireString(input.proposalId, "proposalId"),
     confirm: true,
   };
@@ -324,6 +360,10 @@ export function validateSkillFileSyncInput(
 ): SkillFileSyncInput {
   return {
     workspace: requireWorkspace(input.workspace),
+    scope: input.scope === undefined ? undefined : requireCatalogScope(
+      input.scope,
+      "scope",
+    ),
     skillName: requireString(input.skillName, "skillName"),
     proposalId: requireString(input.proposalId, "proposalId"),
   };
@@ -465,6 +505,57 @@ function requireEntryType(value: unknown): "agent" | "skill" {
     );
   }
   return value;
+}
+
+function requireCatalogScope(value: unknown, field: string): CatalogScope {
+  if (value === "workspace" || value === "global") {
+    return value;
+  }
+  throw new LorError(
+    "validation_error",
+    `${field} must be workspace or global.`,
+    { field },
+  );
+}
+
+function requireLookupScope(entryType: unknown, scope: unknown): CatalogScope {
+  const normalized = requireCatalogScope(scope, "scope");
+  if (entryType === "agent" && normalized === "global") {
+    throw new LorError(
+      "validation_error",
+      "Agents only support workspace scope.",
+      { field: "scope" },
+    );
+  }
+  return normalized;
+}
+
+function requireListScope(
+  entryType: unknown,
+  scope: unknown,
+): CatalogScope {
+  const normalized = requireCatalogScope(scope, "scope");
+  if (entryType === "agent" && normalized === "global") {
+    throw new LorError(
+      "validation_error",
+      "Agents only support workspace scope.",
+      { field: "scope" },
+    );
+  }
+  return normalized;
+}
+
+function rejectGlobalAgentScope(input: unknown): void {
+  if (
+    typeof input === "object" && input !== null && "scope" in input &&
+    (input as { scope?: unknown }).scope === "global"
+  ) {
+    throw new LorError(
+      "validation_error",
+      "Agents only support workspace scope.",
+      { field: "scope" },
+    );
+  }
 }
 
 function requireVerificationStatus(

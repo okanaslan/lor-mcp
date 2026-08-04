@@ -26,6 +26,7 @@ Implemented in the runnable local v1:
   - `list_catalog_entries`
   - `clear_workspace_catalog`
   - `register_workspace_alias`
+  - `promote_skill_to_global`
   - `get_catalog_entry_detail`
   - `update_catalog_entry`
   - `retire_agent`
@@ -45,6 +46,9 @@ Implemented in the runnable local v1:
   - `find_matching_catalog_entry`
 - Agent and skill introduction now acts as registration. The server no longer
   requires server-local pre-verification evidence before accepting new entries.
+- Global skills can be introduced directly with `scope: "global"` or promoted
+  from workspace skills with `promote_skill_to_global`. Global skills are
+  included in list and match by default; agents remain workspace-scoped.
 - Agent replacement uses immutable session identity: new agents register as
   active records, old records can be marked retired, and matching excludes
   retired agents by default.
@@ -81,7 +85,13 @@ Latest implementation verification:
   manual server-side pre-registration.
 - [Introducing Skill](feature-specs/introducing-skill.md): Implemented for v1.
   Users can register a skill name and routing metadata without manual skill-root
-  pre-verification.
+  pre-verification. Skills can be workspace-scoped or global.
+- [Global Skill Scope](feature-specs/global-skill-scope.md): Implemented for v1.
+  Defines shared `scope: "global"` behavior for skills only, including direct
+  global skill creation, workspace skill promotion, default list/match
+  inclusion, global skill management from any workspace, and workspace-local
+  export behavior. Technical planning is tracked in
+  [Global Skill Scope](tech-specs/done/global-skill-scope.md).
 - [Find Matching Catalog Entry](feature-specs/find-matching-catalog-entry.md):
   Implemented for v1 deterministic local fuzzy matching.
 - [List Catalog Entries](feature-specs/list-catalog-entries.md): Implemented for

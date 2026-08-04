@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets a user bulk-load catalog entries into the
-requested workspace from a versioned structured JSON export.
+Implemented for v1. This feature lets a user bulk-load workspace-local catalog
+entries into the requested workspace from a versioned structured JSON export.
 
 ## 2. Goals
 
@@ -16,6 +16,7 @@ requested workspace from a versioned structured JSON export.
 - Install missing agents or skills.
 - Import entries into other initialized MCP sessions.
 - Define a public marketplace or remote registry.
+- Import directly into global skill scope.
 - Export catalog entries.
 
 ## 4. Functional Requirements
@@ -26,6 +27,8 @@ requested workspace from a versioned structured JSON export.
   introduction.
 - Imported entries must be scoped to the requested workspace, regardless of the
   source export workspace.
+- Imported skills must remain workspace-local unless a later explicit global
+  import mode is added.
 - Duplicate entries within the requested workspace must be skipped by default or
   reported as failures when `conflictStrategy` is `fail`.
 - The server must return a summary of imported, skipped, and failed entries.
@@ -62,6 +65,8 @@ Conceptual `CatalogImportResult` fields:
 
 - Import sources must be restricted to approved local or configured locations.
 - Imported entries must be scoped only to the requested workspace.
+- Import must not create or mutate global skills in the workspace-local import
+  flow.
 - Import errors must not expose sensitive filesystem paths or unrelated session
   data.
 
@@ -77,3 +82,5 @@ Conceptual `CatalogImportResult` fields:
 - 2026-07-17: V1 imports the `export_catalog` JSON object through
   `import_catalog`; duplicate existing entries are skipped by default or
   reported when `conflictStrategy` is `fail`.
+- 2026-08-04: Plan to keep normal imports workspace-local and defer explicit
+  global import behavior.

@@ -2,15 +2,16 @@
 
 ## 1. Summary
 
-Implemented for v1 metadata-only catalog health reporting. This feature defines
-how Local Orchestration Router (LOR) reports stored verification metadata for
-introduced Codex agents and Codex skills after they have already been registered
-in the workspace catalog.
+Implemented for v1 metadata-only catalog health reporting; planned to include
+global skills. This feature defines how Local Orchestration Router (LOR) reports
+stored verification metadata for introduced Codex agents and Codex skills after
+they have already been registered in the catalog.
 
 ## 2. Goals
 
 - Reduce stale or invalid catalog entries.
-- Report introduced agent and skill health from stored verification metadata.
+- Report introduced agent, workspace skill, and global skill health from stored
+  verification metadata.
 - Keep health reporting separate from normal introduction.
 
 ## 3. Non-Goals
@@ -26,6 +27,7 @@ in the workspace catalog.
 
 - The server must expose `check_catalog_health`.
 - The server must report catalog health scoped to the requested workspace.
+- The server must include global skills in health reporting where relevant.
 - The caller may filter health by entry type, project name, or one entry key
   when an entry type is provided.
 - Verification must produce a clear verified, unverified, or unknown result.
@@ -34,6 +36,8 @@ in the workspace catalog.
   entries in v1.
 - Health checks must not mutate stored verification metadata.
 - Health reporting must not expose entries from other workspaces.
+- Health reporting may expose global skills because they are intentionally
+  shared.
 
 ## 5. User Stories / Use Cases
 
@@ -63,6 +67,8 @@ Conceptual `VerificationResult` fields:
 
 - Verification must not disclose unrelated workspace data or hidden catalog
   entries.
+- Verification may disclose global skill metadata because global skills are
+  intentionally shared across workspaces.
 - V1 health uses stored metadata only, so it must not inspect or expose local
   filesystem paths.
 
@@ -81,3 +87,4 @@ Conceptual `VerificationResult` fields:
   not be required for registration.
 - 2026-07-17: Implement v1 as read-only `check_catalog_health` reporting from
   stored verification metadata only.
+- 2026-08-04: Implement health reporting support for shared global skills.

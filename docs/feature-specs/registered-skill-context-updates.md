@@ -2,10 +2,10 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets agents propose and apply improvements to
-the context stored for a registered skill in Local Orchestration Router (LOR).
-It updates LOR catalog data only and does not read, write, or sync local
-`SKILL.md` files.
+Implemented for v1, including explicitly targeted global skills. This feature
+lets agents propose and apply improvements to the context stored for a
+registered skill in Local Orchestration Router (LOR). It updates LOR catalog
+data only and does not read, write, or sync local `SKILL.md` files.
 
 ## 2. Goals
 
@@ -13,8 +13,8 @@ It updates LOR catalog data only and does not read, write, or sync local
   guidance.
 - Require explicit approval before applying skill context updates.
 - Persist update proposals across MCP reconnects and server restarts.
-- Keep skill context workspace-scoped and available through catalog detail,
-  matching, import, and export flows.
+- Keep skill context available through catalog detail, matching, import/export,
+  and global skill flows where applicable.
 
 ## 3. Non-Goals
 
@@ -37,6 +37,8 @@ It updates LOR catalog data only and does not read, write, or sync local
   catalog metadata.
 - Applied proposals must not be applied again.
 - Proposal creation and application must be isolated by resolved workspace.
+- Proposal creation and application must support explicitly targeted global
+  skills.
 
 ## 5. User Stories / Use Cases
 
@@ -55,6 +57,7 @@ Skill update proposals include:
 
 - `proposalId`
 - `workspace`
+- `scope`: `workspace` or `global`
 - `skillName`
 - `reason`
 - optional proposed `skillContext`
@@ -76,6 +79,8 @@ Skill update proposals include:
 
 - V1 must not read, write, or infer local skill file paths.
 - Skill context updates must remain scoped to the resolved workspace.
+- Skill context updates may target global skills explicitly, and global updates
+  are intentionally visible across workspaces.
 - Applying a proposal is an important action and must require explicit
   confirmation.
 
@@ -92,3 +97,4 @@ Skill update proposals include:
 - 2026-07-19: Persist proposals in SQLite so approval can survive reconnects.
 - 2026-07-19: Add Local Skill Sync as a separate follow-up workflow for writing
   applied skill context into local `SKILL.md` files.
+- 2026-08-04: Implement stored skill context update support for global skills.

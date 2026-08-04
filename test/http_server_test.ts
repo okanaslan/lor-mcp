@@ -60,6 +60,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "list_catalog_entries",
       "clear_workspace_catalog",
       "register_workspace_alias",
+      "promote_skill_to_global",
       "get_catalog_entry_detail",
       "update_catalog_entry",
       "retire_agent",
@@ -419,6 +420,7 @@ Deno.test("HTTP MCP handler calls remove_catalog_entry", async () => {
     assertEquals(body.result.structuredContent.status, "ok");
     assertEquals(body.result.structuredContent.data, {
       workspace: "LOR-MCP",
+      scope: "workspace",
       entryType: "skill",
       entryKey: "backend-skill",
       removed: true,

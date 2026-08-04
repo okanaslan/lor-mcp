@@ -4,6 +4,7 @@ import type { CatalogEntry } from "@src/catalog/types.ts";
 
 const baseEntry = {
   workspace: "LOR-MCP",
+  scope: "workspace",
   projectName: "Local Orchestration Router (LOR)",
   specialtyTags: ["routing", "mcp"],
   verificationStatus: "verified",

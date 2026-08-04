@@ -106,6 +106,7 @@ function skillEntry(
 ): SkillCatalogEntry {
   return {
     workspace: "LOR-MCP",
+    scope: "workspace",
     entryType: "skill",
     entryKey: "backend-skill",
     skillName: "backend-skill",

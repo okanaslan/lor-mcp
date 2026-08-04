@@ -2,9 +2,10 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets Local Orchestration Router (LOR) evaluate
-a user request and return matching introduced agents and skills from the
-requested workspace.
+Implemented for v1, including shared global skills by default. This feature lets
+Local Orchestration Router (LOR) evaluate a user request and return matching
+introduced agents and skills from the requested workspace plus shared global
+skills.
 
 ## 2. Goals
 
@@ -17,14 +18,16 @@ requested workspace.
 - Introduce new agents or skills.
 - Modify catalog entries.
 - Define final ranking weights for every possible specialty.
-- Search catalog entries outside the requested workspace.
+- Search agents outside the requested workspace.
 
 ## 4. Functional Requirements
 
 - The server must accept a matching request that describes the user task.
 - The request must include the client workspace path, registered alias, or
   stable workspace slug.
-- The server must match only catalog entries scoped to the requested workspace.
+- The server must match agents only from the requested workspace.
+- The server must match skills from the requested workspace and shared global
+  skill scope by default.
 - The server must consider project name, display name, primary specialty, and
   specialty tags.
 - The server must consider registered skill context when present, including
@@ -37,6 +40,8 @@ requested workspace.
   ambiguous under the Conflict Handling feature.
 - Skills must remain ranked and must not create conflicts in v1.
 - The server must not return entries from another workspace.
+- The server may return global skill entries because they are intentionally
+  shared across workspaces.
 
 ## 5. User Stories / Use Cases
 
@@ -72,6 +77,8 @@ Conceptual `CatalogMatchResult` fields:
 
 - Matching must only inspect catalog entries in the requested workspace.
 - No-match and conflict responses must not reveal entries from other workspaces.
+- No-match and conflict responses may include global skill absence or matches,
+  but must not reveal workspace-local entries from unrelated workspaces.
 
 ## 9. Open Questions
 
@@ -89,3 +96,5 @@ Conceptual `CatalogMatchResult` fields:
 - 2026-07-19: Implement skill-context-aware matching for registered skills.
 - 2026-07-26: Implement agents-only conflict handling for near-equal top agent
   recommendations.
+- 2026-08-04: Implement matching to include global skills by default while
+  keeping agents workspace-only.

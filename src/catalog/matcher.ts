@@ -120,6 +120,7 @@ function scoreEntry(
     ?.field;
 
   return {
+    scope: entry.scope,
     entryType: entry.entryType,
     entryKey: entry.entryKey,
     displayName: entry.displayName,

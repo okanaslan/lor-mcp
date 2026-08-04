@@ -35,6 +35,8 @@ import {
   type PreviewSkillFileSyncToolInput,
   previewWorkspaceCatalogSyncInputSchema,
   type PreviewWorkspaceCatalogSyncToolInput,
+  promoteSkillToGlobalInputSchema,
+  type PromoteSkillToGlobalToolInput,
   proposeSkillUpdateInputSchema,
   type ProposeSkillUpdateToolInput,
   registerWorkspaceAliasInputSchema,
@@ -180,6 +182,36 @@ export function registerCatalogTools(
           return okResult(
             result,
             `Registered workspace alias ${result.alias}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "promote_skill_to_global",
+    {
+      description:
+        "Copy one workspace skill into global skill scope without removing the source skill.",
+      inputSchema: promoteSkillToGlobalInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    (input: PromoteSkillToGlobalToolInput) =>
+      withLoggedRuntime(
+        "promote_skill_to_global",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.promoteSkillToGlobal(input);
+          return okResult(
+            result,
+            `Promoted skill ${result.globalSkill.displayName} to global scope.`,
           );
         },
       ),

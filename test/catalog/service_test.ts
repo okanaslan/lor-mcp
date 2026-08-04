@@ -62,6 +62,199 @@ Deno.test("CatalogService introduces skills without skill root pre-registration"
   }
 });
 
+Deno.test("CatalogService introduces global skills and lists them from any workspace", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const created = await service.introduceSkill({
+      workspace: "LOR-MCP",
+      scope: "global",
+      skillName: "backend-skill",
+      projectName: "Global Backend",
+      displayName: "Global Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const entries = await service.listEntries({ workspace: "Other-Project" });
+    const match = await service.findMatchingEntries({
+      workspace: "Other-Project",
+      task: "backend api change",
+      preferredType: "skill",
+    });
+
+    assertEquals(created.entryType, "skill");
+    if (created.entryType === "skill") {
+      assertEquals(created.scope, "global");
+    }
+    assertEquals(entries.map((entry) => entry.entryKey), ["backend-skill"]);
+    assertEquals(entries[0]?.entryType, "skill");
+    if (entries[0]?.entryType === "skill") {
+      assertEquals(entries[0].scope, "global");
+    }
+    assertEquals(match.status, "ok");
+    assertEquals(match.data.skills[0]?.entryKey, "backend-skill");
+    assertEquals(match.data.skills[0]?.scope, "global");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService allows workspace and global skills with the same name", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Workspace Backend",
+      displayName: "Workspace Backend Skill",
+      primarySpecialty: "workspace backend api",
+      specialtyTags: ["workspace"],
+    });
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      scope: "global",
+      skillName: "backend-skill",
+      projectName: "Global Backend",
+      displayName: "Global Backend Skill",
+      primarySpecialty: "global backend api",
+      specialtyTags: ["global"],
+    });
+
+    const entries = await service.listEntries({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+    });
+    const globalDetail = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      entryKey: "backend-skill",
+      scope: "global",
+    });
+
+    assertEquals(
+      entries.map((entry) =>
+        entry.entryType === "skill" ? `${entry.scope}:${entry.entryKey}` : ""
+      ).sort(),
+      ["global:backend-skill", "workspace:backend-skill"],
+    );
+    assertEquals(globalDetail?.entryType, "skill");
+    if (globalDetail?.entryType === "skill") {
+      assertEquals(globalDetail.scope, "global");
+      assertEquals(globalDetail.displayName, "Global Backend Skill");
+    }
+    await assertRejects(
+      () =>
+        service.getEntryDetail({
+          workspace: "LOR-MCP",
+          entryType: "skill",
+          entryKey: "backend-skill",
+        }),
+      Error,
+      "scope is required",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService promotes workspace skills to global without removing source", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+      skillContext: {
+        whenToUse: "Use for backend MCP changes.",
+      },
+    });
+
+    const result = await service.promoteSkillToGlobal({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+    });
+    const entries = await service.listEntries({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+    });
+
+    assertEquals(result.workspace, "LOR-MCP");
+    assertEquals(result.sourceSkill.scope, "workspace");
+    assertEquals(result.globalSkill.scope, "global");
+    assertEquals(
+      result.globalSkill.skillContext?.whenToUse,
+      "Use for backend MCP changes.",
+    );
+    assertEquals(entries.length, 2);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService keeps export sync and clear workspace-local for global skills", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "Source",
+      skillName: "workspace-skill",
+      projectName: "Source Project",
+      displayName: "Workspace Skill",
+      primarySpecialty: "workspace backend",
+      specialtyTags: ["workspace"],
+    });
+    await service.introduceSkill({
+      workspace: "Source",
+      scope: "global",
+      skillName: "global-skill",
+      projectName: "Global Project",
+      displayName: "Global Skill",
+      primarySpecialty: "global backend",
+      specialtyTags: ["global"],
+    });
+
+    const exported = await service.exportCatalog({
+      workspace: "Source",
+      entryType: "skill",
+    });
+    const preview = await service.previewWorkspaceCatalogSync({
+      sourceWorkspace: "Source",
+      targetWorkspace: "Target",
+    });
+    const cleared = await service.clearWorkspaceCatalog({
+      workspace: "Source",
+      entryType: "skill",
+      confirm: true,
+    });
+    const sourceEntries = await service.listEntries({
+      workspace: "Source",
+      entryType: "skill",
+    });
+
+    assertEquals(
+      exported.entries.map((entry) =>
+        entry.entryType === "skill" ? entry.skillName : ""
+      ),
+      ["workspace-skill"],
+    );
+    assertEquals(
+      preview.skillsToCopy.map((entry) => entry.skillName),
+      ["workspace-skill"],
+    );
+    assertEquals(cleared.deletedSkills, 1);
+    assertEquals(
+      sourceEntries.map((entry) =>
+        entry.entryType === "skill" ? `${entry.scope}:${entry.skillName}` : ""
+      ),
+      ["global:global-skill"],
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService resolves workspace aliases across catalog operations", async () => {
   const { repo, service } = await createCatalogService();
   const workspace = "/Users/ablo/Developer/GitHub/okanaslan/Agentic-Router";
@@ -595,6 +788,58 @@ Deno.test("CatalogService skill update proposals do not cross workspaces", async
   }
 });
 
+Deno.test("CatalogService applies and previews updates for global skills", async () => {
+  const { root } = await createSkillFileForService("backend-skill");
+  const { repo, service } = await createCatalogService({ skillRoots: [root] });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      scope: "global",
+      skillName: "backend-skill",
+      projectName: "Global Backend",
+      displayName: "Global Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "Other-Workspace",
+      scope: "global",
+      skillName: "backend-skill",
+      reason: "Improve global context.",
+      skillContext: {
+        whenToUse: "Use for shared backend API work.",
+      },
+    });
+    const applied = await service.applySkillUpdate({
+      workspace: "Other-Workspace",
+      scope: "global",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+    const preview = await service.previewSkillFileSync({
+      workspace: "LOR-MCP",
+      scope: "global",
+      skillName: "backend-skill",
+      proposalId: proposal.proposal.proposalId,
+    });
+
+    assertEquals(proposal.proposal.scope, "global");
+    assertEquals(applied.after.scope, "global");
+    assertEquals(
+      applied.after.skillContext?.whenToUse,
+      "Use for shared backend API work.",
+    );
+    assertEquals(preview.workspace, "LOR-MCP");
+    assertEquals(preview.wouldChange, true);
+    assertEquals(
+      preview.renderedSection.includes("Use for shared backend API work."),
+      true,
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService previews skill file sync only for applied proposals", async () => {
   const { root, file } = await createSkillFileForService("backend-skill");
   const { repo, service } = await createCatalogService({ skillRoots: [root] });
@@ -867,6 +1112,7 @@ Deno.test("CatalogService removes catalog entries from detail and match results"
 
     assertEquals(result, {
       workspace: "LOR-MCP",
+      scope: "workspace",
       entryType: "skill",
       entryKey: "backend-skill",
       removed: true,
@@ -1335,6 +1581,7 @@ Deno.test("CatalogService filters catalog health by type project and entry key",
     assertEquals(report.filters, {
       entryType: "skill",
       projectName: "Local Orchestration Router (LOR)",
+      scope: undefined,
       entryKey: "backend-skill",
     });
     assertEquals(report.summary, {

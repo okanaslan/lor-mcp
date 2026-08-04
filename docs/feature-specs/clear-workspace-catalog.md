@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets a caller clear introduced catalog entries
-from one requested workspace.
+Implemented for v1. This feature lets a caller clear introduced workspace-local
+catalog entries from one requested workspace.
 
 ## 2. Goals
 
@@ -18,6 +18,7 @@ from one requested workspace.
 - Delete underlying Codex agent sessions.
 - Delete underlying Codex skill files.
 - Clear entries from other workspaces.
+- Clear shared global skills.
 - Remove one specific catalog entry.
 - Add restore, archive, or undo behavior.
 
@@ -35,6 +36,7 @@ from one requested workspace.
   the requested workspace.
 - When `entryType` is `skill`, the server must delete only introduced skills for
   the requested workspace.
+- Clearing a workspace must not delete global skills.
 - Clearing an empty workspace must succeed with zero deleted counts.
 - Cleared entries must no longer appear in list, detail, or matching results.
 - The operation must never delete catalog entries from another workspace.
@@ -73,6 +75,7 @@ Output data:
 ## 8. Security and Permissions
 
 - Clearing must filter every delete by the requested workspace.
+- Clearing must not delete global skill records.
 - Clearing must delete only catalog rows, not files or external Codex state.
 - The response must report only counts for the requested workspace.
 
@@ -88,3 +91,5 @@ Output data:
   maintenance tool.
 - 2026-07-13: Require `confirm: true` and keep single-entry removal as a
   separate future feature.
+- 2026-08-04: Keep workspace clear scoped to workspace-local entries even after
+  global skills are added.

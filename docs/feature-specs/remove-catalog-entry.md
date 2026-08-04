@@ -2,19 +2,23 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets a user remove an introduced agent or skill
-from the requested workspace.
+Implemented for v1, including explicitly targeted shared global skills. This
+feature lets a user remove an introduced agent or skill from the requested
+workspace, or remove a shared global skill when explicitly targeted.
 
 ## 2. Goals
 
 - Allow users to delete catalog entries they no longer want routed.
 - Keep removal scoped to the requested workspace.
+- Allow global skill removal from any workspace context when global scope is
+  explicitly targeted.
 - Preserve simple behavior for missing entries.
 
 ## 3. Non-Goals
 
 - Delete the underlying Codex agent session.
-- Delete the underlying Codex skill from disk or global skill storage.
+- Delete the underlying Codex skill from disk.
+- Delete the underlying Codex skill from disk.
 - Remove entries from other workspaces.
 - Clear the entire workspace catalog.
 - Implement restore or archival behavior.
@@ -25,10 +29,13 @@ from the requested workspace.
 - The request must include the client workspace path, registered alias, or
   stable workspace slug.
 - The server must remove only entries scoped to the requested workspace.
+- The server must support removing global skills when global scope is explicitly
+  targeted.
 - The server must support removing introduced agents and introduced skills.
 - The server must return a success result when an entry is removed.
 - The server must return a not-found result when the entry does not exist in the
   active session.
+- Removing a global skill must remove it from results in every workspace.
 - Removed entries must no longer appear in list, detail, or matching results.
 - Removing a catalog entry must not affect the underlying external Codex agent
   or skill.
@@ -44,6 +51,7 @@ Conceptual `CatalogEntryRemoval` fields:
 
 - `entryType`: identifies `agent` or `skill`.
 - `entryKey`: identifies the entry to remove.
+- `scope`: optionally identifies `workspace` or `global` for skill removal.
 
 ## 7. Error Handling
 
@@ -56,8 +64,11 @@ Conceptual `CatalogEntryRemoval` fields:
 ## 8. Security and Permissions
 
 - Removal must only affect entries in the requested workspace.
+- Removal may affect explicitly targeted global skills.
 - Not-found responses must not reveal whether the same identifier exists in
   another workspace.
+- Removing a global skill is intentionally visible to all workspaces that used
+  that skill.
 
 ## 9. Open Questions
 
@@ -69,3 +80,4 @@ Conceptual `CatalogEntryRemoval` fields:
   agent or skill.
 - 2026-07-11: Restore behavior is out of scope.
 - 2026-07-17: V1 remove is not idempotent; missing entries return `not_found`.
+- 2026-08-04: Implement explicit global skill removal support.

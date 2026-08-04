@@ -365,6 +365,7 @@ Deno.test("SqliteCatalogRepository persists skill update proposals across restar
     await firstRepo.createSkillUpdateProposal({
       proposalId: "proposal-1",
       workspace: "workspace-a",
+      scope: "workspace",
       skillName: "backend-skill",
       reason: "Add routing guidance.",
       proposedSkillContext: {
@@ -406,6 +407,7 @@ Deno.test("SqliteCatalogRepository applies skill update proposals", async () => 
     await repo.createSkillUpdateProposal({
       proposalId: "proposal-1",
       workspace: "workspace-a",
+      scope: "workspace",
       skillName: "backend-skill",
       reason: "Add routing guidance.",
       proposedSkillContext: {
@@ -418,10 +420,12 @@ Deno.test("SqliteCatalogRepository applies skill update proposals", async () => 
     const applied = await repo.applySkillUpdateProposal(
       "workspace-a",
       "proposal-1",
+      "workspace",
       {
         appliedAt: "2026-07-12T01:00:00.000Z",
         entry: {
           workspace: "workspace-a",
+          scope: "workspace",
           entryType: "skill",
           entryKey: "backend-skill",
           skillName: "backend-skill",
@@ -448,6 +452,7 @@ Deno.test("SqliteCatalogRepository applies skill update proposals", async () => 
     const secondApply = await repo.applySkillUpdateProposal(
       "workspace-a",
       "proposal-1",
+      "workspace",
       {
         appliedAt: "2026-07-12T02:00:00.000Z",
         entry: skill as never,

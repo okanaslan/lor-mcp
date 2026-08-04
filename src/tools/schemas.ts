@@ -1,6 +1,7 @@
 import * as z from "zod/v4";
 
 export const entryTypeSchema = z.enum(["agent", "skill"]);
+export const catalogScopeSchema = z.enum(["workspace", "global"]);
 export const agentStatusSchema = z.enum(["active", "retired"]);
 
 export const handoffSchema = z.object({
@@ -15,6 +16,7 @@ export const workspaceSchema = z.string().trim().min(1);
 
 export const introduceAgentInputSchema = z.object({
   workspace: workspaceSchema,
+  scope: z.literal("workspace").optional(),
   codexSessionId: z.string().trim().min(1),
   projectName: z.string().trim().min(1),
   displayName: z.string().trim().min(1),
@@ -26,6 +28,7 @@ export const introduceAgentInputSchema = z.object({
 
 export const introduceSkillInputSchema = z.object({
   workspace: workspaceSchema,
+  scope: catalogScopeSchema.optional(),
   skillName: z.string().trim().min(1),
   projectName: z.string().trim().min(1),
   displayName: z.string().trim().min(1),
@@ -53,7 +56,14 @@ export const listCatalogEntriesInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema.optional(),
   projectName: z.string().trim().min(1).optional(),
-});
+  scope: catalogScopeSchema.optional(),
+}).refine(
+  (input) => !(input.entryType === "agent" && input.scope === "global"),
+  {
+    message: "Agents only support workspace scope.",
+    path: ["scope"],
+  },
+);
 
 export const clearWorkspaceCatalogInputSchema = z.object({
   workspace: workspaceSchema,
@@ -71,17 +81,31 @@ export const getCatalogEntryDetailInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema,
   entryKey: z.string().trim().min(1),
-});
+  scope: catalogScopeSchema.optional(),
+}).refine(
+  (input) => !(input.entryType === "agent" && input.scope === "global"),
+  {
+    message: "Agents only support workspace scope.",
+    path: ["scope"],
+  },
+);
 
 export const updateCatalogEntryInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema,
   entryKey: z.string().trim().min(1),
+  scope: catalogScopeSchema.optional(),
   projectName: z.string().trim().min(1).optional(),
   displayName: z.string().trim().min(1).optional(),
   primarySpecialty: z.string().trim().min(1).optional(),
   specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
 }).refine(
+  (input) => !(input.entryType === "agent" && input.scope === "global"),
+  {
+    message: "Agents only support workspace scope.",
+    path: ["scope"],
+  },
+).refine(
   (input) =>
     input.projectName !== undefined ||
     input.displayName !== undefined ||
@@ -92,6 +116,11 @@ export const updateCatalogEntryInputSchema = z.object({
     path: ["update"],
   },
 );
+
+export const promoteSkillToGlobalInputSchema = z.object({
+  workspace: workspaceSchema,
+  skillName: z.string().trim().min(1),
+});
 
 export const retireAgentInputSchema = z.object({
   workspace: workspaceSchema,
@@ -137,6 +166,7 @@ const skillMetadataUpdateSchema = z.object({
 
 export const proposeSkillUpdateInputSchema = z.object({
   workspace: workspaceSchema,
+  scope: catalogScopeSchema.optional(),
   skillName: z.string().trim().min(1),
   reason: z.string().trim().min(1),
   skillContext: skillContextSchema.optional(),
@@ -151,12 +181,14 @@ export const proposeSkillUpdateInputSchema = z.object({
 
 export const applySkillUpdateInputSchema = z.object({
   workspace: workspaceSchema,
+  scope: catalogScopeSchema.optional(),
   proposalId: z.string().trim().min(1),
   confirm: z.literal(true),
 });
 
 export const previewSkillFileSyncInputSchema = z.object({
   workspace: workspaceSchema,
+  scope: catalogScopeSchema.optional(),
   skillName: z.string().trim().min(1),
   proposalId: z.string().trim().min(1),
 });
@@ -170,7 +202,14 @@ export const removeCatalogEntryInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema,
   entryKey: z.string().trim().min(1),
-});
+  scope: catalogScopeSchema.optional(),
+}).refine(
+  (input) => !(input.entryType === "agent" && input.scope === "global"),
+  {
+    message: "Agents only support workspace scope.",
+    path: ["scope"],
+  },
+);
 
 export const exportCatalogInputSchema = z.object({
   workspace: workspaceSchema,
@@ -252,11 +291,18 @@ export const checkCatalogHealthInputSchema = z.object({
   entryType: entryTypeSchema.optional(),
   projectName: z.string().trim().min(1).optional(),
   entryKey: z.string().trim().min(1).optional(),
+  scope: catalogScopeSchema.optional(),
 }).refine(
   (input) => input.entryKey === undefined || input.entryType !== undefined,
   {
     message: "entryType is required when entryKey is provided.",
     path: ["entryType"],
+  },
+).refine(
+  (input) => !(input.entryType === "agent" && input.scope === "global"),
+  {
+    message: "Agents only support workspace scope.",
+    path: ["scope"],
   },
 );
 
@@ -303,6 +349,9 @@ export type ClearWorkspaceCatalogToolInput = z.infer<
 >;
 export type RegisterWorkspaceAliasToolInput = z.infer<
   typeof registerWorkspaceAliasInputSchema
+>;
+export type PromoteSkillToGlobalToolInput = z.infer<
+  typeof promoteSkillToGlobalInputSchema
 >;
 export type GetCatalogEntryDetailToolInput = z.infer<
   typeof getCatalogEntryDetailInputSchema

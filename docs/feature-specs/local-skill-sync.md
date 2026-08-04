@@ -2,14 +2,16 @@
 
 ## 1. Summary
 
-Implemented for v1. Local Skill Sync writes approved registered skill context
-back to a local skill's `SKILL.md` file. It is separate from stored catalog
-updates and only writes a clearly delimited LOR-managed section after explicit
-confirmation.
+Implemented for v1, including explicitly targeted global skills. Local Skill
+Sync writes approved registered skill context back to a local skill's `SKILL.md`
+file. It is separate from stored catalog updates and only writes a clearly
+delimited LOR-managed section after explicit confirmation.
 
 ## 2. Goals
 
 - Let approved registered skill context updates improve local skill files.
+- Let approved global skill context updates improve local skill files through
+  the same managed-section workflow.
 - Keep local file writes approval-gated and narrowly scoped.
 - Resolve skill files only from configured server-owned skill roots.
 - Preserve the rest of `SKILL.md` without rewriting the full file.
@@ -31,10 +33,14 @@ confirmation.
   - `workspace`
   - `skillName`
   - `proposalId`
+- Both tools may accept skill `scope` so callers can target a global skill when
+  a workspace skill has the same name.
 - `apply_skill_file_sync` must also require `confirm: true`.
 - The referenced proposal must exist, belong to `skillName`, and have
   `status: "applied"`.
 - The registered skill must have stored `skillContext`.
+- Global skills must use the same `skillName/SKILL.md` local file resolution as
+  workspace skills.
 - The local skill file must resolve as `skillName/SKILL.md` under configured
   skill roots.
 - `skillName` must be treated as a registered skill name, not a path.
@@ -91,6 +97,8 @@ pass file paths through MCP tool input.
 - V1 must not expose resolved absolute skill file paths in normal tool output.
 - V1 must write only after `confirm: true`.
 - V1 must update only the LOR-managed section.
+- Global skill sync is intentionally shared catalog behavior, but the local file
+  write still affects only the resolved local skill file.
 - Deno runtime env permissions must include `LOR_SKILL_ROOTS` when used.
 
 ## 9. Decision Log
@@ -99,3 +107,5 @@ pass file paths through MCP tool input.
   stored skill context proposals are applied.
 - 2026-07-19: Use a delimited managed Markdown section instead of rewriting the
   whole `SKILL.md` file.
+- 2026-08-04: Implement local skill sync support for global skills using the
+  same managed section and configured skill roots.

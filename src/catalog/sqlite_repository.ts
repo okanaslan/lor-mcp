@@ -5,6 +5,7 @@ import type {
   CatalogEntry,
   CatalogEntryUpdate,
   CatalogRepository,
+  CatalogScope,
   ClearWorkspaceCatalogInput,
   ClearWorkspaceCatalogResult,
   EntryLookup,
@@ -80,6 +81,9 @@ interface WorkspaceAliasRow {
   createdAt: string;
   updatedAt: string;
 }
+
+const GLOBAL_SKILL_WORKSPACE = "__lor_global_skills__";
+const PUBLIC_GLOBAL_WORKSPACE = "global";
 
 export class SqliteCatalogRepository implements CatalogRepository {
   #db: Database | undefined;
@@ -176,11 +180,14 @@ export class SqliteCatalogRepository implements CatalogRepository {
     },
   ): Promise<SkillCatalogEntry> {
     const db = this.requireDb();
+    const storageWorkspace = skillStorageWorkspace(workspace, input.scope);
     const insert = db.transaction(() => {
-      if (this.skillExists(workspace, input.skillName)) {
+      if (this.skillExists(storageWorkspace, input.skillName)) {
         throw new LorError(
           "duplicate_entry",
-          "Skill already exists in this workspace.",
+          input.scope === "global"
+            ? "Skill already exists in global scope."
+            : "Skill already exists in this workspace.",
           { entryType: "skill" },
         );
       }
@@ -192,7 +199,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
           verificationSource, verifiedAt, verificationMessage, createdAt,
           updatedAt
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        workspace,
+        storageWorkspace,
         input.skillName,
         input.projectName,
         input.displayName,
@@ -214,6 +221,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         workspace,
         entryType: "skill",
         entryKey: input.skillName,
+        scope: input.scope ?? "workspace",
       });
       return created as SkillCatalogEntry;
     } catch (error) {
@@ -225,6 +233,10 @@ export class SqliteCatalogRepository implements CatalogRepository {
     input: SkillUpdateProposal,
   ): Promise<SkillUpdateProposal> {
     const db = this.requireDb();
+    const storageWorkspace = skillStorageWorkspace(
+      input.workspace,
+      input.scope,
+    );
     try {
       db.exec(
         `INSERT INTO skill_update_proposals (
@@ -232,7 +244,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
           proposedMetadata, status, createdAt, appliedAt
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         input.proposalId,
-        input.workspace,
+        storageWorkspace,
         input.skillName,
         input.reason,
         input.proposedSkillContext
@@ -243,7 +255,10 @@ export class SqliteCatalogRepository implements CatalogRepository {
         input.createdAt,
         input.appliedAt ?? null,
       );
-      return Promise.resolve(input);
+      return Promise.resolve({
+        ...input,
+        workspace: publicSkillWorkspace(storageWorkspace),
+      });
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -252,25 +267,32 @@ export class SqliteCatalogRepository implements CatalogRepository {
   getSkillUpdateProposal(
     workspace: string,
     proposalId: string,
+    scope?: CatalogScope,
   ): Promise<SkillUpdateProposal | undefined> {
+    const storageWorkspace = skillStorageWorkspace(workspace, scope);
     const row = this.requireDb().prepare<SkillUpdateProposalRow>(
       `SELECT * FROM skill_update_proposals
        WHERE workspace = ? AND proposalId = ?`,
-    ).get(workspace, proposalId);
+    ).get(storageWorkspace, proposalId);
     return Promise.resolve(row ? mapSkillUpdateProposalRow(row) : undefined);
   }
 
   applySkillUpdateProposal(
     workspace: string,
     proposalId: string,
+    scope: CatalogScope | undefined,
     input: {
       entry: SkillCatalogEntry;
       appliedAt: string;
     },
   ): Promise<SkillUpdateProposal | undefined> {
     const db = this.requireDb();
+    const storageWorkspace = skillStorageWorkspace(workspace, scope);
     const apply = db.transaction(() => {
-      const proposal = this.getSkillUpdateProposalSync(workspace, proposalId);
+      const proposal = this.getSkillUpdateProposalSync(
+        storageWorkspace,
+        proposalId,
+      );
       if (!proposal || proposal.status !== "pending") {
         return undefined;
       }
@@ -288,7 +310,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
           ? JSON.stringify(input.entry.skillContext)
           : null,
         input.appliedAt,
-        workspace,
+        storageWorkspace,
         input.entry.skillName,
       );
       db.exec(
@@ -297,11 +319,11 @@ export class SqliteCatalogRepository implements CatalogRepository {
          WHERE workspace = ? AND proposalId = ?`,
         "applied",
         input.appliedAt,
-        workspace,
+        storageWorkspace,
         proposalId,
       );
 
-      return this.getSkillUpdateProposalSync(workspace, proposalId);
+      return this.getSkillUpdateProposalSync(storageWorkspace, proposalId);
     });
 
     try {
@@ -317,10 +339,14 @@ export class SqliteCatalogRepository implements CatalogRepository {
   ): Promise<CatalogEntry[]> {
     const entries: CatalogEntry[] = [];
     if (!filter.entryType || filter.entryType === "agent") {
-      entries.push(...this.listAgents(workspace, filter.projectName));
+      if (filter.scope !== "global") {
+        entries.push(...this.listAgents(workspace, filter.projectName));
+      }
     }
     if (!filter.entryType || filter.entryType === "skill") {
-      entries.push(...this.listSkills(workspace, filter.projectName));
+      entries.push(
+        ...this.listSkills(workspace, filter.projectName, filter.scope),
+      );
     }
     return Promise.resolve(
       entries.sort((a, b) =>
@@ -363,6 +389,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
           input.entryKey,
         );
       } else {
+        const storageWorkspace = skillStorageWorkspace(workspace, input.scope);
         db.exec(
           `UPDATE introduced_skills
            SET projectName = ?, displayName = ?, primarySpecialty = ?,
@@ -373,7 +400,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
           input.primarySpecialty ?? existing.primarySpecialty,
           JSON.stringify(input.specialtyTags ?? existing.specialtyTags),
           input.now,
-          workspace,
+          storageWorkspace,
           input.entryKey,
         );
       }
@@ -451,10 +478,14 @@ export class SqliteCatalogRepository implements CatalogRepository {
           lookup.entryKey,
         );
       } else {
+        const storageWorkspace = skillStorageWorkspace(
+          workspace,
+          lookup.scope,
+        );
         db.exec(
           `DELETE FROM introduced_skills
            WHERE workspace = ? AND skillName = ?`,
-          workspace,
+          storageWorkspace,
           lookup.entryKey,
         );
       }
@@ -484,7 +515,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
     const row = this.requireDb().prepare<SkillRow>(
       `SELECT * FROM introduced_skills
        WHERE workspace = ? AND skillName = ?`,
-    ).get(workspace, lookup.entryKey);
+    ).get(skillStorageWorkspace(workspace, lookup.scope), lookup.entryKey);
     return row ? mapSkillRow(row) : undefined;
   }
 
@@ -622,15 +653,18 @@ export class SqliteCatalogRepository implements CatalogRepository {
   private listSkills(
     workspace: string,
     projectName?: string,
+    scope?: CatalogScope,
   ): SkillCatalogEntry[] {
     const db = this.requireDb();
+    const workspaces = skillListStorageWorkspaces(workspace, scope);
     const sql = projectName
       ? `SELECT * FROM introduced_skills
-         WHERE workspace = ? AND projectName = ?`
-      : `SELECT * FROM introduced_skills WHERE workspace = ?`;
+         WHERE workspace IN (${placeholders(workspaces)}) AND projectName = ?`
+      : `SELECT * FROM introduced_skills
+         WHERE workspace IN (${placeholders(workspaces)})`;
     const rows = projectName
-      ? db.prepare<SkillRow>(sql).all(workspace, projectName)
-      : db.prepare<SkillRow>(sql).all(workspace);
+      ? db.prepare<SkillRow>(sql).all(...workspaces, projectName)
+      : db.prepare<SkillRow>(sql).all(...workspaces);
     return rows.map(mapSkillRow);
   }
 
@@ -738,6 +772,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
 function mapAgentRow(row: AgentRow): AgentCatalogEntry {
   return {
     workspace: row.workspace,
+    scope: "workspace",
     entryType: "agent",
     entryKey: row.codexSessionId,
     codexSessionId: row.codexSessionId,
@@ -762,7 +797,8 @@ function mapAgentRow(row: AgentRow): AgentCatalogEntry {
 
 function mapSkillRow(row: SkillRow): SkillCatalogEntry {
   return {
-    workspace: row.workspace,
+    workspace: publicSkillWorkspace(row.workspace),
+    scope: skillScopeFromStorage(row.workspace),
     entryType: "skill",
     entryKey: row.skillName,
     skillName: row.skillName,
@@ -785,7 +821,8 @@ function mapSkillUpdateProposalRow(
 ): SkillUpdateProposal {
   return {
     proposalId: row.proposalId,
-    workspace: row.workspace,
+    workspace: publicSkillWorkspace(row.workspace),
+    scope: skillScopeFromStorage(row.workspace),
     skillName: row.skillName,
     reason: row.reason,
     proposedSkillContext: row.proposedSkillContext
@@ -798,6 +835,40 @@ function mapSkillUpdateProposalRow(
     createdAt: row.createdAt,
     appliedAt: row.appliedAt ?? undefined,
   };
+}
+
+function skillStorageWorkspace(
+  workspace: string,
+  scope: CatalogScope | undefined,
+): string {
+  return scope === "global" ? GLOBAL_SKILL_WORKSPACE : workspace;
+}
+
+function skillListStorageWorkspaces(
+  workspace: string,
+  scope: CatalogScope | undefined,
+): string[] {
+  if (scope === "global") {
+    return [GLOBAL_SKILL_WORKSPACE];
+  }
+  if (scope === "workspace") {
+    return [workspace];
+  }
+  return [workspace, GLOBAL_SKILL_WORKSPACE];
+}
+
+function skillScopeFromStorage(workspace: string): CatalogScope {
+  return workspace === GLOBAL_SKILL_WORKSPACE ? "global" : "workspace";
+}
+
+function publicSkillWorkspace(workspace: string): string {
+  return workspace === GLOBAL_SKILL_WORKSPACE
+    ? PUBLIC_GLOBAL_WORKSPACE
+    : workspace;
+}
+
+function placeholders(values: readonly unknown[]): string {
+  return values.map(() => "?").join(", ");
 }
 
 function parseTags(value: string): string[] {
