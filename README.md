@@ -15,6 +15,7 @@ documented under `docs/`.
 
 LOR is implemented as a runnable local v1 MCP server.
 
+- Version: `1.0.0`.
 - Runtime: Deno TypeScript.
 - Primary transport: local Streamable HTTP at `http://127.0.0.1:8765/mcp`.
 - Fallback transport: stdio through `deno task run`.
@@ -44,7 +45,10 @@ LOR is implemented as a runnable local v1 MCP server.
 
 ## Documentation
 
+- `CHANGELOG.md`: version history.
+- `VERSION`: current project version.
 - `docs/readme.md`: planning docs overview.
+- `docs/versioning.md`: versioning and changelog rules.
 - `docs/roadmap.md`: feature spec roadmap.
 - `docs/feature-specs/`: feature specification drafts and template.
 - `docs/use-cases/`: use case scenario drafts and template.
