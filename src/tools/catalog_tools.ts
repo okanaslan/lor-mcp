@@ -17,6 +17,8 @@ import {
   type FindMatchingCatalogEntryToolInput,
   generateAgentPromptInputSchema,
   type GenerateAgentPromptToolInput,
+  getAgentTaskStatusInputSchema,
+  type GetAgentTaskStatusToolInput,
   getCatalogEntryDetailInputSchema,
   type GetCatalogEntryDetailToolInput,
   importCatalogInputSchema,
@@ -27,6 +29,8 @@ import {
   type IntroduceSkillToolInput,
   introduceSubagentInputSchema,
   type IntroduceSubagentToolInput,
+  listActiveTasksInputSchema,
+  type ListActiveTasksToolInput,
   listCatalogEntriesInputSchema,
   type ListCatalogEntriesToolInput,
   prepareAgentHandoffInputSchema,
@@ -47,6 +51,8 @@ import {
   type RemoveCatalogEntryToolInput,
   retireAgentInputSchema,
   type RetireAgentToolInput,
+  sendAgentTaskInputSchema,
+  type SendAgentTaskToolInput,
   toolOutputSchema,
   updateCatalogEntryInputSchema,
   type UpdateCatalogEntryToolInput,
@@ -614,6 +620,79 @@ export function registerCatalogTools(
           return okResult(
             result,
             `Prepared handoff prompt for ${result.targetAgent.displayName}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "send_agent_task",
+    {
+      description:
+        "Create and dispatch or queue a delegated task for a registered Codex agent.",
+      inputSchema: sendAgentTaskInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: SendAgentTaskToolInput) =>
+      withLoggedRuntime(
+        "send_agent_task",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.sendAgentTask(input);
+          return okResult(
+            result,
+            `Created delegated task ${result.task.taskId}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "get_agent_task_status",
+    {
+      description: "Get the status of a delegated agent task.",
+      inputSchema: getAgentTaskStatusInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: GetAgentTaskStatusToolInput) =>
+      withLoggedRuntime(
+        "get_agent_task_status",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const task = await runtime.service.getAgentTaskStatus(input);
+          if (!task) {
+            throw new LorError(
+              "not_found",
+              "Delegated agent task was not found.",
+            );
+          }
+          return okResult(task, `Found delegated task ${task.taskId}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "list_active_tasks",
+    {
+      description: "List active delegated agent tasks in a workspace.",
+      inputSchema: listActiveTasksInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: ListActiveTasksToolInput) =>
+      withLoggedRuntime(
+        "list_active_tasks",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.listActiveTasks(input);
+          return okResult(
+            result,
+            `Found ${result.tasks.length} active delegated tasks.`,
           );
         },
       ),

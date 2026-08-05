@@ -1,5 +1,6 @@
 import {
   type AgentCatalogEntry,
+  type AgentTaskDispatcher,
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type ApplyWorkspaceCatalogSyncInput,
@@ -21,10 +22,14 @@ import {
   type CatalogScope,
   type ClearWorkspaceCatalogInput,
   type ClearWorkspaceCatalogResult,
+  type DelegatedAgentTask,
   type EntryLookup,
+  type GetAgentTaskStatusInput,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type IntroduceSubagentInput,
+  type ListActiveTasksInput,
+  type ListActiveTasksResult,
   type ListEntriesFilter,
   type MatchRequest,
   type MatchResult,
@@ -42,6 +47,8 @@ import {
   type RemoveCatalogEntryResult,
   type RetireAgentInput,
   type RetireAgentResult,
+  type SendAgentTaskInput,
+  type SendAgentTaskResult,
   type SkillCatalogEntry,
   type SkillContext,
   type SkillFileSyncApplyResult,
@@ -65,15 +72,18 @@ import {
   validateCatalogHealthFilter,
   validateCatalogImportInput,
   validateEntryLookup,
+  validateGetAgentTaskStatus,
   validateIntroduceAgent,
   validateIntroduceSkill,
   validateIntroduceSubagent,
+  validateListActiveTasks,
   validatePrepareAgentHandoff,
   validatePrepareAgentRegeneration,
   validatePromoteSkillToGlobal,
   validateProposeSkillUpdate,
   validateRegisterWorkspaceAlias,
   validateRetireAgent,
+  validateSendAgentTask,
   validateSkillFileSyncInput,
   validateWorkspace,
   validateWorkspaceCatalogSyncInput,
@@ -87,6 +97,7 @@ interface CatalogServiceOptions {
   repository: CatalogRepository;
   skillRoots?: readonly string[];
   now?: () => string;
+  dispatchAgentTask?: AgentTaskDispatcher;
 }
 
 interface WorkspaceCatalogSyncPlan {
@@ -97,6 +108,7 @@ export class CatalogService {
   readonly #repository: CatalogRepository;
   readonly #localSkillSync: LocalSkillSync;
   readonly #now: () => string;
+  readonly #dispatchAgentTask: AgentTaskDispatcher | undefined;
 
   constructor(options: CatalogServiceOptions) {
     this.#repository = options.repository;
@@ -104,6 +116,7 @@ export class CatalogService {
       skillRoots: options.skillRoots ?? [],
     });
     this.#now = options.now ?? (() => new Date().toISOString());
+    this.#dispatchAgentTask = options.dispatchAgentTask;
   }
 
   async introduceAgent(
@@ -368,6 +381,180 @@ export class CatalogService {
       );
     }
     return agent;
+  }
+
+  async sendAgentTask(
+    input: SendAgentTaskInput,
+  ): Promise<SendAgentTaskResult> {
+    const validated = validateSendAgentTask(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const entry = await this.#repository.getEntry(workspace, {
+      workspace,
+      entryType: "agent",
+      entryKey: validated.agentEntryKey,
+    });
+    if (!entry || entry.entryType !== "agent") {
+      throw new LorError(
+        "not_found",
+        "Target agent was not found.",
+        { entryType: "agent" },
+      );
+    }
+    assertDispatchableAgent(entry);
+
+    const now = this.#now();
+    const prompt = entry.handoff
+      ? renderHandoffTemplate(entry, validated)
+      : renderGenericHandoffPrompt(entry, validated);
+    const created = await this.#repository.createDelegatedAgentTask({
+      taskId: crypto.randomUUID(),
+      workspace,
+      agentEntryKey: entry.entryKey,
+      codexSessionId: entry.codexSessionId,
+      status: "queued",
+      task: validated.task,
+      context: validated.context,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (!this.#dispatchAgentTask) {
+      return {
+        workspace,
+        targetAgent: toHandoffTargetAgent(entry),
+        task: created,
+        prompt,
+        dispatch: {
+          mode: "manual",
+          instruction:
+            "Send the returned prompt through Codex-native thread tools, then check this LOR task later by taskId.",
+        },
+      };
+    }
+
+    try {
+      const outcome = await this.#dispatchAgentTask({
+        workspace,
+        taskId: created.taskId,
+        agentEntryKey: entry.entryKey,
+        codexSessionId: entry.codexSessionId,
+        prompt,
+      });
+
+      if (outcome.status === "failed") {
+        const failedAt = outcome.failedAt ?? this.#now();
+        const failureMessage = sanitizeReachabilityError(
+          outcome.failureMessage,
+        );
+        const failed = await this.#repository.updateDelegatedAgentTask(
+          workspace,
+          created.taskId,
+          {
+            status: "failed",
+            updatedAt: failedAt,
+            completedAt: failedAt,
+            failureMessage,
+          },
+        );
+        await this.recordAgentDispatchFailure({
+          workspace,
+          agentEntryKey: entry.entryKey,
+          error: failureMessage,
+          checkedAt: failedAt,
+        });
+        return {
+          workspace,
+          targetAgent: toHandoffTargetAgent(entry),
+          task: failed ?? created,
+          prompt,
+          dispatch: {
+            mode: "failed",
+            failureMessage,
+          },
+        };
+      }
+
+      const sentAt = outcome.sentAt ?? this.#now();
+      const sent = await this.#repository.updateDelegatedAgentTask(
+        workspace,
+        created.taskId,
+        {
+          status: outcome.status,
+          updatedAt: sentAt,
+          sentAt,
+          externalTaskId: outcome.externalTaskId,
+        },
+      );
+      await this.recordAgentDispatchSuccess({
+        workspace,
+        agentEntryKey: entry.entryKey,
+        dispatchedAt: sentAt,
+      });
+      return {
+        workspace,
+        targetAgent: toHandoffTargetAgent(entry),
+        task: sent ?? created,
+        prompt,
+        dispatch: {
+          mode: "codex_native",
+          externalTaskId: outcome.externalTaskId,
+        },
+      };
+    } catch (error) {
+      const failedAt = this.#now();
+      const failureMessage = sanitizeReachabilityError(
+        error instanceof Error ? error.message : "Dispatch failed.",
+      );
+      const failed = await this.#repository.updateDelegatedAgentTask(
+        workspace,
+        created.taskId,
+        {
+          status: "failed",
+          updatedAt: failedAt,
+          completedAt: failedAt,
+          failureMessage,
+        },
+      );
+      await this.recordAgentDispatchFailure({
+        workspace,
+        agentEntryKey: entry.entryKey,
+        error: failureMessage,
+        checkedAt: failedAt,
+      });
+      return {
+        workspace,
+        targetAgent: toHandoffTargetAgent(entry),
+        task: failed ?? created,
+        prompt,
+        dispatch: {
+          mode: "failed",
+          failureMessage,
+        },
+      };
+    }
+  }
+
+  async getAgentTaskStatus(
+    input: GetAgentTaskStatusInput,
+  ): Promise<DelegatedAgentTask | undefined> {
+    const validated = validateGetAgentTaskStatus(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    return await this.#repository.getDelegatedAgentTask(
+      workspace,
+      validated.taskId,
+    );
+  }
+
+  async listActiveTasks(
+    input: ListActiveTasksInput,
+  ): Promise<ListActiveTasksResult> {
+    const validated = validateListActiveTasks(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const tasks = await this.#repository.listActiveDelegatedAgentTasks(
+      workspace,
+      { agentEntryKey: validated.agentEntryKey },
+    );
+    return { workspace, tasks };
   }
 
   async proposeSkillUpdate(
@@ -1307,6 +1494,26 @@ function toHandoffTargetAgent(entry: AgentCatalogEntry) {
     specialtyTags: entry.specialtyTags,
     reachability: entry.reachability,
   };
+}
+
+function assertDispatchableAgent(entry: AgentCatalogEntry): void {
+  if (entry.agentStatus === "retired") {
+    throw new LorError(
+      "validation_error",
+      "Target agent is retired.",
+      { entryType: "agent", entryKey: entry.entryKey },
+    );
+  }
+  if (
+    entry.reachability.reachabilityStatus === "unreachable" ||
+    entry.reachability.reachabilityStatus === "unsupported"
+  ) {
+    throw new LorError(
+      "validation_error",
+      "Target agent is not reachable for dispatch.",
+      { entryType: "agent", entryKey: entry.entryKey },
+    );
+  }
 }
 
 function sanitizeReachabilityError(error: string): string {

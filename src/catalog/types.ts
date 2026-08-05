@@ -7,6 +7,14 @@ export type ReachabilityStatus =
   | "unreachable"
   | "unsupported";
 export type DispatchMode = "manual" | "codex_thread" | "unsupported";
+export type DelegatedAgentTaskStatus =
+  | "queued"
+  | "sent"
+  | "running"
+  | "needs_input"
+  | "completed"
+  | "failed"
+  | "cancelled";
 export type VerificationStatus = "verified" | "unverified" | "unknown";
 export type Confidence = "low" | "medium" | "high";
 export type MatchStatus = "ok" | "no_match" | "conflict";
@@ -222,6 +230,88 @@ export interface RecordAgentDispatchFailureInput {
   agentEntryKey: string;
   error: string;
   checkedAt: string;
+}
+
+export interface SendAgentTaskInput {
+  workspace: string;
+  agentEntryKey: string;
+  task: string;
+  context?: string;
+}
+
+export interface GetAgentTaskStatusInput {
+  workspace: string;
+  taskId: string;
+}
+
+export interface ListActiveTasksInput {
+  workspace: string;
+  agentEntryKey?: string;
+}
+
+export interface DelegatedAgentTask {
+  taskId: string;
+  workspace: string;
+  agentEntryKey: string;
+  codexSessionId: string;
+  status: DelegatedAgentTaskStatus;
+  task: string;
+  context?: string;
+  createdAt: string;
+  sentAt?: string;
+  updatedAt: string;
+  completedAt?: string;
+  failureMessage?: string;
+  externalTaskId?: string;
+}
+
+export interface AgentTaskDispatchRequest {
+  workspace: string;
+  taskId: string;
+  agentEntryKey: string;
+  codexSessionId: string;
+  prompt: string;
+}
+
+export type AgentTaskDispatchOutcome =
+  | {
+    status: "sent" | "running";
+    sentAt?: string;
+    externalTaskId?: string;
+  }
+  | {
+    status: "failed";
+    failureMessage: string;
+    failedAt?: string;
+  };
+
+export type AgentTaskDispatcher = (
+  request: AgentTaskDispatchRequest,
+) => Promise<AgentTaskDispatchOutcome>;
+
+export interface SendAgentTaskResult {
+  workspace: string;
+  targetAgent: HandoffTargetAgent;
+  task: DelegatedAgentTask;
+  prompt: string;
+  dispatch:
+    | {
+      mode: "manual";
+      instruction: string;
+    }
+    | {
+      mode: "codex_native";
+      externalTaskId?: string;
+    }
+    | {
+      mode: "failed";
+      failureMessage: string;
+    };
+}
+
+export interface ListActiveTasksResult {
+  workspace: string;
+  tasks: DelegatedAgentTask[];
 }
 
 export interface SkillMetadataUpdate {
@@ -726,5 +816,28 @@ export interface CatalogRepository {
     workspace: string,
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined>;
+  createDelegatedAgentTask(
+    input: DelegatedAgentTask,
+  ): Promise<DelegatedAgentTask>;
+  updateDelegatedAgentTask(
+    workspace: string,
+    taskId: string,
+    input: {
+      status: DelegatedAgentTaskStatus;
+      updatedAt: string;
+      sentAt?: string;
+      completedAt?: string;
+      failureMessage?: string;
+      externalTaskId?: string;
+    },
+  ): Promise<DelegatedAgentTask | undefined>;
+  getDelegatedAgentTask(
+    workspace: string,
+    taskId: string,
+  ): Promise<DelegatedAgentTask | undefined>;
+  listActiveDelegatedAgentTasks(
+    workspace: string,
+    filter?: { agentEntryKey?: string },
+  ): Promise<DelegatedAgentTask[]>;
   close(): void;
 }

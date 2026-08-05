@@ -174,6 +174,122 @@ Deno.test("CatalogService rejects handoff preparation for known unreachable agen
   }
 });
 
+Deno.test("CatalogService sends agent tasks through an injected dispatcher", async () => {
+  const { repo, service } = await createCatalogService({
+    dispatchAgentTask: (request) =>
+      Promise.resolve({
+        status: "sent",
+        sentAt: "2026-07-12T00:02:00.000Z",
+        externalTaskId: `native-${request.taskId}`,
+      }),
+  });
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const result = await service.sendAgentTask({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: "Implement a backend route",
+      context: "Use existing service patterns.",
+    });
+    const status = await service.getAgentTaskStatus({
+      workspace: "LOR-MCP",
+      taskId: result.task.taskId,
+    });
+    const active = await service.listActiveTasks({ workspace: "LOR-MCP" });
+    const agent = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+
+    assertEquals(result.task.status, "sent");
+    assertEquals(result.task.codexSessionId, "agent-1");
+    assertEquals(result.dispatch.mode, "codex_native");
+    assertEquals(status?.taskId, result.task.taskId);
+    assertEquals(active.tasks.map((task) => task.taskId), [
+      result.task.taskId,
+    ]);
+    if (agent?.entryType !== "agent") {
+      throw new Error("Expected agent detail.");
+    }
+    assertEquals(agent.reachability.reachabilityStatus, "reachable");
+    assertEquals(agent.reachability.lastDispatchAt, "2026-07-12T00:02:00.000Z");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService records failed agent task dispatch without crossing workspaces", async () => {
+  const { repo, service } = await createCatalogService({
+    dispatchAgentTask: () =>
+      Promise.resolve({
+        status: "failed",
+        failureMessage: "Native thread missing at /private/session",
+        failedAt: "2026-07-12T00:02:00.000Z",
+      }),
+  });
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const result = await service.sendAgentTask({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: "Implement a backend route",
+    });
+    const missing = await service.getAgentTaskStatus({
+      workspace: "Other-Project",
+      taskId: result.task.taskId,
+    });
+
+    assertEquals(result.task.status, "failed");
+    assertEquals(result.task.failureMessage, "Native thread missing at [path]");
+    assertEquals(result.dispatch.mode, "failed");
+    assertEquals(missing, undefined);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService queues agent tasks when no dispatcher is configured", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const result = await service.sendAgentTask({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: "Implement a backend route",
+    });
+
+    assertEquals(result.task.status, "queued");
+    assertEquals(result.dispatch.mode, "manual");
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService introduces skills without skill root pre-registration", async () => {
   const { repo, service } = await createCatalogService();
   try {

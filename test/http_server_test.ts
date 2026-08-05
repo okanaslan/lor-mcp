@@ -76,6 +76,9 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "apply_workspace_catalog_sync",
       "check_catalog_health",
       "prepare_agent_handoff",
+      "send_agent_task",
+      "get_agent_task_status",
+      "list_active_tasks",
       "prepare_agent_regeneration",
       "generate_agent_prompt",
       "find_matching_catalog_entry",
@@ -732,6 +735,83 @@ Deno.test("HTTP MCP handler calls prepare_agent_handoff", async () => {
       "Handle Add endpoint with Follow service patterns.",
     );
     assertEquals(body.result.structuredContent.data.usedStoredHandoff, true);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls delegated agent task lifecycle tools", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const sendResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "send_agent_task",
+        arguments: {
+          workspace: "LOR-MCP",
+          agentEntryKey: "agent-1",
+          task: "Implement backend route",
+        },
+      },
+    });
+    const sendBody = await sendResponse.json();
+    const taskId = sendBody.result.structuredContent.data.task.taskId;
+
+    const statusResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "get_agent_task_status",
+        arguments: {
+          workspace: "LOR-MCP",
+          taskId,
+        },
+      },
+    });
+    const listResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "list_active_tasks",
+        arguments: {
+          workspace: "LOR-MCP",
+        },
+      },
+    });
+    const statusBody = await statusResponse.json();
+    const listBody = await listResponse.json();
+
+    assertEquals(sendResponse.status, 200);
+    assertEquals(sendBody.result.structuredContent.status, "ok");
+    assertEquals(sendBody.result.structuredContent.data.task.status, "queued");
+    assertEquals(statusBody.result.structuredContent.data.status, "queued");
+    assertEquals(
+      listBody.result.structuredContent.data.tasks.map((
+        task: { taskId: string },
+      ) => task.taskId),
+      [taskId],
+    );
   } finally {
     repo.close();
   }

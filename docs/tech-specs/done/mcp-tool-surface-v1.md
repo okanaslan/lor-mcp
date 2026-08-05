@@ -50,7 +50,7 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register twenty-four MCP tools with snake_case names:
+V1 should register twenty-seven MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -73,6 +73,9 @@ V1 should register twenty-four MCP tools with snake_case names:
 - `apply_workspace_catalog_sync`
 - `check_catalog_health`
 - `prepare_agent_handoff`
+- `send_agent_task`
+- `get_agent_task_status`
+- `list_active_tasks`
 - `prepare_agent_regeneration`
 - `generate_agent_prompt`
 - `find_matching_catalog_entry`
@@ -382,6 +385,38 @@ mutate stored verification metadata.
 rendered prompt, whether stored handoff metadata was used, missing context
 labels, and manual delivery instructions. It may return validation, not-found,
 session/setup, or storage errors. It must reject retired target agents.
+
+`send_agent_task` input:
+
+- `workspace`
+- `agentEntryKey`
+- `task`
+- optional `context`
+
+`send_agent_task` output data should include the resolved workspace, target
+agent summary, delegated task record, rendered prompt, and dispatch metadata.
+When a host dispatcher is configured, successful dispatch moves the task to
+`sent` or `running`; dispatch failure records `failed`. When no dispatcher is
+configured, the task remains `queued` and the response includes manual delivery
+instructions. It may return validation, not-found, session/setup, or storage
+errors.
+
+`get_agent_task_status` input:
+
+- `workspace`
+- `taskId`
+
+`get_agent_task_status` output data should include the delegated task record. It
+may return validation, not-found, session/setup, or storage errors.
+
+`list_active_tasks` input:
+
+- `workspace`
+- optional `agentEntryKey`
+
+`list_active_tasks` output data should include active delegated task records for
+the resolved workspace. Completed, failed, and cancelled tasks are excluded by
+default. It may return validation, session/setup, or storage errors.
 
 `prepare_agent_regeneration` input:
 

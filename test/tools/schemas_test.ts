@@ -8,11 +8,13 @@ import {
   exportCatalogInputSchema,
   findMatchingCatalogEntryInputSchema,
   generateAgentPromptInputSchema,
+  getAgentTaskStatusInputSchema,
   getCatalogEntryDetailInputSchema,
   importCatalogInputSchema,
   introduceAgentInputSchema,
   introduceSkillInputSchema,
   introduceSubagentInputSchema,
+  listActiveTasksInputSchema,
   prepareAgentHandoffInputSchema,
   prepareAgentRegenerationInputSchema,
   previewSkillFileSyncInputSchema,
@@ -22,6 +24,7 @@ import {
   registerWorkspaceAliasInputSchema,
   removeCatalogEntryInputSchema,
   retireAgentInputSchema,
+  sendAgentTaskInputSchema,
   updateCatalogEntryInputSchema,
 } from "@src/tools/schemas.ts";
 
@@ -192,6 +195,40 @@ Deno.test("prepareAgentHandoffInputSchema requires workspace agent and task", ()
       agentEntryKey: "agent-1",
     }).success,
     false,
+  );
+});
+
+Deno.test("delegated agent task schemas require scoped task identifiers", () => {
+  assertEquals(
+    sendAgentTaskInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: "Implement backend route",
+      context: "Use existing patterns.",
+    }).success,
+    true,
+  );
+  assertEquals(
+    sendAgentTaskInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: " ",
+    }).success,
+    false,
+  );
+  assertEquals(
+    getAgentTaskStatusInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      taskId: "task-1",
+    }).success,
+    true,
+  );
+  assertEquals(
+    listActiveTasksInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+    }).success,
+    true,
   );
 });
 

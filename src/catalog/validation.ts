@@ -11,16 +11,19 @@ import {
   type CatalogImportInput,
   type CatalogScope,
   type EntryLookup,
+  type GetAgentTaskStatusInput,
   type HandoffMetadata,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type IntroduceSubagentInput,
+  type ListActiveTasksInput,
   type PrepareAgentHandoffInput,
   type PrepareAgentRegenerationInput,
   type PromoteSkillToGlobalInput,
   type ProposeSkillUpdateInput,
   type RegisterWorkspaceAliasInput,
   type RetireAgentInput,
+  type SendAgentTaskInput,
   type SkillContext,
   type SkillFileSyncInput,
   type SkillMetadataUpdate,
@@ -446,6 +449,35 @@ export function validateRegisterWorkspaceAlias(
     workspace: requireWorkspace(input.workspace),
     alias: requireWorkspace(input.alias, "alias"),
     confirm: input.confirm,
+  };
+}
+
+export function validateSendAgentTask(
+  input: SendAgentTaskInput,
+): SendAgentTaskInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
+    task: requireString(input.task, "task"),
+    context: input.context?.trim() || undefined,
+  };
+}
+
+export function validateGetAgentTaskStatus(
+  input: GetAgentTaskStatusInput,
+): GetAgentTaskStatusInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    taskId: requireString(input.taskId, "taskId"),
+  };
+}
+
+export function validateListActiveTasks(
+  input: ListActiveTasksInput,
+): ListActiveTasksInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    agentEntryKey: input.agentEntryKey?.trim() || undefined,
   };
 }
 

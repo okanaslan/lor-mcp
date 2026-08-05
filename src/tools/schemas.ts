@@ -379,6 +379,23 @@ export const prepareAgentHandoffInputSchema = z.object({
   context: z.string().trim().min(1).optional(),
 });
 
+export const sendAgentTaskInputSchema = z.object({
+  workspace: workspaceSchema,
+  agentEntryKey: z.string().trim().min(1),
+  task: z.string().trim().min(1),
+  context: z.string().trim().min(1).optional(),
+});
+
+export const getAgentTaskStatusInputSchema = z.object({
+  workspace: workspaceSchema,
+  taskId: z.string().trim().min(1),
+});
+
+export const listActiveTasksInputSchema = z.object({
+  workspace: workspaceSchema,
+  agentEntryKey: z.string().trim().min(1).optional(),
+});
+
 export const prepareAgentRegenerationInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -457,6 +474,13 @@ export type CheckCatalogHealthToolInput = z.infer<
 >;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema
+>;
+export type SendAgentTaskToolInput = z.infer<typeof sendAgentTaskInputSchema>;
+export type GetAgentTaskStatusToolInput = z.infer<
+  typeof getAgentTaskStatusInputSchema
+>;
+export type ListActiveTasksToolInput = z.infer<
+  typeof listActiveTasksInputSchema
 >;
 export type PrepareAgentRegenerationToolInput = z.infer<
   typeof prepareAgentRegenerationInputSchema

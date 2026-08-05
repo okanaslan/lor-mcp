@@ -2,6 +2,7 @@ import { join } from "@std/path";
 import { CatalogService } from "@src/catalog/service.ts";
 import { SqliteCatalogRepository } from "@src/catalog/sqlite_repository.ts";
 import type {
+  AgentTaskDispatcher,
   IntroduceAgentInput,
   IntroduceSkillInput,
   IntroduceSubagentInput,
@@ -31,12 +32,14 @@ export async function createCatalogService(): Promise<{
 }>;
 export async function createCatalogService(options: {
   skillRoots?: readonly string[];
+  dispatchAgentTask?: AgentTaskDispatcher;
 }): Promise<{
   repo: SqliteCatalogRepository;
   service: CatalogService;
 }>;
 export async function createCatalogService(options: {
   skillRoots?: readonly string[];
+  dispatchAgentTask?: AgentTaskDispatcher;
 } = {}): Promise<{
   repo: SqliteCatalogRepository;
   service: CatalogService;
@@ -45,6 +48,7 @@ export async function createCatalogService(options: {
   const service = new CatalogService({
     repository: repo,
     skillRoots: options.skillRoots,
+    dispatchAgentTask: options.dispatchAgentTask,
     now: () => FIXED_NOW,
   });
   return { repo, service };
