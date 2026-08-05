@@ -11,6 +11,7 @@ session ID and routing metadata in durable storage scoped to the workspace.
 - Allow users to introduce an existing Codex agent by Codex session ID.
 - Store introduced agents in durable storage scoped to the workspace.
 - Capture enough metadata to support later agent routing and catalog lookup.
+- Initialize reachability metadata without claiming the agent is live.
 
 ## 3. Non-Goals
 
@@ -39,6 +40,8 @@ session ID and routing metadata in durable storage scoped to the workspace.
   workspaces.
 - The server must persist accepted agent records in durable storage.
 - The server must default newly introduced agents to `agentStatus: "active"`.
+- Reachability metadata must default newly introduced agents to
+  `reachabilityStatus: "unknown"` and `dispatchMode: "manual"`.
 - The server must scope persisted agent records by workspace.
 - The server must prevent one workspace from accessing another workspace's
   introduced agent records.
@@ -62,6 +65,9 @@ Conceptual `IntroducedAgent` fields:
 - `primarySpecialty`: names the agent's primary specialty.
 - `specialtyTags`: lists additional specialties or routing tags.
 - `agentStatus`: tracks whether the agent is active or retired.
+- `reachabilityStatus`: metadata that starts as `unknown` and is updated only
+  from Codex-native dispatch outcomes.
+- `dispatchMode`: metadata that starts as `manual`.
 - `replacesAgentEntryKey`: optionally links a replacement agent to an older
   agent entry.
 - `createdAt`: records when the agent was introduced.
@@ -114,3 +120,5 @@ persistence implementation.
   `mcp_introduction` verification metadata.
 - 2026-07-26: Default introduced agents to active and allow optional replacement
   linkage through `replacesAgentEntryKey`.
+- 2026-08-06: Implement new and existing agents to default to unknown
+  reachability; introduction must not claim that a registered agent is live.

@@ -10,6 +10,7 @@ shared global skills and global subagents by default.
 - Match task intent against introduced agents, skills, and subagent profiles.
 - Return ranked available catalog candidates for a request.
 - Provide enough matching metadata for later recommendation explanation.
+- Expose agent reachability metadata without hiding useful catalog matches.
 
 ## 3. Non-Goals
 
@@ -42,6 +43,11 @@ shared global skills and global subagents by default.
 - The server must return a no-match result when no introduced entry is relevant.
 - The server must return a conflict result when top agent recommendations are
   ambiguous under the Conflict Handling feature.
+- Reachability behavior must keep unknown and unreachable agents in matching
+  results by default.
+- Reachability behavior must include compact reachability metadata on agent
+  candidates.
+- Reachability behavior must not use reachability as a scoring signal.
 - Skills must remain ranked and must not create conflicts in v1.
 - Subagents must remain ranked and must not create conflicts in v1.
 - The server must not return entries from another workspace.
@@ -70,6 +76,7 @@ Conceptual `CatalogMatchResult` fields:
 - `entryKey`: identifies the matched catalog entry.
 - `matchedFields`: lists fields that contributed to the match.
 - `confidence`: describes the match strength.
+- `reachability`: compact reachability metadata for agent candidates.
 
 ## 7. Error Handling
 
@@ -106,3 +113,5 @@ Conceptual `CatalogMatchResult` fields:
   keeping agents workspace-only.
 - 2026-08-04: Plan matching support for subagents as a separate ranked result
   list with global subagents included by default and a default limit of 3.
+- 2026-08-06: Implement matching to expose agent reachability metadata while
+  keeping unknown and unreachable agents visible by default.

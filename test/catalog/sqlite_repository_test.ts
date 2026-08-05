@@ -910,6 +910,15 @@ Deno.test("SqliteCatalogRepository migrates legacy catalogNamespace columns", as
     ),
     ["active"],
   );
+  assertEquals(
+    entries.map((entry) =>
+      entry.entryType === "agent" ? entry.reachability : undefined
+    ),
+    [{
+      reachabilityStatus: "unknown",
+      dispatchMode: "manual",
+    }],
+  );
 
   repo.close();
 });

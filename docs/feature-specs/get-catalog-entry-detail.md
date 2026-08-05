@@ -11,6 +11,7 @@ and a rendered starter prompt for one reusable subagent profile.
 - Retrieve one catalog entry by type and identifier.
 - Return all stored metadata for the entry.
 - Return rendered prompt text for subagent detail lookups.
+- Return full reachability metadata for agent detail lookups.
 - Keep detail lookup separate from listing and matching.
 
 ## 3. Non-Goals
@@ -19,6 +20,7 @@ and a rendered starter prompt for one reusable subagent profile.
 - Update catalog entry metadata.
 - Return workspace-local entries from other workspaces.
 - Verify whether an external agent or skill still exists.
+- Actively probe agent reachability during detail lookup.
 
 ## 4. Functional Requirements
 
@@ -35,6 +37,7 @@ and a rendered starter prompt for one reusable subagent profile.
 - The server must allow detail lookup for workspace-local and global subagents.
 - Subagent detail must include the rendered prompt, stored references, and
   unresolved reference metadata.
+- Agent detail must include full reachability metadata.
 - The server must not return entries from another workspace.
 - The server may return global skill entries because they are intentionally
   shared.
@@ -55,6 +58,7 @@ Conceptual `CatalogEntryDetail` fields:
 - `metadata`: contains the stored fields for the entry type.
 - `renderedPrompt`: contains ready-to-use prompt text for subagent detail
   results.
+- `reachability`: full reachability metadata for agent entries.
 - `createdAt`: records when the entry was introduced.
 - `updatedAt`: records when the entry was last changed, if updates exist.
 
@@ -89,3 +93,5 @@ Conceptual `CatalogEntryDetail` fields:
 - 2026-08-04: Implement detail lookup for shared global skills.
 - 2026-08-04: Implement subagent detail lookup with rendered prompt text and
   reference metadata.
+- 2026-08-06: Implement agent detail lookup to expose reachability metadata
+  without actively checking liveness.

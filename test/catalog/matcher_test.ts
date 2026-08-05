@@ -7,6 +7,10 @@ const baseEntry = {
   scope: "workspace",
   projectName: "Local Orchestration Router (LOR)",
   specialtyTags: ["routing", "mcp"],
+  reachability: {
+    reachabilityStatus: "unknown",
+    dispatchMode: "manual",
+  },
   verificationStatus: "verified",
   verificationSource: "test",
   verifiedAt: "2026-07-12T00:00:00.000Z",
@@ -22,6 +26,12 @@ Deno.test("findCatalogMatches returns separate ranked agent and skill lists", ()
       entryKey: "agent-1",
       codexSessionId: "agent-1",
       agentStatus: "active",
+      reachability: {
+        reachabilityStatus: "unreachable",
+        dispatchMode: "codex_thread",
+        lastReachabilityCheckAt: "2026-07-12T00:01:00.000Z",
+        lastReachabilityError: "Thread not found.",
+      },
       displayName: "Backend Agent",
       primarySpecialty: "backend api",
     },
@@ -42,6 +52,10 @@ Deno.test("findCatalogMatches returns separate ranked agent and skill lists", ()
 
   assertEquals(result.status, "ok");
   assertEquals(result.data.agents[0]?.entryKey, "agent-1");
+  assertEquals(result.data.agents[0]?.reachability, {
+    reachabilityStatus: "unreachable",
+    dispatchMode: "codex_thread",
+  });
   assertEquals(result.data.skills[0]?.entryKey, "skill-1");
   assertEquals(result.data.agents[0]?.explanation.confidence, "high");
   assertEquals(

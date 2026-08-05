@@ -134,6 +134,12 @@ function scoreEntry(
     projectName: entry.projectName,
     primarySpecialty: entry.primarySpecialty,
     specialtyTags: entry.specialtyTags,
+    reachability: entry.entryType === "agent"
+      ? {
+        reachabilityStatus: entry.reachability.reachabilityStatus,
+        dispatchMode: entry.reachability.dispatchMode,
+      }
+      : undefined,
     skillContext: entry.entryType === "skill" ? entry.skillContext : undefined,
     purpose: entry.entryType === "subagent" ? entry.purpose : undefined,
     limitedScope: entry.entryType === "subagent"

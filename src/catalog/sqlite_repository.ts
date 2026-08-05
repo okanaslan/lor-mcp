@@ -1,6 +1,7 @@
 import type { Database } from "@db/sqlite";
 import type {
   AgentCatalogEntry,
+  AgentReachability,
   AgentStatus,
   CatalogEntry,
   CatalogEntryUpdate,
@@ -40,6 +41,11 @@ interface AgentRow {
   retirementReason: string | null;
   replacedByAgentEntryKey: string | null;
   replacesAgentEntryKey: string | null;
+  reachabilityStatus: string;
+  dispatchMode: string;
+  lastReachabilityCheckAt: string | null;
+  lastReachabilityError: string | null;
+  lastDispatchAt: string | null;
   projectName: string;
   displayName: string;
   primarySpecialty: string;
@@ -131,8 +137,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
       migrateLegacyNamespaceColumns(this.#db);
       migrateSkillContextColumn(this.#db);
       migrateAgentLifecycleColumns(this.#db);
+      migrateAgentReachabilityColumns(this.#db);
       backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 6);
+      recordSchemaVersion(this.#db, 7);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -579,6 +586,57 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  updateAgentReachability(
+    workspace: string,
+    agentEntryKey: string,
+    input: {
+      reachability: AgentReachability;
+      updatedAt: string;
+    },
+  ): Promise<AgentCatalogEntry | undefined> {
+    const db = this.requireDb();
+    const update = db.transaction(() => {
+      const existing = this.getEntrySync(workspace, {
+        workspace,
+        entryType: "agent",
+        entryKey: agentEntryKey,
+      });
+      if (!existing || existing.entryType !== "agent") {
+        return undefined;
+      }
+
+      db.exec(
+        `UPDATE introduced_agents
+         SET reachabilityStatus = ?, dispatchMode = ?,
+           lastReachabilityCheckAt = ?, lastReachabilityError = ?,
+           lastDispatchAt = ?, updatedAt = ?
+         WHERE workspace = ? AND codexSessionId = ?`,
+        input.reachability.reachabilityStatus,
+        input.reachability.dispatchMode,
+        input.reachability.lastReachabilityCheckAt ?? null,
+        input.reachability.lastReachabilityError ?? null,
+        input.reachability.lastDispatchAt ??
+          existing.reachability.lastDispatchAt ??
+          null,
+        input.updatedAt,
+        workspace,
+        agentEntryKey,
+      );
+
+      return this.getEntrySync(workspace, {
+        workspace,
+        entryType: "agent",
+        entryKey: agentEntryKey,
+      }) as AgentCatalogEntry | undefined;
+    });
+
+    try {
+      return Promise.resolve(update());
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
   removeEntry(
     workspace: string,
     lookup: EntryLookup,
@@ -943,6 +1001,7 @@ function mapAgentRow(row: AgentRow): AgentCatalogEntry {
     entryKey: row.codexSessionId,
     codexSessionId: row.codexSessionId,
     agentStatus: parseAgentStatus(row.agentStatus),
+    reachability: mapAgentReachability(row),
     retiredAt: row.retiredAt ?? undefined,
     retirementReason: row.retirementReason ?? undefined,
     replacedByAgentEntryKey: row.replacedByAgentEntryKey ?? undefined,
@@ -1127,6 +1186,41 @@ function parseAgentStatus(value: string): AgentStatus {
   return "active";
 }
 
+function mapAgentReachability(row: AgentRow): AgentReachability {
+  return {
+    reachabilityStatus: parseReachabilityStatus(row.reachabilityStatus),
+    dispatchMode: parseDispatchMode(row.dispatchMode),
+    ...(row.lastReachabilityCheckAt
+      ? { lastReachabilityCheckAt: row.lastReachabilityCheckAt }
+      : {}),
+    ...(row.lastReachabilityError
+      ? { lastReachabilityError: row.lastReachabilityError }
+      : {}),
+    ...(row.lastDispatchAt ? { lastDispatchAt: row.lastDispatchAt } : {}),
+  };
+}
+
+function parseReachabilityStatus(
+  value: string,
+): AgentReachability["reachabilityStatus"] {
+  if (
+    value === "unknown" || value === "reachable" ||
+    value === "unreachable" || value === "unsupported"
+  ) {
+    return value;
+  }
+  return "unknown";
+}
+
+function parseDispatchMode(value: string): AgentReachability["dispatchMode"] {
+  if (
+    value === "manual" || value === "codex_thread" || value === "unsupported"
+  ) {
+    return value;
+  }
+  return "manual";
+}
+
 interface TableColumn {
   name: string;
 }
@@ -1160,6 +1254,28 @@ function migrateAgentLifecycleColumns(db: Database): void {
     ["retirementReason", "TEXT"],
     ["replacedByAgentEntryKey", "TEXT"],
     ["replacesAgentEntryKey", "TEXT"],
+  ];
+  for (const [columnName, definition] of additions) {
+    if (!columnNames.has(columnName)) {
+      db.exec(
+        `ALTER TABLE introduced_agents ADD COLUMN ${columnName} ${definition}`,
+      );
+    }
+  }
+}
+
+function migrateAgentReachabilityColumns(db: Database): void {
+  const columns = db.prepare<TableColumn>(
+    "PRAGMA table_info(introduced_agents)",
+  )
+    .all();
+  const columnNames = new Set(columns.map((column) => column.name));
+  const additions = [
+    ["reachabilityStatus", "TEXT NOT NULL DEFAULT 'unknown'"],
+    ["dispatchMode", "TEXT NOT NULL DEFAULT 'manual'"],
+    ["lastReachabilityCheckAt", "TEXT"],
+    ["lastReachabilityError", "TEXT"],
+    ["lastDispatchAt", "TEXT"],
   ];
   for (const [columnName, definition] of additions) {
     if (!columnNames.has(columnName)) {
@@ -1268,6 +1384,11 @@ CREATE TABLE IF NOT EXISTS introduced_agents (
   retirementReason TEXT,
   replacedByAgentEntryKey TEXT,
   replacesAgentEntryKey TEXT,
+  reachabilityStatus TEXT NOT NULL DEFAULT 'unknown',
+  dispatchMode TEXT NOT NULL DEFAULT 'manual',
+  lastReachabilityCheckAt TEXT,
+  lastReachabilityError TEXT,
+  lastDispatchAt TEXT,
   projectName TEXT NOT NULL,
   displayName TEXT NOT NULL,
   primarySpecialty TEXT NOT NULL,

@@ -41,6 +41,139 @@ Deno.test("CatalogService introduces agents without registry pre-registration", 
   }
 });
 
+Deno.test("CatalogService defaults introduced agents to unknown manual reachability", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const created = await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const entries = await service.listEntries({ workspace: "LOR-MCP" });
+
+    if (created.entryType !== "agent" || entries[0]?.entryType !== "agent") {
+      throw new Error("Expected agent entries.");
+    }
+    assertEquals(created.reachability, {
+      reachabilityStatus: "unknown",
+      dispatchMode: "manual",
+    });
+    assertEquals(entries[0].reachability, {
+      reachabilityStatus: "unknown",
+      dispatchMode: "manual",
+    });
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService records passive agent dispatch outcomes by workspace", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceAgent({
+      workspace: "Other-Project",
+      codexSessionId: "agent-1",
+      projectName: "Other Project",
+      displayName: "Other Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    await service.recordAgentDispatchSuccess({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      dispatchedAt: "2026-07-12T00:01:00.000Z",
+    });
+
+    const updated = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+    const other = await service.getEntryDetail({
+      workspace: "Other-Project",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+
+    if (updated?.entryType !== "agent" || other?.entryType !== "agent") {
+      throw new Error("Expected agent detail.");
+    }
+    assertEquals(updated.reachability, {
+      reachabilityStatus: "reachable",
+      dispatchMode: "codex_thread",
+      lastReachabilityCheckAt: "2026-07-12T00:01:00.000Z",
+      lastDispatchAt: "2026-07-12T00:01:00.000Z",
+    });
+    assertEquals(other.reachability, {
+      reachabilityStatus: "unknown",
+      dispatchMode: "manual",
+    });
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService rejects handoff preparation for known unreachable agents", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.recordAgentDispatchFailure({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      error: "Thread not found at /Users/ablo/private/path",
+      checkedAt: "2026-07-12T00:01:00.000Z",
+    });
+
+    await assertRejects(
+      () =>
+        service.prepareAgentHandoff({
+          workspace: "LOR-MCP",
+          agentEntryKey: "agent-1",
+          task: "Implement backend api",
+        }),
+      Error,
+      "Target agent is known unreachable.",
+    );
+
+    const detail = await service.getEntryDetail({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+      entryKey: "agent-1",
+    });
+    if (detail?.entryType !== "agent") {
+      throw new Error("Expected agent detail.");
+    }
+    assertEquals(detail.reachability, {
+      reachabilityStatus: "unreachable",
+      dispatchMode: "codex_thread",
+      lastReachabilityCheckAt: "2026-07-12T00:01:00.000Z",
+      lastReachabilityError: "Thread not found at [path]",
+    });
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService introduces skills without skill root pre-registration", async () => {
   const { repo, service } = await createCatalogService();
   try {
@@ -1914,6 +2047,10 @@ Deno.test("CatalogService prepares handoff from stored template", async () => {
       projectName: "Local Orchestration Router (LOR)",
       primarySpecialty: "backend api",
       specialtyTags: ["api", "mcp"],
+      reachability: {
+        reachabilityStatus: "unknown",
+        dispatchMode: "manual",
+      },
     });
     assertEquals(
       result.prompt,

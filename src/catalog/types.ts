@@ -1,6 +1,12 @@
 export type EntryType = "agent" | "skill" | "subagent";
 export type CatalogScope = "workspace" | "global";
 export type AgentStatus = "active" | "retired";
+export type ReachabilityStatus =
+  | "unknown"
+  | "reachable"
+  | "unreachable"
+  | "unsupported";
+export type DispatchMode = "manual" | "codex_thread" | "unsupported";
 export type VerificationStatus = "verified" | "unverified" | "unknown";
 export type Confidence = "low" | "medium" | "high";
 export type MatchStatus = "ok" | "no_match" | "conflict";
@@ -19,6 +25,14 @@ export interface HandoffMetadata {
   requiredContext: string[];
   expectedOutput: string;
   constraints: string[];
+}
+
+export interface AgentReachability {
+  reachabilityStatus: ReachabilityStatus;
+  dispatchMode: DispatchMode;
+  lastReachabilityCheckAt?: string;
+  lastReachabilityError?: string;
+  lastDispatchAt?: string;
 }
 
 export interface SkillContext {
@@ -54,6 +68,7 @@ export interface AgentCatalogEntry extends BaseCatalogEntry {
   scope: "workspace";
   codexSessionId: string;
   agentStatus: AgentStatus;
+  reachability: AgentReachability;
   retiredAt?: string;
   retirementReason?: string;
   replacedByAgentEntryKey?: string;
@@ -194,6 +209,19 @@ export interface RetireAgentResult {
   agent: AgentCatalogEntry;
   retiredAt: string;
   replacedByAgent?: HandoffTargetAgent;
+}
+
+export interface RecordAgentDispatchSuccessInput {
+  workspace: string;
+  agentEntryKey: string;
+  dispatchedAt: string;
+}
+
+export interface RecordAgentDispatchFailureInput {
+  workspace: string;
+  agentEntryKey: string;
+  error: string;
+  checkedAt: string;
 }
 
 export interface SkillMetadataUpdate {
@@ -503,6 +531,7 @@ export interface HandoffTargetAgent {
   projectName: string;
   primarySpecialty: string;
   specialtyTags: readonly string[];
+  reachability: AgentReachability;
 }
 
 export interface PrepareAgentHandoffResult {
@@ -578,6 +607,7 @@ export interface MatchCandidate {
   projectName: string;
   primarySpecialty: string;
   specialtyTags: readonly string[];
+  reachability?: AgentReachability;
   skillContext?: SkillContext;
   purpose?: string;
   limitedScope?: string;
@@ -679,6 +709,14 @@ export interface CatalogRepository {
   retireAgent(
     workspace: string,
     input: RetireAgentInput & { now: string },
+  ): Promise<AgentCatalogEntry | undefined>;
+  updateAgentReachability(
+    workspace: string,
+    agentEntryKey: string,
+    input: {
+      reachability: AgentReachability;
+      updatedAt: string;
+    },
   ): Promise<AgentCatalogEntry | undefined>;
   removeEntry(
     workspace: string,

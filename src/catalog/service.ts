@@ -35,6 +35,8 @@ import {
   type PromoteSkillToGlobalInput,
   type PromoteSkillToGlobalResult,
   type ProposeSkillUpdateInput,
+  type RecordAgentDispatchFailureInput,
+  type RecordAgentDispatchSuccessInput,
   type RegisterWorkspaceAliasInput,
   type RegisterWorkspaceAliasResult,
   type RemoveCatalogEntryResult,
@@ -312,6 +314,60 @@ export class CatalogService {
         ? toHandoffTargetAgent(replacedByAgent)
         : undefined,
     };
+  }
+
+  async recordAgentDispatchSuccess(
+    input: RecordAgentDispatchSuccessInput,
+  ): Promise<AgentCatalogEntry> {
+    const workspace = await this.resolveWorkspace(input.workspace);
+    const agent = await this.#repository.updateAgentReachability(
+      workspace,
+      input.agentEntryKey.trim(),
+      {
+        reachability: {
+          reachabilityStatus: "reachable",
+          dispatchMode: "codex_thread",
+          lastReachabilityCheckAt: input.dispatchedAt,
+          lastDispatchAt: input.dispatchedAt,
+        },
+        updatedAt: input.dispatchedAt,
+      },
+    );
+    if (!agent) {
+      throw new LorError(
+        "not_found",
+        "Agent was not found.",
+        { entryType: "agent" },
+      );
+    }
+    return agent;
+  }
+
+  async recordAgentDispatchFailure(
+    input: RecordAgentDispatchFailureInput,
+  ): Promise<AgentCatalogEntry> {
+    const workspace = await this.resolveWorkspace(input.workspace);
+    const agent = await this.#repository.updateAgentReachability(
+      workspace,
+      input.agentEntryKey.trim(),
+      {
+        reachability: {
+          reachabilityStatus: "unreachable",
+          dispatchMode: "codex_thread",
+          lastReachabilityCheckAt: input.checkedAt,
+          lastReachabilityError: sanitizeReachabilityError(input.error),
+        },
+        updatedAt: input.checkedAt,
+      },
+    );
+    if (!agent) {
+      throw new LorError(
+        "not_found",
+        "Agent was not found.",
+        { entryType: "agent" },
+      );
+    }
+    return agent;
   }
 
   async proposeSkillUpdate(
@@ -739,6 +795,13 @@ export class CatalogService {
         { entryType: "agent", entryKey: entry.entryKey },
       );
     }
+    if (entry.reachability.reachabilityStatus === "unreachable") {
+      throw new LorError(
+        "validation_error",
+        "Target agent is known unreachable.",
+        { entryType: "agent", entryKey: entry.entryKey },
+      );
+    }
 
     const prompt = entry.handoff
       ? renderHandoffTemplate(entry, validated)
@@ -753,6 +816,7 @@ export class CatalogService {
         projectName: entry.projectName,
         primarySpecialty: entry.primarySpecialty,
         specialtyTags: entry.specialtyTags,
+        reachability: entry.reachability,
       },
       prompt,
       usedStoredHandoff: Boolean(entry.handoff),
@@ -802,6 +866,7 @@ export class CatalogService {
         projectName: entry.projectName,
         primarySpecialty: entry.primarySpecialty,
         specialtyTags: entry.specialtyTags,
+        reachability: entry.reachability,
         handoff: entry.handoff,
       },
       prompt: renderAgentRegenerationPrompt(entry, validated),
@@ -1240,7 +1305,13 @@ function toHandoffTargetAgent(entry: AgentCatalogEntry) {
     projectName: entry.projectName,
     primarySpecialty: entry.primarySpecialty,
     specialtyTags: entry.specialtyTags,
+    reachability: entry.reachability,
   };
+}
+
+function sanitizeReachabilityError(error: string): string {
+  const sanitized = error.trim().replace(/(^|\s)\/\S+/g, "$1[path]");
+  return sanitized.length > 240 ? `${sanitized.slice(0, 237)}...` : sanitized;
 }
 
 function isRoutableEntry(entry: CatalogEntry): boolean {

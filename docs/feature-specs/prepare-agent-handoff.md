@@ -3,7 +3,8 @@
 ## 1. Summary
 
 Implemented for v1. This feature lets a caller render a ready-to-send prompt for
-an introduced Codex agent in the requested workspace.
+an introduced Codex agent in the requested workspace, except when the agent is
+known unreachable through passive reachability metadata.
 
 The tool prepares handoff content only. It does not spawn, steer, message, or
 verify another Codex agent.
@@ -23,6 +24,8 @@ verify another Codex agent.
 - Generate prompt text with an LLM.
 - Verify whether the target Codex session is active.
 - Prepare handoffs for skills.
+- Dispatch work to an agent; that belongs to future delegated task lifecycle
+  tools.
 
 ## 4. Functional Requirements
 
@@ -38,6 +41,10 @@ verify another Codex agent.
   `{agentDisplayName}`, `{primarySpecialty}`, and `{specialtyTags}`.
 - Unknown template placeholders must be left unchanged.
 - The response must state that delivery is manual.
+- Reachability behavior must fail handoff preparation when the target agent has
+  `reachabilityStatus: "unreachable"`.
+- Reachability behavior may still prepare manual handoff prompts when the target
+  agent has `reachabilityStatus: "unknown"`.
 
 ## 5. Data Model
 
@@ -58,6 +65,7 @@ Output data:
 - `handoff`, when stored metadata exists.
 - `missingContext`
 - `delivery`
+- `reachability`
 
 ## 6. Error Handling
 
@@ -65,6 +73,8 @@ Output data:
 - Unknown target agents must return `not_found`.
 - A target agent that exists only in another workspace must return `not_found`.
 - Storage failures must return a storage error.
+- Reachability behavior must return an error when the target agent is known
+  unreachable.
 
 ## 7. Security and Permissions
 
@@ -86,3 +96,5 @@ Output data:
 - 2026-07-15: Use generic fallback prompts when stored handoff metadata is
   missing.
 - 2026-07-15: Keep `context` as one optional text block for v1.
+- 2026-08-06: Implement handoff preparation to fail for known unreachable agents
+  while continuing to support manual prompts for unknown agents.
