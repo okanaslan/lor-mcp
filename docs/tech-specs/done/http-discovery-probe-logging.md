@@ -2,12 +2,15 @@
 
 ## 1. Summary
 
-Future-supporting, near-term safe. This spec defines how LOR should log expected
+Implemented, near-term safe. This spec defines how LOR logs expected
 `.well-known` OAuth and OpenID Connect discovery probes while the local server
 remains unauthenticated.
 
 The goal is to reduce noisy warnings without adding fake discovery endpoints or
 changing MCP behavior.
+
+Related product spec:
+[HTTP Discovery Probe Logging](../../feature-specs/http-discovery-probe-logging.md).
 
 ## 2. Goals
 
@@ -49,5 +52,7 @@ spec defines a more precise classification.
 
 ## 6. Decision Log
 
+- 2026-08-06: Implement expected auth discovery probe classification so known
+  `404` paths log at `debug` while unrelated `4xx` responses remain warnings.
 - 2026-07-19: Treat expected auth discovery probes as log noise until real HTTP
   authorization exists.

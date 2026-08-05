@@ -41,8 +41,10 @@ LOR is implemented as a runnable local v1 MCP server.
   returns status-only results until a delegated task result is recorded.
 - Workspace diagnostics: LOR can report resolved workspace aliases, catalog
   counts, and sanitized storage/runtime status without exposing catalog entries.
-- Planned workspace support: future tools will add lightweight workspace notes
-  and quieter logs for expected HTTP discovery probes.
+- HTTP discovery logging: expected OAuth/OIDC `.well-known` discovery probe
+  `404` responses stay below warning severity while real unrelated `4xx`
+  responses remain warnings.
+- Planned workspace support: future tools will add lightweight workspace notes.
 - Subagents: reusable prompt profiles for small, scoped delegation, with
   workspace/global scope and ready-to-use prompts returned from introduction,
   matching, and detail flows.
@@ -77,7 +79,7 @@ LOR is implemented as a runnable local v1 MCP server.
   `docs/use-cases/check-agent-reachability-before-handoff.md`, and
   `docs/tech-specs/done/agent-reachability-and-dispatch-model.md`.
 - Planned orchestration docs cover delegated task lifecycle, task follow-up and
-  results, workspace memory, and HTTP discovery probe logging.
+  results, and workspace memory.
 - Subagent docs: `docs/feature-specs/subagent-suggestions.md`,
   `docs/use-cases/introduce-subagent-profile.md`,
   `docs/use-cases/suggest-subagents-for-scoped-work.md`, and

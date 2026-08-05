@@ -69,8 +69,9 @@ Implemented in the runnable local v1:
   Codex-native dispatcher.
 - Workspace diagnostics is implemented for read-only alias, catalog count, and
   sanitized setup visibility.
-- Workspace memory and HTTP discovery probe log cleanup are planned follow-up
-  improvements.
+- HTTP discovery probe logging cleanup is implemented so expected auth discovery
+  `404` responses log below warning severity without adding fake auth endpoints.
+- Workspace memory is a planned follow-up improvement.
 
 Current `LOR-MCP` catalog snapshot as of 2026-07-20:
 
@@ -139,9 +140,9 @@ Latest implementation verification:
   summaries, and reapply notes. Technical planning is tracked in
   [Workspace Memory Primitives](tech-specs/future/workspace-memory-primitives.md).
 - [HTTP Discovery Probe Logging](feature-specs/http-discovery-probe-logging.md):
-  Planned. Defines lower-noise logging for expected OAuth/OIDC discovery probes
-  without adding fake auth metadata. Technical planning is tracked in
-  [HTTP Discovery Probe Logging](tech-specs/future/http-discovery-probe-logging.md).
+  Implemented. Defines lower-noise logging for expected OAuth/OIDC discovery
+  probes without adding fake auth metadata. Technical planning is tracked in
+  [HTTP Discovery Probe Logging](tech-specs/done/http-discovery-probe-logging.md).
 - [Workspace Diagnostics](feature-specs/workspace-diagnostics.md): Implemented.
   Defines `get_workspace_diagnostics` for read-only workspace resolution,
   aliases, catalog counts, and sanitized runtime/storage status. Technical
@@ -198,8 +199,6 @@ Latest implementation verification:
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
 - Add workspace memory primitives around delegated workflows.
-- Add HTTP discovery probe logging cleanup as a lower-risk operational
-  improvement.
 - Add workspace memory primitives once the delegated task model is stable.
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can
   resolve and prepare handoff prompts today, while Codex thread tools perform

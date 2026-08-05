@@ -169,6 +169,14 @@ export function createHttpMcpHandler(
       logger.error(fields, message);
       return;
     }
+    if (
+      status === 404 &&
+      typeof fields.pathname === "string" &&
+      isExpectedAuthDiscoveryProbePath(fields.pathname)
+    ) {
+      logger.debug(fields, message);
+      return;
+    }
     if (status >= 400) {
       logger.warn(fields, message);
       return;
@@ -205,4 +213,14 @@ function jsonRpcError(
 
 function durationMs(startedAt: number): number {
   return Math.round((performance.now() - startedAt) * 100) / 100;
+}
+
+function isExpectedAuthDiscoveryProbePath(pathname: string): boolean {
+  return pathname === "/.well-known/oauth-protected-resource" ||
+    pathname.startsWith("/.well-known/oauth-protected-resource/") ||
+    pathname === "/.well-known/oauth-authorization-server" ||
+    pathname.startsWith("/.well-known/oauth-authorization-server/") ||
+    pathname === "/.well-known/openid-configuration" ||
+    pathname.startsWith("/.well-known/openid-configuration/") ||
+    pathname === "/mcp/.well-known/openid-configuration";
 }

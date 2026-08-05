@@ -1133,6 +1133,56 @@ Deno.test("HTTP MCP handler logs structured tool errors", async () => {
   }
 });
 
+Deno.test("HTTP MCP handler logs expected auth discovery probes below warning", async () => {
+  const logger = new CapturingLogger();
+  const handler = createHttpMcpHandler({ logger });
+  const response = await handler(
+    new Request("http://127.0.0.1:8765/.well-known/openid-configuration", {
+      method: "POST",
+      body: JSON.stringify({ secret: "do-not-log" }),
+    }),
+  );
+
+  assertEquals(response.status, 404);
+  assert(
+    logger.logs.some((log) =>
+      log.level === "debug" &&
+      log.fields.event === "http_request" &&
+      log.fields.pathname === "/.well-known/openid-configuration" &&
+      log.fields.status === 404
+    ),
+  );
+  assertEquals(
+    logger.logs.some((log) =>
+      log.level === "warn" &&
+      log.fields.event === "http_request" &&
+      log.fields.pathname === "/.well-known/openid-configuration"
+    ),
+    false,
+  );
+  assertEquals(JSON.stringify(logger.logs).includes("do-not-log"), false);
+});
+
+Deno.test("HTTP MCP handler keeps unrelated 404 request logs at warning", async () => {
+  const logger = new CapturingLogger();
+  const handler = createHttpMcpHandler({ logger });
+  const response = await handler(
+    new Request("http://127.0.0.1:8765/not-found", {
+      method: "GET",
+    }),
+  );
+
+  assertEquals(response.status, 404);
+  assert(
+    logger.logs.some((log) =>
+      log.level === "warn" &&
+      log.fields.event === "http_request" &&
+      log.fields.pathname === "/not-found" &&
+      log.fields.status === 404
+    ),
+  );
+});
+
 Deno.test("HTTP MCP handler rejects unknown session ids and deletes known sessions", async () => {
   const logger = new CapturingLogger();
   const handler = createHttpMcpHandler({ logger });
