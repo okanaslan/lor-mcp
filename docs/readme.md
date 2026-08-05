@@ -11,6 +11,16 @@ approval-gated local `SKILL.md` sync. Subagent support adds reusable
 workspace/global prompt profiles for small, scoped delegation without requiring
 a registered Codex agent session.
 
+Reachability metadata distinguishes catalog-only registered agents from agents
+known reachable through Codex-native dispatch outcomes. This is the foundation
+for later delegated task lifecycle tools.
+
+Planned orchestration work also covers delegated task follow-up/result
+collection, workspace notes, workspace diagnostics, and expected HTTP discovery
+probe log cleanup. Delegated task lifecycle tools now create durable task
+records, store task-scoped follow-up messages, return results when recorded, and
+can use a host-provided dispatcher when one is available.
+
 ## Contents
 
 - `../CHANGELOG.md`: version history.
@@ -38,6 +48,9 @@ The main user flows are:
 - Find matching agents, skills, and subagent prompt profiles for a task.
 - Fetch details and prepare handoff or regeneration prompts for registered Codex
   agents.
+- Use agent reachability metadata before direct delegated task dispatch.
+- Use delegated task lifecycle and follow-up/result tools, and plan workspace
+  memory, diagnostics, and HTTP discovery logging cleanup.
 - Retire replaced agents while keeping their catalog records inspectable.
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed

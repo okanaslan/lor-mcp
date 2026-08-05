@@ -31,6 +31,16 @@ LOR is implemented as a runnable local v1 MCP server.
   remain workspace-scoped.
 - Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
   tools remain responsible for sending work to registered Codex sessions.
+- Reachability model: LOR distinguishes catalog-only agents from agents known
+  reachable through Codex-native dispatch outcomes before adding direct
+  delegated task tools.
+- Delegated task lifecycle: LOR can create workspace-scoped delegated task
+  records, send through an injected Codex-native dispatcher when available, or
+  queue tasks with manual delivery instructions in the local runtime.
+- Follow-up and result retrieval: LOR stores task-scoped follow-up messages and
+  returns status-only results until a delegated task result is recorded.
+- Planned workspace support: future tools will add lightweight workspace notes,
+  workspace diagnostics, and quieter logs for expected HTTP discovery probes.
 - Subagents: reusable prompt profiles for small, scoped delegation, with
   workspace/global scope and ready-to-use prompts returned from introduction,
   matching, and detail flows.
@@ -60,6 +70,13 @@ LOR is implemented as a runnable local v1 MCP server.
 - `docs/use-cases/`: use case scenario drafts and template.
 - `docs/tech-specs/`: technical specs, with completed specs under `done/`,
   future specs under `future/`, and `template.md` for new specs.
+- Reachability docs:
+  `docs/feature-specs/agent-reachability-and-dispatch-model.md`,
+  `docs/use-cases/check-agent-reachability-before-handoff.md`, and
+  `docs/tech-specs/done/agent-reachability-and-dispatch-model.md`.
+- Planned orchestration docs cover delegated task lifecycle, task follow-up and
+  results, workspace memory, HTTP discovery probe logging, and workspace
+  diagnostics.
 - Subagent docs: `docs/feature-specs/subagent-suggestions.md`,
   `docs/use-cases/introduce-subagent-profile.md`,
   `docs/use-cases/suggest-subagents-for-scoped-work.md`, and
@@ -122,6 +139,14 @@ Common routing flow:
 2. `get_catalog_entry_detail`
 3. `prepare_agent_handoff` when another registered agent should receive work
 4. Codex-native thread communication using the registered `codexSessionId`
+
+Reachability metadata makes agent results clearer by showing whether a
+recommended registered agent is only a catalog entry, unknown, reachable, or
+known unreachable.
+
+Delegated task work builds on that model with `send_agent_task`,
+`get_agent_task_status`, `list_active_tasks`, `append_agent_context`, and
+`get_agent_task_result`.
 
 Common agent lifecycle flow:
 

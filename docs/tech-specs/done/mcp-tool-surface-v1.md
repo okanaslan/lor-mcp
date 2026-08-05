@@ -50,7 +50,7 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register twenty-seven MCP tools with snake_case names:
+V1 should register twenty-nine MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -76,6 +76,8 @@ V1 should register twenty-seven MCP tools with snake_case names:
 - `send_agent_task`
 - `get_agent_task_status`
 - `list_active_tasks`
+- `append_agent_context`
+- `get_agent_task_result`
 - `prepare_agent_regeneration`
 - `generate_agent_prompt`
 - `find_matching_catalog_entry`
@@ -417,6 +419,28 @@ may return validation, not-found, session/setup, or storage errors.
 `list_active_tasks` output data should include active delegated task records for
 the resolved workspace. Completed, failed, and cancelled tasks are excluded by
 default. It may return validation, session/setup, or storage errors.
+
+`append_agent_context` input:
+
+- `workspace`
+- `taskId`
+- `message`
+
+`append_agent_context` output data should include the delegated task record, the
+stored follow-up message, and delivery metadata. Closed tasks must reject
+follow-up. It may return validation, not-found, session/setup, or storage
+errors.
+
+`get_agent_task_result` input:
+
+- `workspace`
+- `taskId`
+
+`get_agent_task_result` output data should include the task id, current status,
+and `resultAvailable`. When a result has been recorded, it should also include
+summary, result text, and completion timestamp. Incomplete tasks must return
+status-only data rather than a fake result. It may return validation, not-found,
+session/setup, or storage errors.
 
 `prepare_agent_regeneration` input:
 

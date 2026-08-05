@@ -62,6 +62,13 @@ Implemented in the runnable local v1:
 - Dispatch boundary: LOR prepares agent handoff prompts and stores
   `codexSessionId`; Codex-native thread tools send the prompt to reachable
   registered sessions.
+- Delegated task lifecycle and follow-up/result retrieval are implemented with
+  durable task records, task-scoped messages, adapter-backed dispatch outcomes
+  when available, and queued manual delivery when the local runtime has no
+  Codex-native dispatcher.
+- Delegated task lifecycle, task follow-up/result collection, workspace memory,
+  workspace diagnostics, and HTTP discovery probe log cleanup are planned
+  follow-up improvements.
 
 Current `LOR-MCP` catalog snapshot as of 2026-07-20:
 
@@ -108,6 +115,35 @@ Latest implementation verification:
   Implemented for v1 detail lookup.
 - [Prepare Agent Handoff](feature-specs/prepare-agent-handoff.md): Implemented
   for v1 prompt preparation without dispatching to Codex.
+- [Agent Reachability And Dispatch Model](feature-specs/agent-reachability-and-dispatch-model.md):
+  Implemented. Defines passive reachability metadata for registered agents, with
+  existing and new agents defaulting to `unknown`, reachability updated only by
+  Codex-native dispatch outcomes, unreachable agents still visible in matching,
+  and handoff preparation failing for known unreachable agents. Technical
+  planning is tracked in
+  [Agent Reachability And Dispatch Model](tech-specs/done/agent-reachability-and-dispatch-model.md).
+- [Delegated Agent Task Lifecycle](feature-specs/delegated-agent-task-lifecycle.md):
+  Implemented. Defines `send_agent_task`, `get_agent_task_status`, and
+  `list_active_tasks` for workspace-scoped delegated work sent or queued for
+  registered agents. Technical planning is tracked in
+  [Delegated Agent Task Lifecycle](tech-specs/done/delegated-agent-task-lifecycle.md).
+- [Agent Task Follow-Up And Result Collection](feature-specs/agent-task-follow-up-and-result-collection.md):
+  Implemented. Defines `append_agent_context` and `get_agent_task_result` for
+  delegated task follow-up and result retrieval. Technical planning is tracked
+  in
+  [Agent Task Follow-Up And Result Collection](tech-specs/done/agent-task-follow-up-and-result-collection.md).
+- [Workspace Memory Primitives](feature-specs/workspace-memory-primitives.md):
+  Planned. Defines lightweight workspace notes for branch plans, review
+  summaries, and reapply notes. Technical planning is tracked in
+  [Workspace Memory Primitives](tech-specs/future/workspace-memory-primitives.md).
+- [HTTP Discovery Probe Logging](feature-specs/http-discovery-probe-logging.md):
+  Planned. Defines lower-noise logging for expected OAuth/OIDC discovery probes
+  without adding fake auth metadata. Technical planning is tracked in
+  [HTTP Discovery Probe Logging](tech-specs/future/http-discovery-probe-logging.md).
+- [Workspace Diagnostics](feature-specs/workspace-diagnostics.md): Planned.
+  Defines read-only diagnostics for workspace resolution, aliases, catalog
+  counts, and sanitized runtime/storage status. Technical planning is tracked in
+  [Workspace Diagnostics](tech-specs/future/workspace-diagnostics.md).
 - [Prepare Agent Regeneration](feature-specs/prepare-agent-regeneration.md):
   Implemented for v1 deterministic prompt preparation for replacing a registered
   context-heavy Codex agent with a fresh chat and later `introduce_agent`
@@ -158,6 +194,10 @@ Latest implementation verification:
 
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
+- Add workspace diagnostics and memory primitives around delegated workflows.
+- Add workspace diagnostics and HTTP discovery probe logging cleanup as
+  lower-risk operational improvements.
+- Add workspace memory primitives once the delegated task model is stable.
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can
   resolve and prepare handoff prompts today, while Codex thread tools perform
   the actual send/read loop.

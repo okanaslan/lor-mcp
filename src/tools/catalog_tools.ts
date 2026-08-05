@@ -1,6 +1,8 @@
 import type { McpServer } from "@mcp/server";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 import {
+  appendAgentContextInputSchema,
+  type AppendAgentContextToolInput,
   applySkillFileSyncInputSchema,
   type ApplySkillFileSyncToolInput,
   applySkillUpdateInputSchema,
@@ -17,6 +19,8 @@ import {
   type FindMatchingCatalogEntryToolInput,
   generateAgentPromptInputSchema,
   type GenerateAgentPromptToolInput,
+  getAgentTaskResultInputSchema,
+  type GetAgentTaskResultToolInput,
   getAgentTaskStatusInputSchema,
   type GetAgentTaskStatusToolInput,
   getCatalogEntryDetailInputSchema,
@@ -693,6 +697,55 @@ export function registerCatalogTools(
           return okResult(
             result,
             `Found ${result.tasks.length} active delegated tasks.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "append_agent_context",
+    {
+      description:
+        "Append follow-up context to an active delegated agent task.",
+      inputSchema: appendAgentContextInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: AppendAgentContextToolInput) =>
+      withLoggedRuntime(
+        "append_agent_context",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.appendAgentContext(input);
+          return okResult(
+            result,
+            `Appended context to delegated task ${result.task.taskId}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "get_agent_task_result",
+    {
+      description: "Get result metadata for a delegated agent task.",
+      inputSchema: getAgentTaskResultInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: GetAgentTaskResultToolInput) =>
+      withLoggedRuntime(
+        "get_agent_task_result",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.getAgentTaskResult(input);
+          return okResult(
+            result,
+            result.resultAvailable
+              ? `Found result for delegated task ${result.taskId}.`
+              : `Delegated task ${result.taskId} has no result yet.`,
           );
         },
       ),

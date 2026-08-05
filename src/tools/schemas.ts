@@ -396,6 +396,17 @@ export const listActiveTasksInputSchema = z.object({
   agentEntryKey: z.string().trim().min(1).optional(),
 });
 
+export const appendAgentContextInputSchema = z.object({
+  workspace: workspaceSchema,
+  taskId: z.string().trim().min(1),
+  message: z.string().trim().min(1),
+});
+
+export const getAgentTaskResultInputSchema = z.object({
+  workspace: workspaceSchema,
+  taskId: z.string().trim().min(1),
+});
+
 export const prepareAgentRegenerationInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -481,6 +492,12 @@ export type GetAgentTaskStatusToolInput = z.infer<
 >;
 export type ListActiveTasksToolInput = z.infer<
   typeof listActiveTasksInputSchema
+>;
+export type AppendAgentContextToolInput = z.infer<
+  typeof appendAgentContextInputSchema
+>;
+export type GetAgentTaskResultToolInput = z.infer<
+  typeof getAgentTaskResultInputSchema
 >;
 export type PrepareAgentRegenerationToolInput = z.infer<
   typeof prepareAgentRegenerationInputSchema

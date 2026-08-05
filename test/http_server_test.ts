@@ -79,6 +79,8 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "send_agent_task",
       "get_agent_task_status",
       "list_active_tasks",
+      "append_agent_context",
+      "get_agent_task_result",
       "prepare_agent_regeneration",
       "generate_agent_prompt",
       "find_matching_catalog_entry",
@@ -812,6 +814,75 @@ Deno.test("HTTP MCP handler calls delegated agent task lifecycle tools", async (
       ) => task.taskId),
       [taskId],
     );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls agent task follow-up and result tools", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const sent = await service.sendAgentTask({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: "Implement backend route",
+    });
+
+    const appendResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "append_agent_context",
+        arguments: {
+          workspace: "LOR-MCP",
+          taskId: sent.task.taskId,
+          message: "Also update schema tests.",
+        },
+      },
+    });
+    const resultResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "get_agent_task_result",
+        arguments: {
+          workspace: "LOR-MCP",
+          taskId: sent.task.taskId,
+        },
+      },
+    });
+    const appendBody = await appendResponse.json();
+    const resultBody = await resultResponse.json();
+
+    assertEquals(appendResponse.status, 200);
+    assertEquals(appendBody.result.structuredContent.status, "ok");
+    assertEquals(
+      appendBody.result.structuredContent.data.message.direction,
+      "caller_to_agent",
+    );
+    assertEquals(
+      resultBody.result.structuredContent.data.resultAvailable,
+      false,
+    );
+    assertEquals(resultBody.result.structuredContent.data.status, "queued");
   } finally {
     repo.close();
   }

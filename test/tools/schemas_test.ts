@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
+  appendAgentContextInputSchema,
   applySkillFileSyncInputSchema,
   applySkillUpdateInputSchema,
   applyWorkspaceCatalogSyncInputSchema,
@@ -8,6 +9,7 @@ import {
   exportCatalogInputSchema,
   findMatchingCatalogEntryInputSchema,
   generateAgentPromptInputSchema,
+  getAgentTaskResultInputSchema,
   getAgentTaskStatusInputSchema,
   getCatalogEntryDetailInputSchema,
   importCatalogInputSchema,
@@ -227,6 +229,32 @@ Deno.test("delegated agent task schemas require scoped task identifiers", () => 
     listActiveTasksInputSchema.safeParse({
       workspace: "LOR-MCP",
       agentEntryKey: "agent-1",
+    }).success,
+    true,
+  );
+});
+
+Deno.test("agent task follow-up schemas require task and message inputs", () => {
+  assertEquals(
+    appendAgentContextInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      taskId: "task-1",
+      message: "Add migration tests.",
+    }).success,
+    true,
+  );
+  assertEquals(
+    appendAgentContextInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      taskId: "task-1",
+      message: " ",
+    }).success,
+    false,
+  );
+  assertEquals(
+    getAgentTaskResultInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      taskId: "task-1",
     }).success,
     true,
   );

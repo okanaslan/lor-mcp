@@ -1,5 +1,6 @@
 import {
   type AgentStatus,
+  type AppendAgentContextInput,
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type ApplyWorkspaceCatalogSyncInput,
@@ -11,6 +12,7 @@ import {
   type CatalogImportInput,
   type CatalogScope,
   type EntryLookup,
+  type GetAgentTaskResultInput,
   type GetAgentTaskStatusInput,
   type HandoffMetadata,
   type IntroduceAgentInput,
@@ -21,6 +23,7 @@ import {
   type PrepareAgentRegenerationInput,
   type PromoteSkillToGlobalInput,
   type ProposeSkillUpdateInput,
+  type RecordAgentTaskResultInput,
   type RegisterWorkspaceAliasInput,
   type RetireAgentInput,
   type SendAgentTaskInput,
@@ -478,6 +481,37 @@ export function validateListActiveTasks(
   return {
     workspace: requireWorkspace(input.workspace),
     agentEntryKey: input.agentEntryKey?.trim() || undefined,
+  };
+}
+
+export function validateAppendAgentContext(
+  input: AppendAgentContextInput,
+): AppendAgentContextInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    taskId: requireString(input.taskId, "taskId"),
+    message: requireString(input.message, "message"),
+  };
+}
+
+export function validateGetAgentTaskResult(
+  input: GetAgentTaskResultInput,
+): GetAgentTaskResultInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    taskId: requireString(input.taskId, "taskId"),
+  };
+}
+
+export function validateRecordAgentTaskResult(
+  input: RecordAgentTaskResultInput,
+): RecordAgentTaskResultInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    taskId: requireString(input.taskId, "taskId"),
+    summary: requireString(input.summary, "summary"),
+    result: requireString(input.result, "result"),
+    completedAt: requireString(input.completedAt, "completedAt"),
   };
 }
 

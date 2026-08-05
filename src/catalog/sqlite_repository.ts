@@ -3,6 +3,7 @@ import type {
   AgentCatalogEntry,
   AgentReachability,
   AgentStatus,
+  AgentTaskResult,
   CatalogEntry,
   CatalogEntryUpdate,
   CatalogRepository,
@@ -11,6 +12,7 @@ import type {
   ClearWorkspaceCatalogResult,
   DelegatedAgentTask,
   DelegatedAgentTaskStatus,
+  DelegatedTaskMessage,
   EntryLookup,
   IntroduceAgentInput,
   IntroduceSkillInput,
@@ -135,6 +137,14 @@ interface DelegatedAgentTaskRow {
   externalTaskId: string | null;
 }
 
+interface DelegatedTaskResultRow {
+  taskId: string;
+  workspace: string;
+  summary: string;
+  result: string;
+  completedAt: string;
+}
+
 const GLOBAL_SKILL_WORKSPACE = "__lor_global_skills__";
 const GLOBAL_SUBAGENT_WORKSPACE = "__lor_global_subagents__";
 const PUBLIC_GLOBAL_WORKSPACE = "global";
@@ -157,6 +167,8 @@ export class SqliteCatalogRepository implements CatalogRepository {
       migrateAgentLifecycleColumns(this.#db);
       migrateAgentReachabilityColumns(this.#db);
       this.#db.exec(DELEGATED_TASKS_SCHEMA_SQL);
+      this.#db.exec(DELEGATED_TASK_MESSAGES_SCHEMA_SQL);
+      this.#db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
       backfillWorkspaceAliases(this.#db);
       recordSchemaVersion(this.#db, 8);
     } catch (error) {
@@ -588,6 +600,82 @@ export class SqliteCatalogRepository implements CatalogRepository {
     return Promise.resolve(rows.map(mapDelegatedAgentTaskRow));
   }
 
+  createDelegatedTaskMessage(
+    input: DelegatedTaskMessage,
+  ): Promise<DelegatedTaskMessage> {
+    try {
+      this.requireDb().exec(
+        `INSERT INTO delegated_agent_task_messages (
+          messageId, taskId, workspace, direction, message, createdAt
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
+        input.messageId,
+        input.taskId,
+        input.workspace,
+        input.direction,
+        input.message,
+        input.createdAt,
+      );
+      return Promise.resolve(input);
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
+  recordDelegatedAgentTaskResult(
+    workspace: string,
+    input: {
+      taskId: string;
+      summary: string;
+      result: string;
+      completedAt: string;
+    },
+  ): Promise<AgentTaskResult | undefined> {
+    try {
+      const existing = this.getDelegatedAgentTaskSync(workspace, input.taskId);
+      if (!existing) {
+        return Promise.resolve(undefined);
+      }
+
+      const write = this.requireDb().transaction(() => {
+        this.requireDb().exec(
+          `INSERT OR REPLACE INTO delegated_agent_task_results (
+            taskId, workspace, summary, result, completedAt
+          ) VALUES (?, ?, ?, ?, ?)`,
+          input.taskId,
+          workspace,
+          input.summary,
+          input.result,
+          input.completedAt,
+        );
+        this.requireDb().exec(
+          `UPDATE delegated_agent_tasks
+           SET status = ?, completedAt = ?, updatedAt = ?
+           WHERE workspace = ? AND taskId = ?`,
+          "completed",
+          input.completedAt,
+          input.completedAt,
+          workspace,
+          input.taskId,
+        );
+      });
+      write();
+      return Promise.resolve(
+        this.getDelegatedAgentTaskResultSync(workspace, input.taskId),
+      );
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
+  getDelegatedAgentTaskResult(
+    workspace: string,
+    taskId: string,
+  ): Promise<AgentTaskResult | undefined> {
+    return Promise.resolve(
+      this.getDelegatedAgentTaskResultSync(workspace, taskId),
+    );
+  }
+
   updateEntry(
     workspace: string,
     input: CatalogEntryUpdate & { now: string },
@@ -841,6 +929,37 @@ export class SqliteCatalogRepository implements CatalogRepository {
        WHERE workspace = ? AND taskId = ?`,
     ).get(workspace, taskId);
     return row ? mapDelegatedAgentTaskRow(row) : undefined;
+  }
+
+  private getDelegatedAgentTaskResultSync(
+    workspace: string,
+    taskId: string,
+  ): AgentTaskResult | undefined {
+    const task = this.getDelegatedAgentTaskSync(workspace, taskId);
+    if (!task) {
+      return undefined;
+    }
+    const row = this.requireDb().prepare<DelegatedTaskResultRow>(
+      `SELECT * FROM delegated_agent_task_results
+       WHERE workspace = ? AND taskId = ?`,
+    ).get(workspace, taskId);
+    if (!row) {
+      return {
+        workspace,
+        taskId,
+        status: task.status,
+        resultAvailable: false,
+      };
+    }
+    return {
+      workspace,
+      taskId,
+      status: "completed",
+      resultAvailable: true,
+      summary: row.summary,
+      result: row.result,
+      completedAt: row.completedAt,
+    };
   }
 
   private getSkillUpdateProposalSync(
@@ -1642,4 +1761,29 @@ CREATE INDEX IF NOT EXISTS delegated_agent_tasks_workspace_status_idx
 
 CREATE INDEX IF NOT EXISTS delegated_agent_tasks_workspace_agent_idx
   ON delegated_agent_tasks(workspace, agentEntryKey);
+`;
+
+const DELEGATED_TASK_MESSAGES_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS delegated_agent_task_messages (
+  messageId TEXT PRIMARY KEY,
+  taskId TEXT NOT NULL,
+  workspace TEXT NOT NULL,
+  direction TEXT NOT NULL,
+  message TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS delegated_agent_task_messages_task_idx
+  ON delegated_agent_task_messages(workspace, taskId, createdAt);
+`;
+
+const DELEGATED_TASK_RESULTS_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS delegated_agent_task_results (
+  taskId TEXT NOT NULL,
+  workspace TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  result TEXT NOT NULL,
+  completedAt TEXT NOT NULL,
+  PRIMARY KEY (workspace, taskId)
+);
 `;

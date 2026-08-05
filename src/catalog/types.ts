@@ -314,6 +314,62 @@ export interface ListActiveTasksResult {
   tasks: DelegatedAgentTask[];
 }
 
+export type DelegatedTaskMessageDirection =
+  | "caller_to_agent"
+  | "agent_to_caller";
+
+export interface DelegatedTaskMessage {
+  messageId: string;
+  taskId: string;
+  workspace: string;
+  direction: DelegatedTaskMessageDirection;
+  message: string;
+  createdAt: string;
+}
+
+export interface AppendAgentContextInput {
+  workspace: string;
+  taskId: string;
+  message: string;
+}
+
+export interface AppendAgentContextResult {
+  workspace: string;
+  task: DelegatedAgentTask;
+  message: DelegatedTaskMessage;
+  delivery:
+    | {
+      mode: "manual";
+      instruction: string;
+    }
+    | {
+      mode: "codex_native";
+    };
+}
+
+export interface GetAgentTaskResultInput {
+  workspace: string;
+  taskId: string;
+}
+
+export interface RecordAgentTaskResultInput {
+  workspace: string;
+  taskId: string;
+  summary: string;
+  result: string;
+  completedAt: string;
+}
+
+export interface AgentTaskResult {
+  workspace: string;
+  taskId: string;
+  status: DelegatedAgentTaskStatus;
+  resultAvailable: boolean;
+  summary?: string;
+  result?: string;
+  completedAt?: string;
+}
+
 export interface SkillMetadataUpdate {
   projectName?: string;
   displayName?: string;
@@ -839,5 +895,21 @@ export interface CatalogRepository {
     workspace: string,
     filter?: { agentEntryKey?: string },
   ): Promise<DelegatedAgentTask[]>;
+  createDelegatedTaskMessage(
+    input: DelegatedTaskMessage,
+  ): Promise<DelegatedTaskMessage>;
+  recordDelegatedAgentTaskResult(
+    workspace: string,
+    input: {
+      taskId: string;
+      summary: string;
+      result: string;
+      completedAt: string;
+    },
+  ): Promise<AgentTaskResult | undefined>;
+  getDelegatedAgentTaskResult(
+    workspace: string,
+    taskId: string,
+  ): Promise<AgentTaskResult | undefined>;
   close(): void;
 }

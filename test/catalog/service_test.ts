@@ -290,6 +290,118 @@ Deno.test("CatalogService queues agent tasks when no dispatcher is configured", 
   }
 });
 
+Deno.test("CatalogService appends context to open delegated tasks", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const sent = await service.sendAgentTask({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: "Implement a backend route",
+    });
+
+    const appended = await service.appendAgentContext({
+      workspace: "LOR-MCP",
+      taskId: sent.task.taskId,
+      message: "Also update the schema tests.",
+    });
+
+    assertEquals(appended.message.direction, "caller_to_agent");
+    assertEquals(appended.message.message, "Also update the schema tests.");
+    assertEquals(appended.delivery.mode, "manual");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService rejects follow-up for closed delegated tasks", async () => {
+  const { repo, service } = await createCatalogService({
+    dispatchAgentTask: () =>
+      Promise.resolve({
+        status: "failed",
+        failureMessage: "Native thread missing.",
+      }),
+  });
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const sent = await service.sendAgentTask({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: "Implement a backend route",
+    });
+
+    await assertRejects(
+      () =>
+        service.appendAgentContext({
+          workspace: "LOR-MCP",
+          taskId: sent.task.taskId,
+          message: "Retry with more context.",
+        }),
+      Error,
+      "Delegated agent task is closed.",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns status until a delegated task result is recorded", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    const sent = await service.sendAgentTask({
+      workspace: "LOR-MCP",
+      agentEntryKey: "agent-1",
+      task: "Implement a backend route",
+    });
+
+    const pending = await service.getAgentTaskResult({
+      workspace: "LOR-MCP",
+      taskId: sent.task.taskId,
+    });
+    await service.recordAgentTaskResult({
+      workspace: "LOR-MCP",
+      taskId: sent.task.taskId,
+      summary: "Implemented route.",
+      result: "Changed service and tests.",
+      completedAt: "2026-07-12T00:03:00.000Z",
+    });
+    const completed = await service.getAgentTaskResult({
+      workspace: "LOR-MCP",
+      taskId: sent.task.taskId,
+    });
+
+    assertEquals(pending.status, "queued");
+    assertEquals(pending.resultAvailable, false);
+    assertEquals(completed.status, "completed");
+    assertEquals(completed.resultAvailable, true);
+    assertEquals(completed.summary, "Implemented route.");
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService introduces skills without skill root pre-registration", async () => {
   const { repo, service } = await createCatalogService();
   try {

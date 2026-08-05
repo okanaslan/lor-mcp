@@ -1,6 +1,9 @@
 import {
   type AgentCatalogEntry,
   type AgentTaskDispatcher,
+  type AgentTaskResult,
+  type AppendAgentContextInput,
+  type AppendAgentContextResult,
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type ApplyWorkspaceCatalogSyncInput,
@@ -24,6 +27,7 @@ import {
   type ClearWorkspaceCatalogResult,
   type DelegatedAgentTask,
   type EntryLookup,
+  type GetAgentTaskResultInput,
   type GetAgentTaskStatusInput,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
@@ -42,6 +46,7 @@ import {
   type ProposeSkillUpdateInput,
   type RecordAgentDispatchFailureInput,
   type RecordAgentDispatchSuccessInput,
+  type RecordAgentTaskResultInput,
   type RegisterWorkspaceAliasInput,
   type RegisterWorkspaceAliasResult,
   type RemoveCatalogEntryResult,
@@ -64,6 +69,7 @@ import {
   type WorkspaceCatalogSyncPreview,
 } from "@src/catalog/types.ts";
 import {
+  validateAppendAgentContext,
   validateApplySkillFileSync,
   validateApplySkillUpdate,
   validateApplyWorkspaceCatalogSync,
@@ -72,6 +78,7 @@ import {
   validateCatalogHealthFilter,
   validateCatalogImportInput,
   validateEntryLookup,
+  validateGetAgentTaskResult,
   validateGetAgentTaskStatus,
   validateIntroduceAgent,
   validateIntroduceSkill,
@@ -81,6 +88,7 @@ import {
   validatePrepareAgentRegeneration,
   validatePromoteSkillToGlobal,
   validateProposeSkillUpdate,
+  validateRecordAgentTaskResult,
   validateRegisterWorkspaceAlias,
   validateRetireAgent,
   validateSendAgentTask,
@@ -555,6 +563,91 @@ export class CatalogService {
       { agentEntryKey: validated.agentEntryKey },
     );
     return { workspace, tasks };
+  }
+
+  async appendAgentContext(
+    input: AppendAgentContextInput,
+  ): Promise<AppendAgentContextResult> {
+    const validated = validateAppendAgentContext(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const task = await this.#repository.getDelegatedAgentTask(
+      workspace,
+      validated.taskId,
+    );
+    if (!task) {
+      throw new LorError(
+        "not_found",
+        "Delegated agent task was not found.",
+      );
+    }
+    if (isClosedTaskStatus(task.status)) {
+      throw new LorError(
+        "validation_error",
+        "Delegated agent task is closed.",
+        { taskId: task.taskId, status: task.status },
+      );
+    }
+
+    const message = await this.#repository.createDelegatedTaskMessage({
+      messageId: crypto.randomUUID(),
+      taskId: task.taskId,
+      workspace,
+      direction: "caller_to_agent",
+      message: validated.message,
+      createdAt: this.#now(),
+    });
+
+    return {
+      workspace,
+      task,
+      message,
+      delivery: {
+        mode: "manual",
+        instruction:
+          "Forward this follow-up through Codex-native thread tools when available.",
+      },
+    };
+  }
+
+  async getAgentTaskResult(
+    input: GetAgentTaskResultInput,
+  ): Promise<AgentTaskResult> {
+    const validated = validateGetAgentTaskResult(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const result = await this.#repository.getDelegatedAgentTaskResult(
+      workspace,
+      validated.taskId,
+    );
+    if (!result) {
+      throw new LorError(
+        "not_found",
+        "Delegated agent task was not found.",
+      );
+    }
+    return result;
+  }
+
+  async recordAgentTaskResult(
+    input: RecordAgentTaskResultInput,
+  ): Promise<AgentTaskResult> {
+    const validated = validateRecordAgentTaskResult(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const result = await this.#repository.recordDelegatedAgentTaskResult(
+      workspace,
+      {
+        taskId: validated.taskId,
+        summary: validated.summary,
+        result: validated.result,
+        completedAt: validated.completedAt,
+      },
+    );
+    if (!result) {
+      throw new LorError(
+        "not_found",
+        "Delegated agent task was not found.",
+      );
+    }
+    return result;
   }
 
   async proposeSkillUpdate(
@@ -1514,6 +1607,11 @@ function assertDispatchableAgent(entry: AgentCatalogEntry): void {
       { entryType: "agent", entryKey: entry.entryKey },
     );
   }
+}
+
+function isClosedTaskStatus(status: DelegatedAgentTask["status"]): boolean {
+  return status === "completed" || status === "failed" ||
+    status === "cancelled";
 }
 
 function sanitizeReachabilityError(error: string): string {
