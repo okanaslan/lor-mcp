@@ -13,11 +13,13 @@ import {
   getAgentTaskStatusInputSchema,
   getCatalogEntryDetailInputSchema,
   getWorkspaceDiagnosticsInputSchema,
+  getWorkspaceNoteInputSchema,
   importCatalogInputSchema,
   introduceAgentInputSchema,
   introduceSkillInputSchema,
   introduceSubagentInputSchema,
   listActiveTasksInputSchema,
+  listWorkspaceNotesInputSchema,
   prepareAgentHandoffInputSchema,
   prepareAgentRegenerationInputSchema,
   previewSkillFileSyncInputSchema,
@@ -25,7 +27,9 @@ import {
   promoteSkillToGlobalInputSchema,
   proposeSkillUpdateInputSchema,
   registerWorkspaceAliasInputSchema,
+  rememberWorkspaceNoteInputSchema,
   removeCatalogEntryInputSchema,
+  removeWorkspaceNoteInputSchema,
   retireAgentInputSchema,
   sendAgentTaskInputSchema,
   updateCatalogEntryInputSchema,
@@ -731,6 +735,53 @@ Deno.test("getWorkspaceDiagnosticsInputSchema requires workspace", () => {
     false,
   );
   assertEquals(getWorkspaceDiagnosticsInputSchema.safeParse({}).success, false);
+});
+
+Deno.test("workspace note schemas require scoped note inputs", () => {
+  assertEquals(
+    rememberWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      title: "Branch plan",
+      body: "Keep changes scoped.",
+      tags: ["branch-plan"],
+    }).success,
+    true,
+  );
+  assertEquals(
+    rememberWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      title: " ",
+      body: "Keep changes scoped.",
+    }).success,
+    false,
+  );
+  assertEquals(
+    listWorkspaceNotesInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      tags: ["review-summary"],
+    }).success,
+    true,
+  );
+  assertEquals(
+    getWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      noteId: "note-1",
+    }).success,
+    true,
+  );
+  assertEquals(
+    removeWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      noteId: "note-1",
+    }).success,
+    true,
+  );
+  assertEquals(
+    getWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+    }).success,
+    false,
+  );
 });
 
 Deno.test("generateAgentPromptInputSchema requires workspace and role", () => {

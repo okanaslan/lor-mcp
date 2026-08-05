@@ -29,12 +29,15 @@ import {
   type EntryLookup,
   type GetAgentTaskResultInput,
   type GetAgentTaskStatusInput,
+  type GetWorkspaceNoteInput,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type IntroduceSubagentInput,
   type ListActiveTasksInput,
   type ListActiveTasksResult,
   type ListEntriesFilter,
+  type ListWorkspaceNotesInput,
+  type ListWorkspaceNotesResult,
   type MatchRequest,
   type MatchResult,
   type PrepareAgentHandoffInput,
@@ -49,7 +52,10 @@ import {
   type RecordAgentTaskResultInput,
   type RegisterWorkspaceAliasInput,
   type RegisterWorkspaceAliasResult,
+  type RememberWorkspaceNoteInput,
   type RemoveCatalogEntryResult,
+  type RemoveWorkspaceNoteInput,
+  type RemoveWorkspaceNoteResult,
   type RetireAgentInput,
   type RetireAgentResult,
   type SendAgentTaskInput,
@@ -69,6 +75,8 @@ import {
   type WorkspaceCatalogSyncPreview,
   type WorkspaceDiagnosticsInput,
   type WorkspaceDiagnosticsReport,
+  type WorkspaceNote,
+  type WorkspaceNoteSummary,
 } from "@src/catalog/types.ts";
 import {
   validateAppendAgentContext,
@@ -82,16 +90,20 @@ import {
   validateEntryLookup,
   validateGetAgentTaskResult,
   validateGetAgentTaskStatus,
+  validateGetWorkspaceNote,
   validateIntroduceAgent,
   validateIntroduceSkill,
   validateIntroduceSubagent,
   validateListActiveTasks,
+  validateListWorkspaceNotes,
   validatePrepareAgentHandoff,
   validatePrepareAgentRegeneration,
   validatePromoteSkillToGlobal,
   validateProposeSkillUpdate,
   validateRecordAgentTaskResult,
   validateRegisterWorkspaceAlias,
+  validateRememberWorkspaceNote,
+  validateRemoveWorkspaceNote,
   validateRetireAgent,
   validateSendAgentTask,
   validateSkillFileSyncInput,
@@ -1094,6 +1106,81 @@ export class CatalogService {
     }
   }
 
+  async rememberWorkspaceNote(
+    input: RememberWorkspaceNoteInput,
+  ): Promise<WorkspaceNote> {
+    const validated = validateRememberWorkspaceNote(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    return await this.#repository.createWorkspaceNote({
+      noteId: crypto.randomUUID(),
+      workspace,
+      title: validated.title,
+      body: validated.body,
+      tags: validated.tags ?? [],
+      createdAt: this.#now(),
+      updatedAt: this.#now(),
+    });
+  }
+
+  async listWorkspaceNotes(
+    input: ListWorkspaceNotesInput,
+  ): Promise<ListWorkspaceNotesResult> {
+    const validated = validateListWorkspaceNotes(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const notes = await this.#repository.listWorkspaceNotes(workspace, {
+      tags: validated.tags,
+    });
+    return {
+      workspace,
+      filters: {
+        tags: validated.tags,
+      },
+      notes: notes.map(toWorkspaceNoteSummary),
+    };
+  }
+
+  async getWorkspaceNote(
+    input: GetWorkspaceNoteInput,
+  ): Promise<WorkspaceNote> {
+    const validated = validateGetWorkspaceNote(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const note = await this.#repository.getWorkspaceNote(
+      workspace,
+      validated.noteId,
+    );
+    if (!note) {
+      throw new LorError(
+        "not_found",
+        "Workspace note was not found.",
+        { noteId: validated.noteId },
+      );
+    }
+    return note;
+  }
+
+  async removeWorkspaceNote(
+    input: RemoveWorkspaceNoteInput,
+  ): Promise<RemoveWorkspaceNoteResult> {
+    const validated = validateRemoveWorkspaceNote(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const removed = await this.#repository.removeWorkspaceNote(
+      workspace,
+      validated.noteId,
+    );
+    if (!removed) {
+      throw new LorError(
+        "not_found",
+        "Workspace note was not found.",
+        { noteId: validated.noteId },
+      );
+    }
+    return {
+      workspace,
+      noteId: validated.noteId,
+      removed,
+    };
+  }
+
   async prepareAgentHandoff(
     input: PrepareAgentHandoffInput,
   ): Promise<PrepareAgentHandoffResult> {
@@ -1793,6 +1880,17 @@ function emptyCatalogCounts(): {
     agents: 0,
     skills: 0,
     subagents: 0,
+  };
+}
+
+function toWorkspaceNoteSummary(note: WorkspaceNote): WorkspaceNoteSummary {
+  return {
+    noteId: note.noteId,
+    workspace: note.workspace,
+    title: note.title,
+    tags: note.tags,
+    createdAt: note.createdAt,
+    updatedAt: note.updatedAt,
   };
 }
 

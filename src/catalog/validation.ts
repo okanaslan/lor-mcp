@@ -14,17 +14,21 @@ import {
   type EntryLookup,
   type GetAgentTaskResultInput,
   type GetAgentTaskStatusInput,
+  type GetWorkspaceNoteInput,
   type HandoffMetadata,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type IntroduceSubagentInput,
   type ListActiveTasksInput,
+  type ListWorkspaceNotesInput,
   type PrepareAgentHandoffInput,
   type PrepareAgentRegenerationInput,
   type PromoteSkillToGlobalInput,
   type ProposeSkillUpdateInput,
   type RecordAgentTaskResultInput,
   type RegisterWorkspaceAliasInput,
+  type RememberWorkspaceNoteInput,
+  type RemoveWorkspaceNoteInput,
   type RetireAgentInput,
   type SendAgentTaskInput,
   type SkillContext,
@@ -233,6 +237,44 @@ export function validateWorkspaceDiagnosticsInput(
 ): WorkspaceDiagnosticsInput {
   return {
     workspace: requireWorkspace(input.workspace),
+  };
+}
+
+export function validateRememberWorkspaceNote(
+  input: RememberWorkspaceNoteInput,
+): RememberWorkspaceNoteInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    title: requireString(input.title, "title"),
+    body: requireString(input.body, "body"),
+    tags: normalizeOptionalStringList(input.tags, "tags"),
+  };
+}
+
+export function validateListWorkspaceNotes(
+  input: ListWorkspaceNotesInput,
+): ListWorkspaceNotesInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    tags: normalizeOptionalStringList(input.tags, "tags"),
+  };
+}
+
+export function validateGetWorkspaceNote(
+  input: GetWorkspaceNoteInput,
+): GetWorkspaceNoteInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    noteId: requireString(input.noteId, "noteId"),
+  };
+}
+
+export function validateRemoveWorkspaceNote(
+  input: RemoveWorkspaceNoteInput,
+): RemoveWorkspaceNoteInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    noteId: requireString(input.noteId, "noteId"),
   };
 }
 
@@ -941,4 +983,15 @@ function requireStringList(values: readonly string[], field: string): string[] {
     });
   }
   return values.map((value) => requireString(value, field));
+}
+
+function normalizeOptionalStringList(
+  values: readonly string[] | undefined,
+  field: string,
+): string[] | undefined {
+  if (values === undefined) {
+    return undefined;
+  }
+  const normalized = requireStringList(values, field);
+  return normalized.length === 0 ? undefined : normalized;
 }

@@ -687,6 +687,54 @@ export interface WorkspaceDiagnosticsReport {
   checkedAt: string;
 }
 
+export interface WorkspaceNote {
+  noteId: string;
+  workspace: string;
+  title: string;
+  body: string;
+  tags: readonly string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorkspaceNoteSummary = Omit<WorkspaceNote, "body">;
+
+export interface RememberWorkspaceNoteInput {
+  workspace: string;
+  title: string;
+  body: string;
+  tags?: readonly string[];
+}
+
+export interface ListWorkspaceNotesInput {
+  workspace: string;
+  tags?: readonly string[];
+}
+
+export interface ListWorkspaceNotesResult {
+  workspace: string;
+  filters: {
+    tags?: readonly string[];
+  };
+  notes: readonly WorkspaceNoteSummary[];
+}
+
+export interface GetWorkspaceNoteInput {
+  workspace: string;
+  noteId: string;
+}
+
+export interface RemoveWorkspaceNoteInput {
+  workspace: string;
+  noteId: string;
+}
+
+export interface RemoveWorkspaceNoteResult {
+  workspace: string;
+  noteId: string;
+  removed: boolean;
+}
+
 export interface PrepareAgentHandoffInput {
   workspace: string;
   agentEntryKey: string;
@@ -883,6 +931,16 @@ export interface CatalogRepository {
   ): Promise<string>;
   listWorkspaceAliases(canonicalWorkspace: string): Promise<string[]>;
   getSchemaVersion(): Promise<number | undefined>;
+  createWorkspaceNote(input: WorkspaceNote): Promise<WorkspaceNote>;
+  listWorkspaceNotes(
+    workspace: string,
+    filter?: { tags?: readonly string[] },
+  ): Promise<WorkspaceNote[]>;
+  getWorkspaceNote(
+    workspace: string,
+    noteId: string,
+  ): Promise<WorkspaceNote | undefined>;
+  removeWorkspaceNote(workspace: string, noteId: string): Promise<boolean>;
   updateEntry(
     workspace: string,
     input: CatalogEntryUpdate & { now: string },

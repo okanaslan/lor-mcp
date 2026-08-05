@@ -44,7 +44,8 @@ LOR is implemented as a runnable local v1 MCP server.
 - HTTP discovery logging: expected OAuth/OIDC `.well-known` discovery probe
   `404` responses stay below warning severity while real unrelated `4xx`
   responses remain warnings.
-- Planned workspace support: future tools will add lightweight workspace notes.
+- Workspace memory: LOR stores small workspace-scoped notes for durable
+  coordination context outside the routing catalog.
 - Subagents: reusable prompt profiles for small, scoped delegation, with
   workspace/global scope and ready-to-use prompts returned from introduction,
   matching, and detail flows.
@@ -78,8 +79,8 @@ LOR is implemented as a runnable local v1 MCP server.
   `docs/feature-specs/agent-reachability-and-dispatch-model.md`,
   `docs/use-cases/check-agent-reachability-before-handoff.md`, and
   `docs/tech-specs/done/agent-reachability-and-dispatch-model.md`.
-- Planned orchestration docs cover delegated task lifecycle, task follow-up and
-  results, and workspace memory.
+- Orchestration docs cover delegated task lifecycle, task follow-up/result
+  collection, and workspace memory.
 - Subagent docs: `docs/feature-specs/subagent-suggestions.md`,
   `docs/use-cases/introduce-subagent-profile.md`,
   `docs/use-cases/suggest-subagents-for-scoped-work.md`, and
@@ -98,6 +99,10 @@ flowchart RL
   registerAlias["register_workspace_alias"] --> catalog
   catalog --> checkHealth["check_catalog_health"]
   catalog --> workspaceDiagnostics["get_workspace_diagnostics"]
+  catalog --> rememberWorkspaceNote["remember_workspace_note"]
+  rememberWorkspaceNote --> listWorkspaceNotes["list_workspace_notes"]
+  listWorkspaceNotes --> getWorkspaceNote["get_workspace_note"]
+  getWorkspaceNote --> removeWorkspaceNote["remove_workspace_note"]
   catalog --> exportCatalog["export_catalog"]
   exportCatalog --> importCatalog["import_catalog"]
   catalog --> previewWorkspaceSync["preview_workspace_catalog_sync"]

@@ -76,6 +76,10 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "apply_workspace_catalog_sync",
       "check_catalog_health",
       "get_workspace_diagnostics",
+      "remember_workspace_note",
+      "list_workspace_notes",
+      "get_workspace_note",
+      "remove_workspace_note",
       "prepare_agent_handoff",
       "send_agent_task",
       "get_agent_task_status",
@@ -740,6 +744,93 @@ Deno.test("HTTP MCP handler calls get_workspace_diagnostics", async () => {
       JSON.stringify(body.result.structuredContent.data).includes(
         "Backend Agent",
       ),
+      false,
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls workspace note tools", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const logger = new CapturingLogger();
+    const handler = createHttpMcpHandler({
+      logger,
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const rememberResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "remember_workspace_note",
+        arguments: {
+          workspace: "LOR-MCP",
+          title: "Branch plan",
+          body: "Do not log this note body.",
+          tags: ["branch-plan"],
+        },
+      },
+    });
+    const rememberBody = await rememberResponse.json();
+    const noteId = rememberBody.result.structuredContent.data.noteId;
+
+    const listResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "list_workspace_notes",
+        arguments: {
+          workspace: "LOR-MCP",
+          tags: ["branch-plan"],
+        },
+      },
+    });
+    const getResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "get_workspace_note",
+        arguments: {
+          workspace: "LOR-MCP",
+          noteId,
+        },
+      },
+    });
+    const removeResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: {
+        name: "remove_workspace_note",
+        arguments: {
+          workspace: "LOR-MCP",
+          noteId,
+        },
+      },
+    });
+    const listBody = await listResponse.json();
+    const getBody = await getResponse.json();
+    const removeBody = await removeResponse.json();
+
+    assertEquals(rememberResponse.status, 200);
+    assertEquals(rememberBody.result.structuredContent.status, "ok");
+    assertEquals(listBody.result.structuredContent.data.notes.length, 1);
+    assertEquals(
+      getBody.result.structuredContent.data.body,
+      "Do not log this note body.",
+    );
+    assertEquals(removeBody.result.structuredContent.data.removed, true);
+    assertEquals(
+      JSON.stringify(logger.logs).includes("Do not log this note body."),
       false,
     );
   } finally {

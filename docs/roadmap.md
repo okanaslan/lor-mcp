@@ -42,6 +42,10 @@ Implemented in the runnable local v1:
   - `apply_workspace_catalog_sync`
   - `check_catalog_health`
   - `get_workspace_diagnostics`
+  - `remember_workspace_note`
+  - `list_workspace_notes`
+  - `get_workspace_note`
+  - `remove_workspace_note`
   - `prepare_agent_handoff`
   - `prepare_agent_regeneration`
   - `generate_agent_prompt`
@@ -71,7 +75,8 @@ Implemented in the runnable local v1:
   sanitized setup visibility.
 - HTTP discovery probe logging cleanup is implemented so expected auth discovery
   `404` responses log below warning severity without adding fake auth endpoints.
-- Workspace memory is a planned follow-up improvement.
+- Workspace memory is implemented as durable workspace-scoped notes outside the
+  routing catalog.
 
 Current `LOR-MCP` catalog snapshot as of 2026-07-20:
 
@@ -136,9 +141,9 @@ Latest implementation verification:
   in
   [Agent Task Follow-Up And Result Collection](tech-specs/done/agent-task-follow-up-and-result-collection.md).
 - [Workspace Memory Primitives](feature-specs/workspace-memory-primitives.md):
-  Planned. Defines lightweight workspace notes for branch plans, review
+  Implemented. Defines lightweight workspace notes for branch plans, review
   summaries, and reapply notes. Technical planning is tracked in
-  [Workspace Memory Primitives](tech-specs/future/workspace-memory-primitives.md).
+  [Workspace Memory Primitives](tech-specs/done/workspace-memory-primitives.md).
 - [HTTP Discovery Probe Logging](feature-specs/http-discovery-probe-logging.md):
   Implemented. Defines lower-noise logging for expected OAuth/OIDC discovery
   probes without adding fake auth metadata. Technical planning is tracked in
@@ -199,7 +204,6 @@ Latest implementation verification:
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
 - Add workspace memory primitives around delegated workflows.
-- Add workspace memory primitives once the delegated task model is stable.
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can
   resolve and prepare handoff prompts today, while Codex thread tools perform
   the actual send/read loop.

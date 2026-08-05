@@ -11,7 +11,8 @@ to local skill files; preparing manual agent handoff prompts; retiring replaced
 agents; generating empty-chat starter prompts; checking stored catalog health
 metadata; and finding matching catalog entries for a task. It also exposes
 sanitized workspace diagnostics for debugging alias resolution and local setup
-without listing catalog entries.
+without listing catalog entries. Workspace memory tools store and retrieve small
+durable notes outside the matching catalog.
 
 The tool surface is designed for the current Deno TypeScript runtime, local
 Streamable HTTP and stdio transports, client-supplied workspace scope, and
@@ -52,7 +53,7 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register thirty MCP tools with snake_case names:
+V1 should register thirty-four MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -75,6 +76,10 @@ V1 should register thirty MCP tools with snake_case names:
 - `apply_workspace_catalog_sync`
 - `check_catalog_health`
 - `get_workspace_diagnostics`
+- `remember_workspace_note`
+- `list_workspace_notes`
+- `get_workspace_note`
+- `remove_workspace_note`
 - `prepare_agent_handoff`
 - `send_agent_task`
 - `get_agent_task_status`
@@ -391,6 +396,42 @@ values, active session IDs, request bodies, prompts, or unrelated workspace
 data. Storage failures should return a sanitized diagnostics payload with
 `storageStatus.reachable: false`.
 
+`remember_workspace_note` input:
+
+- `workspace`
+- `title`
+- `body`
+- optional `tags`
+
+`remember_workspace_note` output data should include the stored note with
+`noteId`, resolved workspace, title, body, tags, and timestamps. The tool writes
+only to workspace note storage and does not create catalog entries.
+
+`list_workspace_notes` input:
+
+- `workspace`
+- optional `tags`
+
+`list_workspace_notes` output data should include the resolved workspace,
+filters, and note summaries. Summaries must not include note bodies.
+
+`get_workspace_note` input:
+
+- `workspace`
+- `noteId`
+
+`get_workspace_note` output data should include the full note. Missing notes
+return `not_found`.
+
+`remove_workspace_note` input:
+
+- `workspace`
+- `noteId`
+
+`remove_workspace_note` output data should include the resolved workspace,
+removed note ID, and `removed: true`. Missing notes return `not_found`. Removing
+a note must not affect catalog entries or delegated task messages.
+
 `prepare_agent_handoff` input:
 
 - `workspace`
@@ -549,6 +590,9 @@ When this tech spec is implemented as code, verification should include:
   stored verification metadata.
 - Workspace diagnostics reports alias resolution and counts without exposing
   full catalog entries or storage paths.
+- Workspace memory tools keep notes workspace-scoped, list summaries without
+  bodies, do not log raw note bodies, and do not participate in catalog
+  matching.
 - Prepare handoff renders prompts only for agents in the requested workspace and
   does not dispatch work or target retired agents.
 - Generate prompt returns deterministic starter prompts for supported roles and
@@ -602,6 +646,8 @@ checking the docs tree, running `git diff --check`, and checking git status.
   health reporting.
 - 2026-08-06: Add `get_workspace_diagnostics` for read-only workspace
   resolution, alias, catalog count, and sanitized setup visibility.
+- 2026-08-06: Add workspace memory tools for durable scoped notes outside the
+  routing catalog.
 - 2026-07-19: Add `register_workspace_alias` and canonical workspace resolution
   to prevent catalog splits caused by path, trailing-slash, and folder-name
   workspace variants.

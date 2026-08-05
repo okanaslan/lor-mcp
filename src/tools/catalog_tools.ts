@@ -27,6 +27,8 @@ import {
   type GetCatalogEntryDetailToolInput,
   getWorkspaceDiagnosticsInputSchema,
   type GetWorkspaceDiagnosticsToolInput,
+  getWorkspaceNoteInputSchema,
+  type GetWorkspaceNoteToolInput,
   importCatalogInputSchema,
   type ImportCatalogToolInput,
   introduceAgentInputSchema,
@@ -39,6 +41,8 @@ import {
   type ListActiveTasksToolInput,
   listCatalogEntriesInputSchema,
   type ListCatalogEntriesToolInput,
+  listWorkspaceNotesInputSchema,
+  type ListWorkspaceNotesToolInput,
   prepareAgentHandoffInputSchema,
   type PrepareAgentHandoffToolInput,
   prepareAgentRegenerationInputSchema,
@@ -53,8 +57,12 @@ import {
   type ProposeSkillUpdateToolInput,
   registerWorkspaceAliasInputSchema,
   type RegisterWorkspaceAliasToolInput,
+  rememberWorkspaceNoteInputSchema,
+  type RememberWorkspaceNoteToolInput,
   removeCatalogEntryInputSchema,
   type RemoveCatalogEntryToolInput,
+  removeWorkspaceNoteInputSchema,
+  type RemoveWorkspaceNoteToolInput,
   retireAgentInputSchema,
   type RetireAgentToolInput,
   sendAgentTaskInputSchema,
@@ -638,6 +646,109 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
+    "remember_workspace_note",
+    {
+      description:
+        "Store a durable workspace-scoped coordination note outside the catalog.",
+      inputSchema: rememberWorkspaceNoteInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: RememberWorkspaceNoteToolInput) =>
+      withLoggedRuntime(
+        "remember_workspace_note",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const note = await runtime.service.rememberWorkspaceNote(input);
+          return okResult(note, `Remembered workspace note ${note.noteId}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "list_workspace_notes",
+    {
+      description:
+        "List workspace note summaries, optionally filtered by tags.",
+      inputSchema: listWorkspaceNotesInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: ListWorkspaceNotesToolInput) =>
+      withLoggedRuntime(
+        "list_workspace_notes",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.listWorkspaceNotes(input);
+          return okResult(
+            result,
+            `Listed ${result.notes.length} workspace notes.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "get_workspace_note",
+    {
+      description: "Get a workspace note by note id.",
+      inputSchema: getWorkspaceNoteInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: GetWorkspaceNoteToolInput) =>
+      withLoggedRuntime(
+        "get_workspace_note",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const note = await runtime.service.getWorkspaceNote(input);
+          return okResult(note, `Fetched workspace note ${note.noteId}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "remove_workspace_note",
+    {
+      description: "Remove a workspace note by note id.",
+      inputSchema: removeWorkspaceNoteInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    (input: RemoveWorkspaceNoteToolInput) =>
+      withLoggedRuntime(
+        "remove_workspace_note",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.removeWorkspaceNote(input);
+          return okResult(result, `Removed workspace note ${result.noteId}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
     "prepare_agent_handoff",
     {
       description:
@@ -1007,6 +1118,9 @@ function safeInputFields(input: unknown): LogFields {
   }
   if (typeof input.proposalId === "string") {
     fields.proposalId = input.proposalId;
+  }
+  if (typeof input.noteId === "string") {
+    fields.noteId = input.noteId;
   }
   if (typeof input.alias === "string") {
     fields.alias = input.alias;

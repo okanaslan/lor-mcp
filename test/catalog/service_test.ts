@@ -2224,6 +2224,101 @@ Deno.test("CatalogService returns sanitized workspace diagnostics when storage i
   assertEquals(JSON.stringify(diagnostics).includes("stack"), false);
 });
 
+Deno.test("CatalogService stores and retrieves workspace notes by resolved workspace", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.registerWorkspaceAlias({
+      workspace: "/workspaces/LOR-MCP",
+      alias: "LOR-MCP",
+    });
+    const note = await service.rememberWorkspaceNote({
+      workspace: "LOR-MCP",
+      title: "Branch plan",
+      body: "Keep diagnostics and memory changes in separate commits.",
+      tags: ["branch-plan", "coordination"],
+    });
+
+    const listed = await service.listWorkspaceNotes({
+      workspace: "/workspaces/LOR-MCP",
+      tags: ["branch-plan"],
+    });
+    const fetched = await service.getWorkspaceNote({
+      workspace: "/workspaces/LOR-MCP",
+      noteId: note.noteId,
+    });
+
+    assertEquals(note.workspace, "/workspaces/LOR-MCP");
+    assertEquals(note.createdAt, FIXED_NOW);
+    assertEquals(listed.workspace, "/workspaces/LOR-MCP");
+    assertEquals(listed.notes.length, 1);
+    assertEquals(listed.notes[0], {
+      noteId: note.noteId,
+      workspace: "/workspaces/LOR-MCP",
+      title: "Branch plan",
+      tags: ["branch-plan", "coordination"],
+      createdAt: FIXED_NOW,
+      updatedAt: FIXED_NOW,
+    });
+    assertEquals(
+      fetched.body,
+      "Keep diagnostics and memory changes in separate commits.",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService keeps workspace notes scoped and removable", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const note = await service.rememberWorkspaceNote({
+      workspace: "LOR-MCP",
+      title: "Review summary",
+      body: "Keep memory notes out of matcher results.",
+      tags: ["review-summary"],
+    });
+    await service.rememberWorkspaceNote({
+      workspace: "Other",
+      title: "Review summary",
+      body: "Other workspace note.",
+      tags: ["review-summary"],
+    });
+
+    const beforeRemove = await service.listWorkspaceNotes({
+      workspace: "LOR-MCP",
+    });
+    const match = await service.findMatchingEntries({
+      workspace: "LOR-MCP",
+      task: "Review summary",
+    });
+    const removed = await service.removeWorkspaceNote({
+      workspace: "LOR-MCP",
+      noteId: note.noteId,
+    });
+    const afterRemove = await service.listWorkspaceNotes({
+      workspace: "LOR-MCP",
+    });
+    const other = await service.listWorkspaceNotes({ workspace: "Other" });
+
+    assertEquals(beforeRemove.notes.length, 1);
+    assertEquals(match.status, "no_match");
+    assertEquals(removed.removed, true);
+    assertEquals(afterRemove.notes.length, 0);
+    assertEquals(other.notes.length, 1);
+    await assertRejects(
+      () =>
+        service.getWorkspaceNote({
+          workspace: "LOR-MCP",
+          noteId: note.noteId,
+        }),
+      Error,
+      "Workspace note was not found",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService filters catalog health by type project and entry key", async () => {
   const { repo, service } = await createCatalogService();
   try {

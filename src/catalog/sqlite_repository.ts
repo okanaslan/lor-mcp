@@ -25,6 +25,7 @@ import type {
   SkillUpdateProposal,
   SubagentCatalogEntry,
   VerificationMetadata,
+  WorkspaceNote,
 } from "@src/catalog/types.ts";
 import {
   normalizeSubagentPromptFields,
@@ -145,6 +146,16 @@ interface DelegatedTaskResultRow {
   completedAt: string;
 }
 
+interface WorkspaceNoteRow {
+  noteId: string;
+  workspace: string;
+  title: string;
+  body: string;
+  tagsJson: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const GLOBAL_SKILL_WORKSPACE = "__lor_global_skills__";
 const GLOBAL_SUBAGENT_WORKSPACE = "__lor_global_subagents__";
 const PUBLIC_GLOBAL_WORKSPACE = "global";
@@ -169,8 +180,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
       this.#db.exec(DELEGATED_TASKS_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_MESSAGES_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
+      this.#db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
       backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 8);
+      recordSchemaVersion(this.#db, 9);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -1097,6 +1109,90 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  createWorkspaceNote(input: WorkspaceNote): Promise<WorkspaceNote> {
+    try {
+      this.requireDb().exec(
+        `INSERT INTO workspace_notes (
+          noteId, workspace, title, body, tagsJson, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        input.noteId,
+        input.workspace,
+        input.title,
+        input.body,
+        JSON.stringify(input.tags),
+        input.createdAt,
+        input.updatedAt,
+      );
+      return Promise.resolve(input);
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  listWorkspaceNotes(
+    workspace: string,
+    filter: { tags?: readonly string[] } = {},
+  ): Promise<WorkspaceNote[]> {
+    try {
+      const rows = this.requireDb().prepare<WorkspaceNoteRow>(
+        `SELECT * FROM workspace_notes
+         WHERE workspace = ?
+         ORDER BY updatedAt DESC, createdAt DESC, title ASC`,
+      ).all(workspace);
+      const notes = rows.map(mapWorkspaceNoteRow);
+      if (!filter.tags?.length) {
+        return Promise.resolve(notes);
+      }
+      const requestedTags = new Set(filter.tags);
+      return Promise.resolve(
+        notes.filter((note) =>
+          [...requestedTags].every((tag) => note.tags.includes(tag))
+        ),
+      );
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  getWorkspaceNote(
+    workspace: string,
+    noteId: string,
+  ): Promise<WorkspaceNote | undefined> {
+    try {
+      const row = this.requireDb().prepare<WorkspaceNoteRow>(
+        `SELECT * FROM workspace_notes
+         WHERE workspace = ? AND noteId = ?`,
+      ).get(workspace, noteId);
+      return Promise.resolve(row ? mapWorkspaceNoteRow(row) : undefined);
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  removeWorkspaceNote(workspace: string, noteId: string): Promise<boolean> {
+    try {
+      const db = this.requireDb();
+      const existed = Boolean(
+        db.prepare<{ count: number }>(
+          `SELECT COUNT(*) AS count FROM workspace_notes
+           WHERE workspace = ? AND noteId = ?`,
+        ).get(workspace, noteId)?.count,
+      );
+      if (!existed) {
+        return Promise.resolve(false);
+      }
+      db.exec(
+        `DELETE FROM workspace_notes
+         WHERE workspace = ? AND noteId = ?`,
+        workspace,
+        noteId,
+      );
+      return Promise.resolve(true);
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
   close(): void {
     this.#db?.close();
     this.#db = undefined;
@@ -1395,6 +1491,18 @@ function parseDelegatedAgentTaskStatus(
     return value;
   }
   return "queued";
+}
+
+function mapWorkspaceNoteRow(row: WorkspaceNoteRow): WorkspaceNote {
+  return {
+    noteId: row.noteId,
+    workspace: row.workspace,
+    title: row.title,
+    body: row.body,
+    tags: JSON.parse(row.tagsJson),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 function skillStorageWorkspace(
@@ -1810,4 +1918,19 @@ CREATE TABLE IF NOT EXISTS delegated_agent_task_results (
   completedAt TEXT NOT NULL,
   PRIMARY KEY (workspace, taskId)
 );
+`;
+
+const WORKSPACE_NOTES_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS workspace_notes (
+  noteId TEXT PRIMARY KEY,
+  workspace TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tagsJson TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS workspace_notes_workspace_updated_idx
+  ON workspace_notes(workspace, updatedAt DESC);
 `;

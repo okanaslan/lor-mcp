@@ -17,6 +17,11 @@ The project follows Semantic Versioning:
 
 - Document planned Subagent Suggestions catalog feature, including use cases,
   feature behavior, future technical design, and related catalog spec updates.
+- Document planned Agent Reachability And Dispatch Model for distinguishing
+  catalog-only agents from known reachable Codex-native dispatch targets.
+- Document planned delegated task lifecycle, task follow-up/result collection,
+  workspace memory primitives, HTTP discovery probe logging cleanup, and
+  workspace diagnostics.
 
 ## [1.0.0] - 2026-08-04
 

@@ -376,6 +376,25 @@ export const getWorkspaceDiagnosticsInputSchema = z.object({
   workspace: workspaceSchema,
 });
 
+export const rememberWorkspaceNoteInputSchema = z.object({
+  workspace: workspaceSchema,
+  title: z.string().trim().min(1),
+  body: z.string().trim().min(1),
+  tags: z.array(z.string().trim().min(1)).optional(),
+});
+
+export const listWorkspaceNotesInputSchema = z.object({
+  workspace: workspaceSchema,
+  tags: z.array(z.string().trim().min(1)).optional(),
+});
+
+export const getWorkspaceNoteInputSchema = z.object({
+  workspace: workspaceSchema,
+  noteId: z.string().trim().min(1),
+});
+
+export const removeWorkspaceNoteInputSchema = getWorkspaceNoteInputSchema;
+
 export const prepareAgentHandoffInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -489,6 +508,18 @@ export type CheckCatalogHealthToolInput = z.infer<
 >;
 export type GetWorkspaceDiagnosticsToolInput = z.infer<
   typeof getWorkspaceDiagnosticsInputSchema
+>;
+export type RememberWorkspaceNoteToolInput = z.infer<
+  typeof rememberWorkspaceNoteInputSchema
+>;
+export type ListWorkspaceNotesToolInput = z.infer<
+  typeof listWorkspaceNotesInputSchema
+>;
+export type GetWorkspaceNoteToolInput = z.infer<
+  typeof getWorkspaceNoteInputSchema
+>;
+export type RemoveWorkspaceNoteToolInput = z.infer<
+  typeof removeWorkspaceNoteInputSchema
 >;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema

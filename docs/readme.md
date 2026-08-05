@@ -15,14 +15,13 @@ Reachability metadata distinguishes catalog-only registered agents from agents
 known reachable through Codex-native dispatch outcomes. This is the foundation
 for later delegated task lifecycle tools.
 
-Planned orchestration work also covers delegated task follow-up/result
-collection and workspace notes. Delegated task lifecycle tools now create
-durable task records, store task-scoped follow-up messages, return results when
-recorded, and can use a host-provided dispatcher when one is available.
-Workspace diagnostics reports resolved aliases, catalog counts, and sanitized
-setup status without listing catalog entries. Expected HTTP auth discovery probe
-`404` responses are logged below warning severity while unrelated `4xx`
-responses remain warnings.
+Delegated task lifecycle tools now create durable task records, store
+task-scoped follow-up messages, return results when recorded, and can use a
+host-provided dispatcher when one is available. Workspace diagnostics reports
+resolved aliases, catalog counts, and sanitized setup status without listing
+catalog entries. Workspace memory stores small durable notes outside the routing
+catalog. Expected HTTP auth discovery probe `404` responses are logged below
+warning severity while unrelated `4xx` responses remain warnings.
 
 ## Contents
 
@@ -52,8 +51,8 @@ The main user flows are:
 - Fetch details and prepare handoff or regeneration prompts for registered Codex
   agents.
 - Use agent reachability metadata before direct delegated task dispatch.
-- Use delegated task lifecycle, follow-up/result, and diagnostics tools, and
-  plan workspace memory.
+- Use delegated task lifecycle, follow-up/result, diagnostics, and workspace
+  memory tools.
 - Retire replaced agents while keeping their catalog records inspectable.
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed
