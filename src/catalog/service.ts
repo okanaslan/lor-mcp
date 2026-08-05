@@ -67,6 +67,8 @@ import {
   type WorkspaceCatalogSyncApplyResult,
   type WorkspaceCatalogSyncInput,
   type WorkspaceCatalogSyncPreview,
+  type WorkspaceDiagnosticsInput,
+  type WorkspaceDiagnosticsReport,
 } from "@src/catalog/types.ts";
 import {
   validateAppendAgentContext,
@@ -95,6 +97,7 @@ import {
   validateSkillFileSyncInput,
   validateWorkspace,
   validateWorkspaceCatalogSyncInput,
+  validateWorkspaceDiagnosticsInput,
 } from "@src/catalog/validation.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
 import { LorError } from "@src/errors.ts";
@@ -1044,6 +1047,53 @@ export class CatalogService {
     };
   }
 
+  async getWorkspaceDiagnostics(
+    input: WorkspaceDiagnosticsInput,
+  ): Promise<WorkspaceDiagnosticsReport> {
+    const validated = validateWorkspaceDiagnosticsInput(input);
+    const checkedAt = this.#now();
+    try {
+      const workspace = await this.resolveWorkspace(validated.workspace);
+      const [entries, aliases, schemaVersion] = await Promise.all([
+        this.#repository.listEntries(workspace, { workspace }),
+        this.#repository.listWorkspaceAliases(workspace),
+        this.#repository.getSchemaVersion(),
+      ]);
+
+      return {
+        inputWorkspace: validated.workspace,
+        resolvedWorkspace: workspace,
+        aliases,
+        catalogCounts: countCatalogEntries(entries),
+        storageStatus: {
+          configured: true,
+          reachable: true,
+          schemaVersion,
+        },
+        runtimeStatus: {
+          transport: "mcp",
+        },
+        checkedAt,
+      };
+    } catch {
+      return {
+        inputWorkspace: validated.workspace,
+        resolvedWorkspace: validated.workspace,
+        aliases: [],
+        catalogCounts: emptyCatalogCounts(),
+        storageStatus: {
+          configured: true,
+          reachable: false,
+          message: "Catalog storage is not reachable.",
+        },
+        runtimeStatus: {
+          transport: "mcp",
+        },
+        checkedAt,
+      };
+    }
+  }
+
   async prepareAgentHandoff(
     input: PrepareAgentHandoffInput,
   ): Promise<PrepareAgentHandoffResult> {
@@ -1709,6 +1759,40 @@ function summarizeHealth(
       entries.filter((entry) => entry.verificationStatus === "unknown").length,
     agents: entries.filter((entry) => entry.entryType === "agent").length,
     skills: entries.filter((entry) => entry.entryType === "skill").length,
+  };
+}
+
+function countCatalogEntries(
+  entries: readonly CatalogEntry[],
+): {
+  total: number;
+  agents: number;
+  skills: number;
+  subagents: number;
+} {
+  const agents = entries.filter((entry) => entry.entryType === "agent").length;
+  const skills = entries.filter((entry) => entry.entryType === "skill").length;
+  const subagents = entries.filter((entry) => entry.entryType === "subagent")
+    .length;
+  return {
+    total: agents + skills + subagents,
+    agents,
+    skills,
+    subagents,
+  };
+}
+
+function emptyCatalogCounts(): {
+  total: 0;
+  agents: 0;
+  skills: 0;
+  subagents: 0;
+} {
+  return {
+    total: 0,
+    agents: 0,
+    skills: 0,
+    subagents: 0,
   };
 }
 

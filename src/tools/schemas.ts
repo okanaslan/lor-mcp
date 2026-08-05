@@ -372,6 +372,10 @@ export const checkCatalogHealthInputSchema = z.object({
   },
 );
 
+export const getWorkspaceDiagnosticsInputSchema = z.object({
+  workspace: workspaceSchema,
+});
+
 export const prepareAgentHandoffInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -482,6 +486,9 @@ export type ApplyWorkspaceCatalogSyncToolInput = z.infer<
 >;
 export type CheckCatalogHealthToolInput = z.infer<
   typeof checkCatalogHealthInputSchema
+>;
+export type GetWorkspaceDiagnosticsToolInput = z.infer<
+  typeof getWorkspaceDiagnosticsInputSchema
 >;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema

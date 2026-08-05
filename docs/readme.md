@@ -16,10 +16,12 @@ known reachable through Codex-native dispatch outcomes. This is the foundation
 for later delegated task lifecycle tools.
 
 Planned orchestration work also covers delegated task follow-up/result
-collection, workspace notes, workspace diagnostics, and expected HTTP discovery
-probe log cleanup. Delegated task lifecycle tools now create durable task
-records, store task-scoped follow-up messages, return results when recorded, and
-can use a host-provided dispatcher when one is available.
+collection, workspace notes, and expected HTTP discovery probe log cleanup.
+Delegated task lifecycle tools now create durable task records, store
+task-scoped follow-up messages, return results when recorded, and can use a
+host-provided dispatcher when one is available. Workspace diagnostics reports
+resolved aliases, catalog counts, and sanitized setup status without listing
+catalog entries.
 
 ## Contents
 
@@ -49,8 +51,8 @@ The main user flows are:
 - Fetch details and prepare handoff or regeneration prompts for registered Codex
   agents.
 - Use agent reachability metadata before direct delegated task dispatch.
-- Use delegated task lifecycle and follow-up/result tools, and plan workspace
-  memory, diagnostics, and HTTP discovery logging cleanup.
+- Use delegated task lifecycle, follow-up/result, and diagnostics tools, and
+  plan workspace memory and HTTP discovery logging cleanup.
 - Retire replaced agents while keeping their catalog records inspectable.
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed

@@ -75,6 +75,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "preview_workspace_catalog_sync",
       "apply_workspace_catalog_sync",
       "check_catalog_health",
+      "get_workspace_diagnostics",
       "prepare_agent_handoff",
       "send_agent_task",
       "get_agent_task_status",
@@ -681,6 +682,65 @@ Deno.test("HTTP MCP handler calls check_catalog_health", async () => {
     assertEquals(
       body.result.structuredContent.data.entries[0].entryKey,
       "backend-skill",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls get_workspace_diagnostics", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "introduce_agent",
+        arguments: {
+          workspace: "/workspaces/LOR-MCP",
+          codexSessionId: "agent-1",
+          projectName: "Local Orchestration Router (LOR)",
+          displayName: "Backend Agent",
+          primarySpecialty: "backend api",
+          specialtyTags: ["api"],
+        },
+      },
+    });
+
+    const response = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "get_workspace_diagnostics",
+        arguments: {
+          workspace: "LOR-MCP",
+        },
+      },
+    });
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body.result.structuredContent.status, "ok");
+    assertEquals(
+      body.result.structuredContent.data.resolvedWorkspace,
+      "/workspaces/LOR-MCP",
+    );
+    assertEquals(body.result.structuredContent.data.catalogCounts.agents, 1);
+    assertEquals(
+      JSON.stringify(body.result.structuredContent.data).includes(
+        "Backend Agent",
+      ),
+      false,
     );
   } finally {
     repo.close();

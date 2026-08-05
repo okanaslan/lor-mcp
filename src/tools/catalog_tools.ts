@@ -25,6 +25,8 @@ import {
   type GetAgentTaskStatusToolInput,
   getCatalogEntryDetailInputSchema,
   type GetCatalogEntryDetailToolInput,
+  getWorkspaceDiagnosticsInputSchema,
+  type GetWorkspaceDiagnosticsToolInput,
   importCatalogInputSchema,
   type ImportCatalogToolInput,
   introduceAgentInputSchema,
@@ -600,6 +602,36 @@ export function registerCatalogTools(
           return okResult(
             report,
             `Checked ${report.summary.total} catalog entries.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "get_workspace_diagnostics",
+    {
+      description:
+        "Report sanitized workspace resolution, alias, catalog count, and setup diagnostics.",
+      inputSchema: getWorkspaceDiagnosticsInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: GetWorkspaceDiagnosticsToolInput) =>
+      withLoggedRuntime(
+        "get_workspace_diagnostics",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const report = await runtime.service.getWorkspaceDiagnostics(input);
+          return okResult(
+            report,
+            `Resolved workspace ${report.resolvedWorkspace}.`,
           );
         },
       ),

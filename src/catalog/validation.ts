@@ -31,6 +31,7 @@ import {
   type SkillFileSyncInput,
   type SkillMetadataUpdate,
   type WorkspaceCatalogSyncInput,
+  type WorkspaceDiagnosticsInput,
 } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
 import { requireWorkspace } from "@src/catalog/workspace.ts";
@@ -224,6 +225,14 @@ export function validateCatalogHealthFilter(
       input.scope,
     ),
     entryKey: entryKey || undefined,
+  };
+}
+
+export function validateWorkspaceDiagnosticsInput(
+  input: WorkspaceDiagnosticsInput,
+): WorkspaceDiagnosticsInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
   };
 }
 

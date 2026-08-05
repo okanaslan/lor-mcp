@@ -654,6 +654,39 @@ export interface CatalogHealthReport {
   entries: CatalogHealthEntry[];
 }
 
+export interface WorkspaceCatalogCounts {
+  total: number;
+  agents: number;
+  skills: number;
+  subagents: number;
+}
+
+export interface WorkspaceDiagnosticsInput {
+  workspace: string;
+}
+
+export interface WorkspaceDiagnosticsStorageStatus {
+  configured: boolean;
+  reachable: boolean;
+  schemaVersion?: number;
+  message?: string;
+}
+
+export interface WorkspaceDiagnosticsRuntimeStatus {
+  transport: "mcp";
+  activeHttpSessions?: number;
+}
+
+export interface WorkspaceDiagnosticsReport {
+  inputWorkspace: string;
+  resolvedWorkspace: string;
+  aliases: readonly string[];
+  catalogCounts: WorkspaceCatalogCounts;
+  storageStatus: WorkspaceDiagnosticsStorageStatus;
+  runtimeStatus: WorkspaceDiagnosticsRuntimeStatus;
+  checkedAt: string;
+}
+
 export interface PrepareAgentHandoffInput {
   workspace: string;
   agentEntryKey: string;
@@ -848,6 +881,8 @@ export interface CatalogRepository {
     workspace: string,
     options: { now: string },
   ): Promise<string>;
+  listWorkspaceAliases(canonicalWorkspace: string): Promise<string[]>;
+  getSchemaVersion(): Promise<number | undefined>;
   updateEntry(
     workspace: string,
     input: CatalogEntryUpdate & { now: string },

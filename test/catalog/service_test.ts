@@ -2143,6 +2143,87 @@ Deno.test("CatalogService reports catalog health from stored verification metada
   }
 });
 
+Deno.test("CatalogService reports workspace diagnostics without listing entries", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceAgent({
+      workspace: "/workspaces/LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSkill({
+      workspace: "/workspaces/LOR-MCP",
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSubagent({
+      workspace: "/workspaces/LOR-MCP",
+      name: "api-subagent",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "API Subagent",
+      purpose: "Handle API tasks.",
+      limitedScope: "API files only.",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const diagnostics = await service.getWorkspaceDiagnostics({
+      workspace: "LOR-MCP",
+    });
+
+    assertEquals(diagnostics.inputWorkspace, "LOR-MCP");
+    assertEquals(diagnostics.resolvedWorkspace, "/workspaces/LOR-MCP");
+    assertEquals(diagnostics.aliases, ["/workspaces/LOR-MCP", "LOR-MCP"]);
+    assertEquals(diagnostics.catalogCounts, {
+      total: 3,
+      agents: 1,
+      skills: 1,
+      subagents: 1,
+    });
+    assertEquals(diagnostics.storageStatus.configured, true);
+    assertEquals(diagnostics.storageStatus.reachable, true);
+    assertEquals(diagnostics.runtimeStatus.transport, "mcp");
+    assertEquals(diagnostics.checkedAt, FIXED_NOW);
+    assertEquals(JSON.stringify(diagnostics).includes("Backend Agent"), false);
+    assertEquals(JSON.stringify(diagnostics).includes("backend-skill"), false);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns sanitized workspace diagnostics when storage is unavailable", async () => {
+  const { repo, service } = await createCatalogService();
+  repo.close();
+
+  const diagnostics = await service.getWorkspaceDiagnostics({
+    workspace: "LOR-MCP",
+  });
+
+  assertEquals(diagnostics.inputWorkspace, "LOR-MCP");
+  assertEquals(diagnostics.resolvedWorkspace, "LOR-MCP");
+  assertEquals(diagnostics.aliases, []);
+  assertEquals(diagnostics.catalogCounts, {
+    total: 0,
+    agents: 0,
+    skills: 0,
+    subagents: 0,
+  });
+  assertEquals(diagnostics.storageStatus.configured, true);
+  assertEquals(diagnostics.storageStatus.reachable, false);
+  assertEquals(
+    diagnostics.storageStatus.message,
+    "Catalog storage is not reachable.",
+  );
+  assertEquals(JSON.stringify(diagnostics).includes("catalog.db"), false);
+  assertEquals(JSON.stringify(diagnostics).includes("stack"), false);
+});
+
 Deno.test("CatalogService filters catalog health by type project and entry key", async () => {
   const { repo, service } = await createCatalogService();
   try {

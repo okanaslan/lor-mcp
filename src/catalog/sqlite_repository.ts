@@ -1073,6 +1073,30 @@ export class SqliteCatalogRepository implements CatalogRepository {
     return Promise.resolve(this.resolveWorkspaceSync(workspace, options.now));
   }
 
+  listWorkspaceAliases(canonicalWorkspace: string): Promise<string[]> {
+    try {
+      const rows = this.requireDb().prepare<{ alias: string }>(
+        `SELECT alias FROM workspace_aliases
+         WHERE canonicalWorkspace = ?
+         ORDER BY alias`,
+      ).all(canonicalWorkspace);
+      return Promise.resolve(rows.map((row) => row.alias));
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  getSchemaVersion(): Promise<number | undefined> {
+    try {
+      const row = this.requireDb().prepare<{ version: number }>(
+        `SELECT MAX(version) AS version FROM schema_migrations`,
+      ).get();
+      return Promise.resolve(row?.version);
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
   close(): void {
     this.#db?.close();
     this.#db = undefined;

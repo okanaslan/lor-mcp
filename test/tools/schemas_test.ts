@@ -12,6 +12,7 @@ import {
   getAgentTaskResultInputSchema,
   getAgentTaskStatusInputSchema,
   getCatalogEntryDetailInputSchema,
+  getWorkspaceDiagnosticsInputSchema,
   importCatalogInputSchema,
   introduceAgentInputSchema,
   introduceSkillInputSchema,
@@ -714,6 +715,22 @@ Deno.test("checkCatalogHealthInputSchema accepts filters and requires type for k
     }).success,
     false,
   );
+});
+
+Deno.test("getWorkspaceDiagnosticsInputSchema requires workspace", () => {
+  assertEquals(
+    getWorkspaceDiagnosticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+    }).success,
+    true,
+  );
+  assertEquals(
+    getWorkspaceDiagnosticsInputSchema.safeParse({
+      workspace: "  ",
+    }).success,
+    false,
+  );
+  assertEquals(getWorkspaceDiagnosticsInputSchema.safeParse({}).success, false);
 });
 
 Deno.test("generateAgentPromptInputSchema requires workspace and role", () => {

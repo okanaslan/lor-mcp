@@ -39,8 +39,10 @@ LOR is implemented as a runnable local v1 MCP server.
   queue tasks with manual delivery instructions in the local runtime.
 - Follow-up and result retrieval: LOR stores task-scoped follow-up messages and
   returns status-only results until a delegated task result is recorded.
-- Planned workspace support: future tools will add lightweight workspace notes,
-  workspace diagnostics, and quieter logs for expected HTTP discovery probes.
+- Workspace diagnostics: LOR can report resolved workspace aliases, catalog
+  counts, and sanitized storage/runtime status without exposing catalog entries.
+- Planned workspace support: future tools will add lightweight workspace notes
+  and quieter logs for expected HTTP discovery probes.
 - Subagents: reusable prompt profiles for small, scoped delegation, with
   workspace/global scope and ready-to-use prompts returned from introduction,
   matching, and detail flows.
@@ -75,8 +77,7 @@ LOR is implemented as a runnable local v1 MCP server.
   `docs/use-cases/check-agent-reachability-before-handoff.md`, and
   `docs/tech-specs/done/agent-reachability-and-dispatch-model.md`.
 - Planned orchestration docs cover delegated task lifecycle, task follow-up and
-  results, workspace memory, HTTP discovery probe logging, and workspace
-  diagnostics.
+  results, workspace memory, and HTTP discovery probe logging.
 - Subagent docs: `docs/feature-specs/subagent-suggestions.md`,
   `docs/use-cases/introduce-subagent-profile.md`,
   `docs/use-cases/suggest-subagents-for-scoped-work.md`, and
@@ -94,6 +95,7 @@ flowchart RL
   promoteSkill["promote_skill_to_global"] --> catalog
   registerAlias["register_workspace_alias"] --> catalog
   catalog --> checkHealth["check_catalog_health"]
+  catalog --> workspaceDiagnostics["get_workspace_diagnostics"]
   catalog --> exportCatalog["export_catalog"]
   exportCatalog --> importCatalog["import_catalog"]
   catalog --> previewWorkspaceSync["preview_workspace_catalog_sync"]
