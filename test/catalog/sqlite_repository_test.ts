@@ -665,6 +665,7 @@ Deno.test("SqliteCatalogRepository clears agents and skills by workspace only", 
       entryType: undefined,
       deletedAgents: 1,
       deletedSkills: 1,
+      deletedSubagents: 0,
       deletedTotal: 2,
     });
     assertEquals(workspaceAEntries, []);
@@ -784,6 +785,7 @@ Deno.test("SqliteCatalogRepository clears only agents when filtered", async () =
       entryType: "agent",
       deletedAgents: 1,
       deletedSkills: 0,
+      deletedSubagents: 0,
       deletedTotal: 1,
     });
     assertEquals(entries.map((entry) => entry.entryKey), ["skill-a"]);
@@ -812,9 +814,43 @@ Deno.test("SqliteCatalogRepository clears only skills when filtered", async () =
       entryType: "skill",
       deletedAgents: 0,
       deletedSkills: 1,
+      deletedSubagents: 0,
       deletedTotal: 1,
     });
     assertEquals(entries.map((entry) => entry.entryKey), ["agent-a"]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository clears only subagents when filtered", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedAgent(repo, "workspace-a", "agent-a");
+    await seedSkill(repo, "workspace-a", "skill-a");
+    await seedSubagent(repo, "workspace-a", "api-test-subagent");
+
+    const result = await repo.clearEntries("workspace-a", {
+      workspace: "workspace-a",
+      confirm: true,
+      entryType: "subagent",
+    });
+    const entries = await repo.listEntries("workspace-a", {
+      workspace: "workspace-a",
+    });
+
+    assertEquals(result, {
+      workspace: "workspace-a",
+      entryType: "subagent",
+      deletedAgents: 0,
+      deletedSkills: 0,
+      deletedSubagents: 1,
+      deletedTotal: 1,
+    });
+    assertEquals(entries.map((entry) => entry.entryKey), [
+      "agent-a",
+      "skill-a",
+    ]);
   } finally {
     repo.close();
   }
@@ -833,6 +869,7 @@ Deno.test("SqliteCatalogRepository returns zero counts for empty workspace clear
       entryType: undefined,
       deletedAgents: 0,
       deletedSkills: 0,
+      deletedSubagents: 0,
       deletedTotal: 0,
     });
   } finally {

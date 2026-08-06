@@ -6,6 +6,10 @@ Implemented for v1, including explicitly targeted shared global skills. This
 feature lets a user update editable metadata for an introduced agent or skill in
 the requested workspace, or for a shared global skill.
 
+Current public MCP tools are `update_agent`, `update_skill`, and
+`update_subagent`; the generic `update_catalog_entry` tool name is no longer
+registered.
+
 ## 2. Goals
 
 - Allow correction of catalog metadata after introduction.
@@ -24,9 +28,9 @@ the requested workspace, or for a shared global skill.
 
 ## 4. Functional Requirements
 
-- The server must accept an entry type and entry identifier.
-- The server must update only entries scoped to the active initialized MCP
-  session.
+- The server must accept the typed entry identifier for the selected tool.
+- The server must update only entries scoped to the requested workspace or
+  explicitly selected global scope.
 - The server must support updates for explicitly targeted global skills.
 - The server must allow updating project name, display name, primary specialty,
   and specialty tags.

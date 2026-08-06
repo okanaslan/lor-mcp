@@ -18,7 +18,7 @@ LOR to send and track the delegated work.
 ## 4. Flow
 
 1. The user gives the current agent a task.
-2. The current agent calls `find_matching_catalog_entry`.
+2. The current agent calls `find_matching_agent`.
 3. LOR returns a reachable agent candidate.
 4. The current agent calls `send_agent_task`.
 5. LOR creates a delegated task record and dispatches through Codex-native

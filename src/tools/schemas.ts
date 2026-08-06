@@ -1,7 +1,6 @@
 import * as z from "zod/v4";
 
 export const entryTypeSchema = z.enum(["agent", "skill", "subagent"]);
-const clearEntryTypeSchema = z.enum(["agent", "skill"]);
 const healthEntryTypeSchema = z.enum(["agent", "skill"]);
 export const catalogScopeSchema = z.enum(["workspace", "global"]);
 export const agentStatusSchema = z.enum(["active", "retired"]);
@@ -108,10 +107,42 @@ export const listCatalogEntriesInputSchema = z.object({
   },
 );
 
+export const listAgentsInputSchema = z.object({
+  workspace: workspaceSchema,
+  projectName: z.string().trim().min(1).optional(),
+});
+
+export const listSkillsInputSchema = z.object({
+  workspace: workspaceSchema,
+  projectName: z.string().trim().min(1).optional(),
+  scope: catalogScopeSchema.optional(),
+});
+
+export const listSubagentsInputSchema = z.object({
+  workspace: workspaceSchema,
+  projectName: z.string().trim().min(1).optional(),
+  scope: catalogScopeSchema.optional(),
+});
+
 export const clearWorkspaceCatalogInputSchema = z.object({
   workspace: workspaceSchema,
   confirm: z.literal(true),
-  entryType: clearEntryTypeSchema.optional(),
+  entryType: entryTypeSchema.optional(),
+});
+
+export const clearWorkspaceAgentsInputSchema = z.object({
+  workspace: workspaceSchema,
+  confirm: z.literal(true),
+});
+
+export const clearWorkspaceSkillsInputSchema = z.object({
+  workspace: workspaceSchema,
+  confirm: z.literal(true),
+});
+
+export const clearWorkspaceSubagentsInputSchema = z.object({
+  workspace: workspaceSchema,
+  confirm: z.literal(true),
 });
 
 export const registerWorkspaceAliasInputSchema = z.object({
@@ -132,6 +163,23 @@ export const getCatalogEntryDetailInputSchema = z.object({
     path: ["scope"],
   },
 );
+
+export const getAgentDetailInputSchema = z.object({
+  workspace: workspaceSchema,
+  agentEntryKey: z.string().trim().min(1),
+});
+
+export const getSkillDetailInputSchema = z.object({
+  workspace: workspaceSchema,
+  skillName: z.string().trim().min(1),
+  scope: catalogScopeSchema.optional(),
+});
+
+export const getSubagentDetailInputSchema = z.object({
+  workspace: workspaceSchema,
+  subagentName: z.string().trim().min(1),
+  scope: catalogScopeSchema.optional(),
+});
 
 export const updateCatalogEntryInputSchema = z.object({
   workspace: workspaceSchema,
@@ -159,6 +207,56 @@ export const updateCatalogEntryInputSchema = z.object({
     path: ["update"],
   },
 );
+
+const commonMetadataUpdateFields = {
+  projectName: z.string().trim().min(1).optional(),
+  displayName: z.string().trim().min(1).optional(),
+  primarySpecialty: z.string().trim().min(1).optional(),
+  specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
+};
+
+function hasCommonMetadataUpdate(
+  input: {
+    projectName?: unknown;
+    displayName?: unknown;
+    primarySpecialty?: unknown;
+    specialtyTags?: unknown;
+  },
+): boolean {
+  return input.projectName !== undefined ||
+    input.displayName !== undefined ||
+    input.primarySpecialty !== undefined ||
+    input.specialtyTags !== undefined;
+}
+
+export const updateAgentInputSchema = z.object({
+  workspace: workspaceSchema,
+  agentEntryKey: z.string().trim().min(1),
+  ...commonMetadataUpdateFields,
+}).refine(hasCommonMetadataUpdate, {
+  message: "At least one editable field is required.",
+  path: ["update"],
+});
+
+export const updateSkillInputSchema = z.object({
+  workspace: workspaceSchema,
+  skillName: z.string().trim().min(1),
+  scope: catalogScopeSchema.optional(),
+  ...commonMetadataUpdateFields,
+}).refine(hasCommonMetadataUpdate, {
+  message: "At least one editable field is required.",
+  path: ["update"],
+});
+
+export const updateSubagentInputSchema = z.object({
+  workspace: workspaceSchema,
+  subagentName: z.string().trim().min(1),
+  scope: catalogScopeSchema.optional(),
+  ...commonMetadataUpdateFields,
+}).refine(hasCommonMetadataUpdate, {
+  message: "At least one editable field is required.",
+  path: ["update"],
+});
 
 export const promoteSkillToGlobalInputSchema = z.object({
   workspace: workspaceSchema,
@@ -253,6 +351,23 @@ export const removeCatalogEntryInputSchema = z.object({
     path: ["scope"],
   },
 );
+
+export const removeAgentInputSchema = z.object({
+  workspace: workspaceSchema,
+  agentEntryKey: z.string().trim().min(1),
+});
+
+export const removeSkillInputSchema = z.object({
+  workspace: workspaceSchema,
+  skillName: z.string().trim().min(1),
+  scope: catalogScopeSchema.optional(),
+});
+
+export const removeSubagentInputSchema = z.object({
+  workspace: workspaceSchema,
+  subagentName: z.string().trim().min(1),
+  scope: catalogScopeSchema.optional(),
+});
 
 export const exportCatalogInputSchema = z.object({
   workspace: workspaceSchema,
@@ -456,6 +571,27 @@ export const findMatchingCatalogEntryInputSchema = z.object({
   specialtyHints: z.array(z.string().trim().min(1)).optional(),
 });
 
+export const findMatchingAgentInputSchema = z.object({
+  workspace: workspaceSchema,
+  task: z.string().trim().min(1),
+  projectName: z.string().trim().min(1).optional(),
+  specialtyHints: z.array(z.string().trim().min(1)).optional(),
+});
+
+export const findMatchingSkillInputSchema = z.object({
+  workspace: workspaceSchema,
+  task: z.string().trim().min(1),
+  projectName: z.string().trim().min(1).optional(),
+  specialtyHints: z.array(z.string().trim().min(1)).optional(),
+});
+
+export const findMatchingSubagentInputSchema = z.object({
+  workspace: workspaceSchema,
+  task: z.string().trim().min(1),
+  projectName: z.string().trim().min(1).optional(),
+  specialtyHints: z.array(z.string().trim().min(1)).optional(),
+});
+
 export type IntroduceAgentToolInput = z.infer<typeof introduceAgentInputSchema>;
 export type IntroduceSkillToolInput = z.infer<typeof introduceSkillInputSchema>;
 export type IntroduceSubagentToolInput = z.infer<
@@ -464,8 +600,20 @@ export type IntroduceSubagentToolInput = z.infer<
 export type ListCatalogEntriesToolInput = z.infer<
   typeof listCatalogEntriesInputSchema
 >;
+export type ListAgentsToolInput = z.infer<typeof listAgentsInputSchema>;
+export type ListSkillsToolInput = z.infer<typeof listSkillsInputSchema>;
+export type ListSubagentsToolInput = z.infer<typeof listSubagentsInputSchema>;
 export type ClearWorkspaceCatalogToolInput = z.infer<
   typeof clearWorkspaceCatalogInputSchema
+>;
+export type ClearWorkspaceAgentsToolInput = z.infer<
+  typeof clearWorkspaceAgentsInputSchema
+>;
+export type ClearWorkspaceSkillsToolInput = z.infer<
+  typeof clearWorkspaceSkillsInputSchema
+>;
+export type ClearWorkspaceSubagentsToolInput = z.infer<
+  typeof clearWorkspaceSubagentsInputSchema
 >;
 export type RegisterWorkspaceAliasToolInput = z.infer<
   typeof registerWorkspaceAliasInputSchema
@@ -476,9 +624,17 @@ export type PromoteSkillToGlobalToolInput = z.infer<
 export type GetCatalogEntryDetailToolInput = z.infer<
   typeof getCatalogEntryDetailInputSchema
 >;
+export type GetAgentDetailToolInput = z.infer<typeof getAgentDetailInputSchema>;
+export type GetSkillDetailToolInput = z.infer<typeof getSkillDetailInputSchema>;
+export type GetSubagentDetailToolInput = z.infer<
+  typeof getSubagentDetailInputSchema
+>;
 export type UpdateCatalogEntryToolInput = z.infer<
   typeof updateCatalogEntryInputSchema
 >;
+export type UpdateAgentToolInput = z.infer<typeof updateAgentInputSchema>;
+export type UpdateSkillToolInput = z.infer<typeof updateSkillInputSchema>;
+export type UpdateSubagentToolInput = z.infer<typeof updateSubagentInputSchema>;
 export type RetireAgentToolInput = z.infer<typeof retireAgentInputSchema>;
 export type ProposeSkillUpdateToolInput = z.infer<
   typeof proposeSkillUpdateInputSchema
@@ -495,6 +651,9 @@ export type ApplySkillFileSyncToolInput = z.infer<
 export type RemoveCatalogEntryToolInput = z.infer<
   typeof removeCatalogEntryInputSchema
 >;
+export type RemoveAgentToolInput = z.infer<typeof removeAgentInputSchema>;
+export type RemoveSkillToolInput = z.infer<typeof removeSkillInputSchema>;
+export type RemoveSubagentToolInput = z.infer<typeof removeSubagentInputSchema>;
 export type ExportCatalogToolInput = z.infer<typeof exportCatalogInputSchema>;
 export type ImportCatalogToolInput = z.infer<typeof importCatalogInputSchema>;
 export type PreviewWorkspaceCatalogSyncToolInput = z.infer<
@@ -545,6 +704,15 @@ export type GenerateAgentPromptToolInput = z.infer<
 >;
 export type FindMatchingCatalogEntryToolInput = z.infer<
   typeof findMatchingCatalogEntryInputSchema
+>;
+export type FindMatchingAgentToolInput = z.infer<
+  typeof findMatchingAgentInputSchema
+>;
+export type FindMatchingSkillToolInput = z.infer<
+  typeof findMatchingSkillInputSchema
+>;
+export type FindMatchingSubagentToolInput = z.infer<
+  typeof findMatchingSubagentInputSchema
 >;
 
 export const toolOutputSchema = {

@@ -17,7 +17,7 @@ prompt guidance that Codex-native subagent/task tooling can use.
 
 - Add `subagent` as a catalog entry type.
 - Support workspace and global subagent scopes.
-- Include subagents in `find_matching_catalog_entry`.
+- Include subagents in `find_matching_subagent`.
 - Return up to three subagent suggestions by default.
 - Render ready-to-use prompts in introduce, detail, and match outputs.
 - Support optional agent and skill references.
@@ -44,7 +44,7 @@ Store subagents in durable catalog storage with a scope-aware unique constraint
 on `name`. Workspace and global subagents may share the same `name`, but
 duplicates within the same workspace scope or within global scope are rejected.
 
-`find_matching_catalog_entry` should return:
+`find_matching_subagent` should return:
 
 - `agents`
 - `skills`
@@ -74,8 +74,8 @@ ranked suggestions and must not create conflict results.
 Subagent prompt rendering should happen in:
 
 - `introduce_subagent`
-- `get_catalog_entry_detail` for subagents
-- `find_matching_catalog_entry` subagent candidates
+- `get_subagent_detail` for subagents
+- `find_matching_subagent` candidates
 
 If `promptTemplate` exists, render from it. If no template exists, render a
 deterministic generic prompt from:

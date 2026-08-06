@@ -991,18 +991,30 @@ export class SqliteCatalogRepository implements CatalogRepository {
   ): Promise<ClearWorkspaceCatalogResult> {
     const db = this.requireDb();
     const clear = db.transaction(() => {
-      const deletedAgents = input.entryType === "skill"
+      const deletedAgents = input.entryType === "skill" ||
+          input.entryType === "subagent"
         ? 0
         : this.countAgents(workspace);
-      const deletedSkills = input.entryType === "agent"
+      const deletedSkills = input.entryType === "agent" ||
+          input.entryType === "subagent"
         ? 0
         : this.countSkills(workspace);
+      const deletedSubagents = input.entryType === "agent" ||
+          input.entryType === "skill"
+        ? 0
+        : this.countSubagents(workspace);
 
-      if (input.entryType !== "skill") {
+      if (input.entryType !== "skill" && input.entryType !== "subagent") {
         db.exec("DELETE FROM introduced_agents WHERE workspace = ?", workspace);
       }
-      if (input.entryType !== "agent") {
+      if (input.entryType !== "agent" && input.entryType !== "subagent") {
         db.exec("DELETE FROM introduced_skills WHERE workspace = ?", workspace);
+      }
+      if (input.entryType !== "agent" && input.entryType !== "skill") {
+        db.exec(
+          "DELETE FROM introduced_subagents WHERE workspace = ?",
+          workspace,
+        );
       }
 
       return {
@@ -1010,7 +1022,8 @@ export class SqliteCatalogRepository implements CatalogRepository {
         entryType: input.entryType,
         deletedAgents,
         deletedSkills,
-        deletedTotal: deletedAgents + deletedSkills,
+        deletedSubagents,
+        deletedTotal: deletedAgents + deletedSkills + deletedSubagents,
       };
     });
 
@@ -1286,6 +1299,13 @@ export class SqliteCatalogRepository implements CatalogRepository {
   private countSkills(workspace: string): number {
     return this.requireDb().prepare<{ count: number }>(
       `SELECT COUNT(*) AS count FROM introduced_skills
+       WHERE workspace = ?`,
+    ).get(workspace)?.count ?? 0;
+  }
+
+  private countSubagents(workspace: string): number {
+    return this.requireDb().prepare<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM introduced_subagents
        WHERE workspace = ?`,
     ).get(workspace)?.count ?? 0;
   }

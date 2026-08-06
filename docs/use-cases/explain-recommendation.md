@@ -45,7 +45,6 @@ None for v1.
 ## 8. Decisions
 
 - V1 explanations only describe returned candidates, not rejected candidates.
-- Recommendation explanations remain inline on `find_matching_catalog_entry`
-  results.
+- Recommendation explanations remain inline on typed matching tools results.
 - A standalone explanation tool is deferred until there is a clear need beyond
   inline candidate explanations.

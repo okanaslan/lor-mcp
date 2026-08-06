@@ -161,14 +161,15 @@ export interface ListEntriesFilter {
 export interface ClearWorkspaceCatalogInput {
   workspace: string;
   confirm: true;
-  entryType?: "agent" | "skill";
+  entryType?: EntryType;
 }
 
 export interface ClearWorkspaceCatalogResult {
   workspace: string;
-  entryType?: "agent" | "skill";
+  entryType?: EntryType;
   deletedAgents: number;
   deletedSkills: number;
+  deletedSubagents: number;
   deletedTotal: number;
 }
 

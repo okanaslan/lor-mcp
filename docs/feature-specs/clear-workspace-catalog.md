@@ -5,13 +5,18 @@
 Implemented for v1. This feature lets a caller clear introduced workspace-local
 catalog entries from one requested workspace.
 
+Current public MCP tools are `clear_workspace_agents`, `clear_workspace_skills`,
+and `clear_workspace_subagents`; the generic `clear_workspace_catalog` tool name
+is no longer registered.
+
 ## 2. Goals
 
 - Let users reset a workspace catalog without deleting Codex agents or skill
   files.
 - Keep clearing strictly scoped to the client-supplied workspace.
 - Require explicit confirmation before deleting catalog records.
-- Support clearing all entries, only agents, or only skills.
+- Support clearing agents, skills, or subagent profiles through explicit typed
+  tools.
 
 ## 3. Non-Goals
 
@@ -24,18 +29,18 @@ catalog entries from one requested workspace.
 
 ## 4. Functional Requirements
 
-- The tool name is `clear_workspace_catalog`.
+- The tool names are `clear_workspace_agents`, `clear_workspace_skills`, and
+  `clear_workspace_subagents`.
 - The request must include `workspace`.
 - The request must include `confirm: true`.
-- The request may include `entryType: "agent"` or `entryType: "skill"`.
 - Missing, false, or invalid `confirm` must return the normal structured
   validation error response.
-- When `entryType` is omitted, the server must delete introduced agents and
-  introduced skills for the requested workspace.
-- When `entryType` is `agent`, the server must delete only introduced agents for
-  the requested workspace.
-- When `entryType` is `skill`, the server must delete only introduced skills for
-  the requested workspace.
+- `clear_workspace_agents` must delete only introduced agents for the requested
+  workspace.
+- `clear_workspace_skills` must delete only workspace-local introduced skills
+  for the requested workspace.
+- `clear_workspace_subagents` must delete only workspace-local introduced
+  subagent profiles for the requested workspace.
 - Clearing a workspace must not delete global skills.
 - Clearing an empty workspace must succeed with zero deleted counts.
 - Cleared entries must no longer appear in list, detail, or matching results.
@@ -45,8 +50,10 @@ catalog entries from one requested workspace.
 
 A user is experimenting with Local Orchestration Router (LOR) and wants to reset
 the current workspace catalog. They ask an agent to call
-`clear_workspace_catalog` with the current workspace and explicit confirmation,
-then re-register the desired agents and skills.
+`clear_workspace_agents`, `clear_workspace_skills`, or
+`clear_workspace_subagents` with the current workspace and explicit
+confirmation, then re-register the desired agents, skills, and subagent
+profiles.
 
 ## 6. Data Model
 

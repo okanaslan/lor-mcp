@@ -14,10 +14,10 @@ Codex user starting a new workspace.
 ## 3. Scenario
 
 The Codex user opens a new project workspace and asks whether LOR MCP is
-available. LOR responds successfully, but `list_catalog_entries` returns an
-empty catalog for the new workspace. The user knows another workspace already
-has useful registered skills and wants a quick way to initialize the new
-workspace without copying registered agents.
+available. LOR responds successfully, but `list_skills` returns an empty catalog
+for the new workspace. The user knows another workspace already has useful
+registered skills and wants a quick way to initialize the new workspace without
+copying registered agents.
 
 ## 4. Flow
 

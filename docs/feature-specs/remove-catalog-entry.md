@@ -5,6 +5,10 @@
 Implemented for v1 agents, skills, and subagent profiles, including explicitly
 targeted shared global skills and global subagents.
 
+Current public MCP tools are `remove_agent`, `remove_skill`, and
+`remove_subagent`; the generic `remove_catalog_entry` tool name is no longer
+registered.
+
 ## 2. Goals
 
 - Allow users to delete catalog entries they no longer want routed.
@@ -26,7 +30,7 @@ targeted shared global skills and global subagents.
 
 ## 4. Functional Requirements
 
-- The server must accept an entry type and entry identifier.
+- The server must accept the typed entry identifier for the selected tool.
 - The request must include the client workspace path, registered alias, or
   stable workspace slug.
 - The server must remove only entries scoped to the requested workspace.

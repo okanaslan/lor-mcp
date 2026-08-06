@@ -27,6 +27,7 @@ import {
   type ClearWorkspaceCatalogResult,
   type DelegatedAgentTask,
   type EntryLookup,
+  type EntryType,
   type GetAgentTaskResultInput,
   type GetAgentTaskStatusInput,
   type GetWorkspaceNoteInput,
@@ -197,6 +198,42 @@ export class CatalogService {
     });
   }
 
+  async listAgents(
+    filter: Omit<ListEntriesFilter, "entryType" | "scope">,
+  ): Promise<AgentCatalogEntry[]> {
+    const entries = await this.listEntries({
+      ...filter,
+      entryType: "agent",
+    });
+    return entries.filter((entry): entry is AgentCatalogEntry =>
+      entry.entryType === "agent"
+    );
+  }
+
+  async listSkills(
+    filter: Omit<ListEntriesFilter, "entryType">,
+  ): Promise<SkillCatalogEntry[]> {
+    const entries = await this.listEntries({
+      ...filter,
+      entryType: "skill",
+    });
+    return entries.filter((entry): entry is SkillCatalogEntry =>
+      entry.entryType === "skill"
+    );
+  }
+
+  async listSubagents(
+    filter: Omit<ListEntriesFilter, "entryType">,
+  ): Promise<SubagentCatalogEntry[]> {
+    const entries = await this.listEntries({
+      ...filter,
+      entryType: "subagent",
+    });
+    return entries.filter((entry): entry is SubagentCatalogEntry =>
+      entry.entryType === "subagent"
+    );
+  }
+
   async clearWorkspaceCatalog(
     input: ClearWorkspaceCatalogInput,
   ): Promise<ClearWorkspaceCatalogResult> {
@@ -215,6 +252,27 @@ export class CatalogService {
     });
   }
 
+  async clearWorkspaceAgents(
+    input: Omit<ClearWorkspaceCatalogInput, "entryType">,
+  ): Promise<ClearWorkspaceCatalogResult> {
+    return await this.clearWorkspaceCatalog({ ...input, entryType: "agent" });
+  }
+
+  async clearWorkspaceSkills(
+    input: Omit<ClearWorkspaceCatalogInput, "entryType">,
+  ): Promise<ClearWorkspaceCatalogResult> {
+    return await this.clearWorkspaceCatalog({ ...input, entryType: "skill" });
+  }
+
+  async clearWorkspaceSubagents(
+    input: Omit<ClearWorkspaceCatalogInput, "entryType">,
+  ): Promise<ClearWorkspaceCatalogResult> {
+    return await this.clearWorkspaceCatalog({
+      ...input,
+      entryType: "subagent",
+    });
+  }
+
   async getEntryDetail(
     lookup: EntryLookup,
   ): Promise<CatalogEntry | undefined> {
@@ -227,6 +285,41 @@ export class CatalogService {
       ...validated,
       workspace,
     });
+  }
+
+  async getAgentDetail(
+    input: { workspace: string; agentEntryKey: string },
+  ): Promise<AgentCatalogEntry | undefined> {
+    const entry = await this.getEntryDetail({
+      workspace: input.workspace,
+      entryType: "agent",
+      entryKey: input.agentEntryKey,
+    });
+    return entry?.entryType === "agent" ? entry : undefined;
+  }
+
+  async getSkillDetail(
+    input: { workspace: string; skillName: string; scope?: CatalogScope },
+  ): Promise<SkillCatalogEntry | undefined> {
+    const entry = await this.getEntryDetail({
+      workspace: input.workspace,
+      entryType: "skill",
+      entryKey: input.skillName,
+      scope: input.scope,
+    });
+    return entry?.entryType === "skill" ? entry : undefined;
+  }
+
+  async getSubagentDetail(
+    input: { workspace: string; subagentName: string; scope?: CatalogScope },
+  ): Promise<SubagentCatalogEntry | undefined> {
+    const entry = await this.getEntryDetail({
+      workspace: input.workspace,
+      entryType: "subagent",
+      entryKey: input.subagentName,
+      scope: input.scope,
+    });
+    return entry?.entryType === "subagent" ? entry : undefined;
   }
 
   async updateCatalogEntry(
@@ -250,6 +343,45 @@ export class CatalogService {
       );
     }
     return updated;
+  }
+
+  async updateAgent(
+    input: Omit<CatalogEntryUpdate, "entryType" | "entryKey" | "scope"> & {
+      agentEntryKey: string;
+    },
+  ): Promise<AgentCatalogEntry> {
+    const entry = await this.updateCatalogEntry({
+      ...input,
+      entryType: "agent",
+      entryKey: input.agentEntryKey,
+    });
+    return entry as AgentCatalogEntry;
+  }
+
+  async updateSkill(
+    input: Omit<CatalogEntryUpdate, "entryType" | "entryKey"> & {
+      skillName: string;
+    },
+  ): Promise<SkillCatalogEntry> {
+    const entry = await this.updateCatalogEntry({
+      ...input,
+      entryType: "skill",
+      entryKey: input.skillName,
+    });
+    return entry as SkillCatalogEntry;
+  }
+
+  async updateSubagent(
+    input: Omit<CatalogEntryUpdate, "entryType" | "entryKey"> & {
+      subagentName: string;
+    },
+  ): Promise<SubagentCatalogEntry> {
+    const entry = await this.updateCatalogEntry({
+      ...input,
+      entryType: "subagent",
+      entryKey: input.subagentName,
+    });
+    return entry as SubagentCatalogEntry;
   }
 
   async promoteSkillToGlobal(
@@ -834,6 +966,38 @@ export class CatalogService {
     return { ...scopedLookup, removed: true };
   }
 
+  async removeAgent(
+    input: { workspace: string; agentEntryKey: string },
+  ): Promise<RemoveCatalogEntryResult> {
+    return await this.removeCatalogEntry({
+      workspace: input.workspace,
+      entryType: "agent",
+      entryKey: input.agentEntryKey,
+    });
+  }
+
+  async removeSkill(
+    input: { workspace: string; skillName: string; scope?: CatalogScope },
+  ): Promise<RemoveCatalogEntryResult> {
+    return await this.removeCatalogEntry({
+      workspace: input.workspace,
+      entryType: "skill",
+      entryKey: input.skillName,
+      scope: input.scope,
+    });
+  }
+
+  async removeSubagent(
+    input: { workspace: string; subagentName: string; scope?: CatalogScope },
+  ): Promise<RemoveCatalogEntryResult> {
+    return await this.removeCatalogEntry({
+      workspace: input.workspace,
+      entryType: "subagent",
+      entryKey: input.subagentName,
+      scope: input.scope,
+    });
+  }
+
   async exportCatalog(
     filter: CatalogExportFilter,
   ): Promise<CatalogExport> {
@@ -1324,6 +1488,33 @@ export class CatalogService {
     });
   }
 
+  async findMatchingAgents(
+    request: Omit<MatchRequest, "preferredType">,
+  ): Promise<MatchResult> {
+    return filterMatchResult(
+      await this.findMatchingEntries({ ...request, preferredType: "agent" }),
+      "agent",
+    );
+  }
+
+  async findMatchingSkills(
+    request: Omit<MatchRequest, "preferredType">,
+  ): Promise<MatchResult> {
+    return filterMatchResult(
+      await this.findMatchingEntries({ ...request, preferredType: "skill" }),
+      "skill",
+    );
+  }
+
+  async findMatchingSubagents(
+    request: Omit<MatchRequest, "preferredType">,
+  ): Promise<MatchResult> {
+    return filterMatchResult(
+      await this.findMatchingEntries({ ...request, preferredType: "subagent" }),
+      "subagent",
+    );
+  }
+
   async registerWorkspaceAlias(
     input: RegisterWorkspaceAliasInput,
   ): Promise<RegisterWorkspaceAliasResult> {
@@ -1758,6 +1949,29 @@ function sanitizeReachabilityError(error: string): string {
 
 function isRoutableEntry(entry: CatalogEntry): boolean {
   return entry.entryType !== "agent" || entry.agentStatus === "active";
+}
+
+function filterMatchResult(
+  result: MatchResult,
+  entryType: EntryType,
+): MatchResult {
+  const agents = entryType === "agent" ? result.data.agents : [];
+  const skills = entryType === "skill" ? result.data.skills : [];
+  const subagents = entryType === "subagent" ? result.data.subagents : [];
+  const hasCandidate = agents.length > 0 ||
+    skills.length > 0 ||
+    subagents.length > 0;
+
+  return {
+    status: hasCandidate ? result.status : "no_match",
+    data: {
+      agents,
+      skills,
+      subagents,
+      agentsAmbiguous: entryType === "agent" && result.data.agentsAmbiguous,
+      conflict: entryType === "agent" ? result.data.conflict : undefined,
+    },
+  };
 }
 
 function isHealthEntry(

@@ -5,6 +5,9 @@
 Implemented for v1 agents, skills, and subagent prompt profiles, including
 shared global skills and global subagents by default.
 
+Current public MCP tools are `list_agents`, `list_skills`, and `list_subagents`;
+the generic `list_catalog_entries` tool name is no longer registered.
+
 ## 2. Goals
 
 - Show what agents, skills, and subagent profiles have been introduced in the

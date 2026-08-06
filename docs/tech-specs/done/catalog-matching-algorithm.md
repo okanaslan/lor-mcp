@@ -11,9 +11,10 @@ testable without LLMs, embeddings, or a fuzzy-search dependency.
 
 ## 2. Context
 
-The v1 MCP tool surface exposes `find_matching_catalog_entry`. Durable storage
-uses separate agent and skill tables, and all matching must remain scoped to the
-requested workspace.
+The MCP tool surface exposes typed matching tools: `find_matching_agent`,
+`find_matching_skill`, and `find_matching_subagent`. Durable storage uses
+separate agent, skill, and subagent tables, and all matching must remain scoped
+to the requested workspace.
 
 The current Find Matching Catalog Entry feature spec describes returning a
 single best catalog entry. The intended v1 behavior is broader: return ranked
@@ -161,9 +162,8 @@ Candidates with zero score should not be returned. Returned candidates should
 include enough matched signal metadata for later routing recommendation
 explanation work.
 
-The tool name remains `find_matching_catalog_entry` for v1 even though the
-result contains ranked agent and skill lists. A later feature-spec update should
-align the product wording with this result shape.
+The underlying matcher remains shared even though public MCP calls use
+type-specific matching tool names.
 
 ## 8. Risks and Tradeoffs
 

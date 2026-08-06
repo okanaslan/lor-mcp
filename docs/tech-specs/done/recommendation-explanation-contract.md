@@ -6,9 +6,9 @@ Implemented for v1. This tech spec defines the recommendation explanation
 contract for Local Orchestration Router (LOR).
 
 Recommendation explanations are deterministic inline objects attached to
-returned match candidates from `find_matching_catalog_entry`. They expose why a
-returned agent or skill matched without using model-generated prose or exposing
-hidden catalog entries.
+returned match candidates from typed matching tools. They expose why a returned
+agent or skill matched without using model-generated prose or exposing hidden
+catalog entries.
 
 ## 2. Context
 
@@ -29,7 +29,7 @@ returned candidates.
 - Provide enough signal data for Codex agents to summarize decisions to users.
 - Avoid leaking non-returned catalog entries.
 - Avoid leaking entries from other workspaces.
-- Keep explanation behavior inline with `find_matching_catalog_entry`.
+- Keep explanation behavior inline with typed matching tools.
 
 ## 4. Non-Goals
 
@@ -42,8 +42,8 @@ returned candidates.
 
 ## 5. Proposed Design
 
-Each returned agent or skill candidate from `find_matching_catalog_entry` should
-include an `explanation` object.
+Each returned agent or skill candidate from typed matching tools should include
+an `explanation` object.
 
 The explanation object should include:
 

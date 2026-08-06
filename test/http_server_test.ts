@@ -58,18 +58,28 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "introduce_agent",
       "introduce_skill",
       "introduce_subagent",
-      "list_catalog_entries",
-      "clear_workspace_catalog",
+      "list_agents",
+      "list_skills",
+      "list_subagents",
+      "clear_workspace_agents",
+      "clear_workspace_skills",
+      "clear_workspace_subagents",
       "register_workspace_alias",
       "promote_skill_to_global",
-      "get_catalog_entry_detail",
-      "update_catalog_entry",
+      "get_agent_detail",
+      "get_skill_detail",
+      "get_subagent_detail",
+      "update_agent",
+      "update_skill",
+      "update_subagent",
       "retire_agent",
       "propose_skill_update",
       "apply_skill_update",
       "preview_skill_file_sync",
       "apply_skill_file_sync",
-      "remove_catalog_entry",
+      "remove_agent",
+      "remove_skill",
+      "remove_subagent",
       "export_catalog",
       "import_catalog",
       "preview_workspace_catalog_sync",
@@ -88,7 +98,9 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "get_agent_task_result",
       "prepare_agent_regeneration",
       "generate_agent_prompt",
-      "find_matching_catalog_entry",
+      "find_matching_agent",
+      "find_matching_skill",
+      "find_matching_subagent",
     ],
   );
 });
@@ -140,7 +152,7 @@ Deno.test("HTTP MCP handler calls introduce_subagent", async () => {
   }
 });
 
-Deno.test("HTTP MCP handler calls update_catalog_entry", async () => {
+Deno.test("HTTP MCP handler calls update_agent", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -165,11 +177,10 @@ Deno.test("HTTP MCP handler calls update_catalog_entry", async () => {
       id: 2,
       method: "tools/call",
       params: {
-        name: "update_catalog_entry",
+        name: "update_agent",
         arguments: {
           workspace: "LOR-MCP",
-          entryType: "agent",
-          entryKey: "agent-1",
+          agentEntryKey: "agent-1",
           displayName: "Deno Backend Agent",
           specialtyTags: ["deno", "mcp"],
         },
@@ -438,7 +449,7 @@ Deno.test("HTTP MCP handler calls register_workspace_alias", async () => {
   }
 });
 
-Deno.test("HTTP MCP handler calls remove_catalog_entry", async () => {
+Deno.test("HTTP MCP handler calls remove_skill", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceSkill({
@@ -463,11 +474,10 @@ Deno.test("HTTP MCP handler calls remove_catalog_entry", async () => {
       id: 2,
       method: "tools/call",
       params: {
-        name: "remove_catalog_entry",
+        name: "remove_skill",
         arguments: {
           workspace: "LOR-MCP",
-          entryType: "skill",
-          entryKey: "backend-skill",
+          skillName: "backend-skill",
         },
       },
     });
@@ -1194,11 +1204,10 @@ Deno.test("HTTP MCP handler logs structured tool errors", async () => {
       id: 2,
       method: "tools/call",
       params: {
-        name: "get_catalog_entry_detail",
+        name: "get_agent_detail",
         arguments: {
           workspace: "LOR-MCP",
-          entryType: "agent",
-          entryKey: "missing-agent",
+          agentEntryKey: "missing-agent",
         },
       },
     });
@@ -1211,10 +1220,9 @@ Deno.test("HTTP MCP handler logs structured tool errors", async () => {
       logger.logs.some((log) =>
         log.level === "warn" &&
         log.fields.event === "mcp_tool_call" &&
-        log.fields.toolName === "get_catalog_entry_detail" &&
+        log.fields.toolName === "get_agent_detail" &&
         log.fields.workspace === "LOR-MCP" &&
-        log.fields.entryType === "agent" &&
-        log.fields.entryKey === "missing-agent" &&
+        log.fields.agentEntryKey === "missing-agent" &&
         log.fields.status === "error" &&
         log.fields.errorCode === "not_found"
       ),

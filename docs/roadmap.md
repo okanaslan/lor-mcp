@@ -24,18 +24,28 @@ Implemented in the runnable local 2.0.0 server:
   - `introduce_agent`
   - `introduce_skill`
   - `introduce_subagent`
-  - `list_catalog_entries`
-  - `clear_workspace_catalog`
+  - `list_agents`
+  - `list_skills`
+  - `list_subagents`
+  - `clear_workspace_agents`
+  - `clear_workspace_skills`
+  - `clear_workspace_subagents`
   - `register_workspace_alias`
   - `promote_skill_to_global`
-  - `get_catalog_entry_detail`
-  - `update_catalog_entry`
+  - `get_agent_detail`
+  - `get_skill_detail`
+  - `get_subagent_detail`
+  - `update_agent`
+  - `update_skill`
+  - `update_subagent`
   - `retire_agent`
   - `propose_skill_update`
   - `apply_skill_update`
   - `preview_skill_file_sync`
   - `apply_skill_file_sync`
-  - `remove_catalog_entry`
+  - `remove_agent`
+  - `remove_skill`
+  - `remove_subagent`
   - `export_catalog`
   - `import_catalog`
   - `preview_workspace_catalog_sync`
@@ -54,15 +64,19 @@ Implemented in the runnable local 2.0.0 server:
   - `get_agent_task_result`
   - `prepare_agent_regeneration`
   - `generate_agent_prompt`
-  - `find_matching_catalog_entry`
+  - `find_matching_agent`
+  - `find_matching_skill`
+  - `find_matching_subagent`
 - Agent and skill introduction now acts as registration. The server no longer
   requires server-local pre-verification evidence before accepting new entries.
 - Global skills can be introduced directly with `scope: "global"` or promoted
   from workspace skills with `promote_skill_to_global`. Global skills are
-  included in list and match by default; agents remain workspace-scoped.
+  included in `list_skills` and `find_matching_skill` by default; agents remain
+  workspace-scoped.
 - Subagent suggestions are implemented for reusable prompt profiles with
-  workspace/global scope. Workspace and global subagents are included in list
-  and match by default, while health checks remain agent/skill-only.
+  workspace/global scope. Workspace and global subagents are included in
+  `list_subagents` and `find_matching_subagent` by default, while health checks
+  remain agent/skill-only.
 - Agent replacement uses immutable session identity: new agents register as
   active records, old records can be marked retired, and matching excludes
   retired agents by default.
@@ -116,16 +130,22 @@ Latest implementation verification:
   inclusion, global skill management from any workspace, and workspace-local
   export behavior. Technical planning is tracked in
   [Global Skill Scope](tech-specs/done/global-skill-scope.md).
+- [Type-Specific Tool Surface](feature-specs/type-specific-tool-surface.md):
+  Implemented for 2.0.0. Replaces generic public list/detail/update/remove/
+  clear/match tools with explicit agent, skill, and subagent tool names.
 - [Find Matching Catalog Entry](feature-specs/find-matching-catalog-entry.md):
-  Implemented for v1 deterministic local fuzzy matching.
-- [List Catalog Entries](feature-specs/list-catalog-entries.md): Implemented for
-  v1 catalog inspection.
+  Implemented through `find_matching_agent`, `find_matching_skill`, and
+  `find_matching_subagent` deterministic local fuzzy matching.
+- [List Catalog Entries](feature-specs/list-catalog-entries.md): Implemented
+  through `list_agents`, `list_skills`, and `list_subagents`.
 - [Clear Workspace Catalog](feature-specs/clear-workspace-catalog.md):
-  Implemented for v1 workspace catalog reset with explicit confirmation.
+  Implemented through `clear_workspace_agents`, `clear_workspace_skills`, and
+  `clear_workspace_subagents` with explicit confirmation.
 - [Register Workspace Alias](feature-specs/register-workspace-alias.md):
   Implemented for v1 canonical workspace resolution and explicit alias repair.
 - [Get Catalog Entry Detail](feature-specs/get-catalog-entry-detail.md):
-  Implemented for v1 detail lookup.
+  Implemented through `get_agent_detail`, `get_skill_detail`, and
+  `get_subagent_detail`.
 - [Prepare Agent Handoff](feature-specs/prepare-agent-handoff.md): Implemented
   for v1 prompt preparation without dispatching to Codex.
 - [Agent Reachability And Dispatch Model](feature-specs/agent-reachability-and-dispatch-model.md):
@@ -176,15 +196,16 @@ Latest implementation verification:
   [Workspace Catalog Sync Tool Surface](tech-specs/done/workspace-catalog-sync-tool-surface.md)
   and
   [Workspace Catalog Sync Service Flow](tech-specs/done/workspace-catalog-sync-service-flow.md).
-- [Update Catalog Entry](feature-specs/update-catalog-entry.md): Implemented for
-  v1 partial metadata updates.
+- [Update Catalog Entry](feature-specs/update-catalog-entry.md): Implemented
+  through `update_agent`, `update_skill`, and `update_subagent` partial metadata
+  updates.
 - [Registered Skill Context Updates](feature-specs/registered-skill-context-updates.md):
   Implemented for v1 approval-gated stored skill context updates.
 - [Local Skill Sync](feature-specs/local-skill-sync.md): Implemented for v1
   approval-gated sync from applied stored skill context into local `SKILL.md`
   managed sections.
-- [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Implemented for
-  v1 single-entry hard delete.
+- [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Implemented
+  through `remove_agent`, `remove_skill`, and `remove_subagent` hard deletes.
 - [Skill / Agent Existence Verification](feature-specs/existence-verification.md):
   Implemented for v1 metadata-only catalog health reporting. Blocking
   verification remains out of scope for introduction flows.

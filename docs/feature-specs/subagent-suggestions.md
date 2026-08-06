@@ -5,7 +5,7 @@
 Implemented for v1. This feature adds subagents as a third catalog entry type in
 Local Orchestration Router (LOR). Subagents are reusable prompt profiles for
 temporary or focused delegation, not registered Codex sessions. LOR can suggest
-up to three matching subagents through `find_matching_catalog_entry` and return
+up to three matching subagents through `find_matching_subagent` and return
 ready-to-use prompts for suggested or detailed subagent entries.
 
 ## 2. Goals
@@ -13,8 +13,7 @@ ready-to-use prompts for suggested or detailed subagent entries.
 - Let users manually introduce reusable subagent profiles.
 - Support workspace and global subagent scopes.
 - Include global subagents in list and match results by default.
-- Include subagents in `find_matching_catalog_entry` alongside agents and
-  skills.
+- Include subagents in `find_matching_subagent`.
 - Return rendered prompts for subagent matches, details, and introduction
   results.
 - Let subagents reference optional agents and skills.
@@ -56,11 +55,11 @@ ready-to-use prompts for suggested or detailed subagent entries.
   appear in list and match results.
 - If `promptTemplate` is missing, LOR must render a deterministic generic prompt
   from stored subagent fields.
-- `find_matching_catalog_entry` must return a separate ranked `subagents` list.
+- `find_matching_subagent` must return a ranked `subagents` list.
 - Matching must include global subagents by default.
 - Matching must return up to three subagents by default.
 - Multiple subagent suggestions must not create conflict results.
-- `get_catalog_entry_detail` must return a rendered prompt for subagent entries.
+- `get_subagent_detail` must return a rendered prompt for subagent entries.
 - Workspace export must include workspace-local subagents.
 - Workspace import must import subagent profiles into the target workspace.
 - Workspace catalog sync must copy workspace-local subagents by default along
@@ -128,8 +127,8 @@ Unresolved references must be preserved and returned as metadata or warnings.
 - Subagents are a third catalog entry type.
 - Subagents support `scope: "workspace" | "global"`.
 - Global subagents are included by default in list and match.
-- `find_matching_catalog_entry` returns subagents; no separate
-  `suggest_subagents` tool is planned for v1.
+- `find_matching_subagent` returns subagents; no separate `suggest_subagents`
+  tool is planned for v1.
 - Subagent result limit defaults to three.
 - `promptTemplate` is optional because LOR can render a generic prompt from
   stored fields.

@@ -19,7 +19,7 @@ to three matching subagent profiles.
 ## 4. Flow
 
 1. The current agent receives a task from the user.
-2. The current agent calls `find_matching_catalog_entry`.
+2. The current agent calls `find_matching_subagent`.
 3. LOR matches workspace agents, workspace/global skills, and workspace/global
    subagents.
 4. LOR returns ranked agents, skills, and subagents.

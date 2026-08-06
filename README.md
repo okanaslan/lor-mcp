@@ -116,8 +116,8 @@ inspect stored verification metadata for registered agents and skills.
 
 Use routing when deciding who or what should handle a task:
 
-1. `find_matching_catalog_entry`
-2. `get_catalog_entry_detail`
+1. `find_matching_agent`, `find_matching_skill`, or `find_matching_subagent`
+2. `get_agent_detail`, `get_skill_detail`, or `get_subagent_detail`
 3. `prepare_agent_handoff` when a registered agent should receive work
 4. Codex-native thread communication using the registered `codexSessionId`, or
    `send_agent_task` when using LOR's delegated task lifecycle
@@ -126,9 +126,9 @@ Reachability metadata makes agent results clearer by showing whether a
 recommended registered agent is only a catalog entry, unknown, reachable, or
 known unreachable.
 
-Subagent profiles are included in `list_catalog_entries` and
-`find_matching_catalog_entry` by default. `get_catalog_entry_detail` returns
-their rendered prompts.
+Use `list_agents`, `list_skills`, and `list_subagents` when browsing by entry
+family. `get_subagent_detail` returns the rendered prompt for a subagent
+profile.
 
 ### Manage Delegated Tasks
 
@@ -147,7 +147,7 @@ dispatcher is injected.
 
 ### Refresh Or Replace Agents
 
-1. `get_catalog_entry_detail` for the context-heavy registered agent.
+1. `get_agent_detail` for the context-heavy registered agent.
 2. `prepare_agent_regeneration` to render a ready-to-paste replacement prompt.
 3. Start a new Codex chat manually and register its new session ID with
    `introduce_agent`, optionally using `replacesAgentEntryKey`.
@@ -186,11 +186,12 @@ current version.
 Use maintenance and expansion tools when the workspace catalog needs cleanup,
 backup, or migration:
 
-- `list_catalog_entries`
-- `update_catalog_entry`
+- `list_agents`, `list_skills`, `list_subagents`
+- `update_agent`, `update_skill`, `update_subagent`
 - `retire_agent`
-- `remove_catalog_entry`
-- `clear_workspace_catalog`
+- `remove_agent`, `remove_skill`, `remove_subagent`
+- `clear_workspace_agents`, `clear_workspace_skills`,
+  `clear_workspace_subagents`
 - `export_catalog`
 - `import_catalog`
 - `preview_workspace_catalog_sync`
@@ -241,19 +242,31 @@ flowchart RL
   catalog --> previewWorkspaceSync["preview_workspace_catalog_sync"]
   previewWorkspaceSync --> applyWorkspaceSync["apply_workspace_catalog_sync"]
   applyWorkspaceSync --> catalog
-  catalog --> listEntries["list_catalog_entries"]
+  agents --> listAgents["list_agents"]
+  skills --> listSkills["list_skills"]
+  subagents --> listSubagents["list_subagents"]
 
-  listEntries --> removeEntry["remove_catalog_entry"]
-  removeEntry --> clearCatalog["clear_workspace_catalog"]
-  listEntries --> updateEntry["update_catalog_entry"]
-  updateEntry --> agents
-  updateEntry --> skills
-  updateEntry --> subagents
-  listEntries --> findMatch["find_matching_catalog_entry"]
-  findMatch --> detail["get_catalog_entry_detail"]
-  detail --> agents
-  detail --> skills
-  detail --> subagents
+  listAgents --> updateAgent["update_agent"]
+  updateAgent --> agents
+  listSkills --> updateSkill["update_skill"]
+  updateSkill --> skills
+  listSubagents --> updateSubagent["update_subagent"]
+  updateSubagent --> subagents
+  listAgents --> removeAgent["remove_agent"]
+  listSkills --> removeSkill["remove_skill"]
+  listSubagents --> removeSubagent["remove_subagent"]
+  removeAgent --> clearAgents["clear_workspace_agents"]
+  removeSkill --> clearSkills["clear_workspace_skills"]
+  removeSubagent --> clearSubagents["clear_workspace_subagents"]
+  agents --> findAgent["find_matching_agent"]
+  skills --> findSkill["find_matching_skill"]
+  subagents --> findSubagent["find_matching_subagent"]
+  findAgent --> getAgent["get_agent_detail"]
+  findSkill --> getSkill["get_skill_detail"]
+  findSubagent --> getSubagent["get_subagent_detail"]
+  getAgent --> agents
+  getSkill --> skills
+  getSubagent --> subagents
 
   sendAgentTask --> task
   task --> getAgentTaskStatus["get_agent_task_status"]

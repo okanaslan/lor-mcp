@@ -5,6 +5,10 @@
 Implemented for v1 agents, skills, and subagent prompt profiles, including
 shared global skills and global subagents by default.
 
+Current public MCP tools are `find_matching_agent`, `find_matching_skill`, and
+`find_matching_subagent`; the generic `find_matching_catalog_entry` tool name is
+no longer registered.
+
 ## 2. Goals
 
 - Match task intent against introduced agents, skills, and subagent profiles.

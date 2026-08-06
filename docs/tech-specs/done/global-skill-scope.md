@@ -46,13 +46,11 @@ Tool behavior:
 
 - `introduce_skill` accepts optional `scope`; omitted scope means `workspace`.
 - `promote_skill_to_global` copies one workspace skill into global scope.
-- `list_catalog_entries` includes workspace-local entries and global skills by
-  default.
-- `find_matching_catalog_entry` scores workspace agents, workspace skills, and
-  global skills by default.
-- `get_catalog_entry_detail`, `update_catalog_entry`, `remove_catalog_entry`,
-  `check_catalog_health`, `propose_skill_update`, `apply_skill_update`,
-  `preview_skill_file_sync`, and `apply_skill_file_sync` support global skills.
+- `list_skills` includes workspace-local entries and global skills by default.
+- `find_matching_skill` scores workspace skills and global skills by default.
+- `get_skill_detail`, `update_skill`, `remove_skill`, `check_catalog_health`,
+  `propose_skill_update`, `apply_skill_update`, `preview_skill_file_sync`, and
+  `apply_skill_file_sync` support global skills.
 - `export_catalog` excludes global skills from workspace exports.
 - `import_catalog` remains workspace-local unless a future global import mode is
   explicitly added.

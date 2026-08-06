@@ -24,8 +24,7 @@ global scope so each workspace can list, match, inspect, update, and sync it.
 3. LOR stores the global skill with its metadata, verification metadata, and
    optional `skillContext`.
 4. The user switches to another workspace.
-5. The current Codex agent calls `list_catalog_entries` or
-   `find_matching_catalog_entry`.
+5. The current Codex agent calls `list_skills` or `find_matching_skill`.
 6. LOR returns workspace-local entries plus matching global skills by default.
 7. The current agent may inspect, use, update, health-check, or sync the global
    skill through the same skill workflows used for workspace skills.

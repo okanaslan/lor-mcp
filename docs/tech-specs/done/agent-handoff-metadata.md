@@ -19,8 +19,8 @@ guidance a caller should use to prepare a handoff.
 
 The v1 MCP tool surface includes a prompt-preparation handoff tool. Existing
 catalog flows carry this metadata: `introduce_agent` may accept it,
-`get_catalog_entry_detail` returns it for agent entries, `prepare_agent_handoff`
-renders it for a task, and future update tools may edit it.
+`get_agent_detail` returns it for agent entries, `prepare_agent_handoff` renders
+it for a task, and future update tools may edit it.
 
 ## 3. Goals
 
@@ -107,9 +107,8 @@ rest of the agent record.
 `introduce_agent` may accept an optional `handoff` object. Missing handoff
 metadata must not prevent agent introduction.
 
-`get_catalog_entry_detail` should include `handoff` metadata only for agent
-entries that have it. Skill detail responses should not include handoff
-metadata.
+`get_agent_detail` should include `handoff` metadata only for agent entries that
+have it. Skill detail responses should not include handoff metadata.
 
 `prepare_agent_handoff` should render stored `handoffPromptTemplate` text with
 supported task and agent placeholders. If no handoff metadata is stored, it

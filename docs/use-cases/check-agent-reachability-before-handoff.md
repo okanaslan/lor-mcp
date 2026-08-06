@@ -19,7 +19,7 @@ be reachable through Codex-native dispatch.
 ## 4. Flow
 
 1. The current agent receives a task from the user.
-2. The current agent calls `find_matching_catalog_entry`.
+2. The current agent calls `find_matching_agent`.
 3. LOR returns ranked agent candidates with reachability metadata.
 4. The current agent fetches detail for the best candidate.
 5. If the agent is reachable, the current agent may use future dispatch tooling.

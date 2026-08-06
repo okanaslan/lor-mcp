@@ -37,8 +37,8 @@ workspace-scoped only.
 - `promote_skill_to_global` must copy a workspace skill's metadata and
   `skillContext` into a new global skill without removing the workspace skill.
 - Agents must reject `scope: "global"` and must never be promoted globally.
-- `list_catalog_entries` must include global skills by default.
-- `find_matching_catalog_entry` must include global skills by default.
+- `list_skills` must include global skills by default.
+- `find_matching_skill` must include global skills by default.
 - Workspace skills and global skills with the same `skillName` may coexist and
   may both appear in listing, detail, matching, health, and sync workflows.
 - Global skills must be manageable from any workspace context.
@@ -107,8 +107,8 @@ workspace skill identifiers in caller-facing results.
 - List and match return scope on entries/candidates instead of visually grouping
   global skills separately.
 - Global skill removal requires explicit `scope: "global"` when a workspace
-  skill with the same name exists. `remove_catalog_entry` does not add a
-  separate confirmation flag in v1.
+  skill with the same name exists. `remove_skill` does not add a separate
+  confirmation flag in v1.
 
 ## 10. Decision Log
 

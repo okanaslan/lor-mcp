@@ -47,9 +47,10 @@ The main user flows are:
 - Register agents, skills, and subagent profiles with routing metadata.
 - Share selected skills globally across workspaces with `scope: "global"` or
   `promote_skill_to_global`.
-- Find matching agents, skills, and subagent prompt profiles for a task.
-- Fetch details and prepare handoff or regeneration prompts for registered Codex
-  agents.
+- Find matching agents, skills, and subagent prompt profiles for a task through
+  type-specific matching tools.
+- Fetch typed details and prepare handoff or regeneration prompts for registered
+  Codex agents.
 - Use agent reachability metadata before direct delegated task dispatch.
 - Use delegated task lifecycle, follow-up/result, diagnostics, and workspace
   memory tools.
@@ -57,8 +58,9 @@ The main user flows are:
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed
   section.
-- Export, import, sync, inspect, update, remove, clear, and health-check
-  workspace catalog entries.
+- Export/import portable catalog data, sync workspace skills/subagents, inspect
+  health and diagnostics, and update/remove/clear agents, skills, and subagents
+  with type-specific maintenance tools.
 - Introduce subagent prompt profiles for limited-scope work when no existing
   registered agent is appropriate.
 

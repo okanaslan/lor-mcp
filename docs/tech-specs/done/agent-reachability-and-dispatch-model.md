@@ -72,15 +72,15 @@ No background job should update reachability in this feature.
 
 - Stores default reachability metadata as `unknown`.
 
-`list_catalog_entries`:
+`list_agents`:
 
 - Returns compact reachability metadata for agent rows.
 
-`get_catalog_entry_detail`:
+`get_agent_detail`:
 
 - Returns full reachability metadata for agent entries.
 
-`find_matching_catalog_entry`:
+`find_matching_agent`:
 
 - Keeps unknown and unreachable agents in ranked matching results by default.
 - Includes compact reachability metadata on agent candidates.

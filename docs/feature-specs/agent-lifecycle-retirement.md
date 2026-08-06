@@ -45,10 +45,10 @@ replacement agents.
 - Newly introduced agents must default to `agentStatus: "active"`.
 - `introduce_agent` may accept optional `replacesAgentEntryKey` metadata for a
   new replacement agent.
-- `find_matching_catalog_entry` must exclude retired agents by default.
+- `find_matching_agent` must exclude retired agents by default.
 - `prepare_agent_handoff` must reject retired target agents.
-- `list_catalog_entries`, `get_catalog_entry_detail`, `check_catalog_health`,
-  and `export_catalog` must keep retired agents visible.
+- `list_agents`, `get_agent_detail`, `check_catalog_health`, and
+  `export_catalog` must keep retired agents visible.
 
 ## 5. User Stories / Use Cases
 

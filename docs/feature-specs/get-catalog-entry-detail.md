@@ -6,6 +6,10 @@ Implemented for v1 agents, skills, and subagent profiles, including explicit
 shared global skill and subagent lookup. Subagent detail returns full metadata
 and a rendered starter prompt for one reusable subagent profile.
 
+Current public MCP tools are `get_agent_detail`, `get_skill_detail`, and
+`get_subagent_detail`; the generic `get_catalog_entry_detail` tool name is no
+longer registered.
+
 ## 2. Goals
 
 - Retrieve one catalog entry by type and identifier.

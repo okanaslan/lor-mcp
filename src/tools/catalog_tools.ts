@@ -11,20 +11,32 @@ import {
   type ApplyWorkspaceCatalogSyncToolInput,
   checkCatalogHealthInputSchema,
   type CheckCatalogHealthToolInput,
-  clearWorkspaceCatalogInputSchema,
-  type ClearWorkspaceCatalogToolInput,
+  clearWorkspaceAgentsInputSchema,
+  type ClearWorkspaceAgentsToolInput,
+  clearWorkspaceSkillsInputSchema,
+  type ClearWorkspaceSkillsToolInput,
+  clearWorkspaceSubagentsInputSchema,
+  type ClearWorkspaceSubagentsToolInput,
   exportCatalogInputSchema,
   type ExportCatalogToolInput,
-  findMatchingCatalogEntryInputSchema,
-  type FindMatchingCatalogEntryToolInput,
+  findMatchingAgentInputSchema,
+  type FindMatchingAgentToolInput,
+  findMatchingSkillInputSchema,
+  type FindMatchingSkillToolInput,
+  findMatchingSubagentInputSchema,
+  type FindMatchingSubagentToolInput,
   generateAgentPromptInputSchema,
   type GenerateAgentPromptToolInput,
+  getAgentDetailInputSchema,
+  type GetAgentDetailToolInput,
   getAgentTaskResultInputSchema,
   type GetAgentTaskResultToolInput,
   getAgentTaskStatusInputSchema,
   type GetAgentTaskStatusToolInput,
-  getCatalogEntryDetailInputSchema,
-  type GetCatalogEntryDetailToolInput,
+  getSkillDetailInputSchema,
+  type GetSkillDetailToolInput,
+  getSubagentDetailInputSchema,
+  type GetSubagentDetailToolInput,
   getWorkspaceDiagnosticsInputSchema,
   type GetWorkspaceDiagnosticsToolInput,
   getWorkspaceNoteInputSchema,
@@ -39,8 +51,12 @@ import {
   type IntroduceSubagentToolInput,
   listActiveTasksInputSchema,
   type ListActiveTasksToolInput,
-  listCatalogEntriesInputSchema,
-  type ListCatalogEntriesToolInput,
+  listAgentsInputSchema,
+  type ListAgentsToolInput,
+  listSkillsInputSchema,
+  type ListSkillsToolInput,
+  listSubagentsInputSchema,
+  type ListSubagentsToolInput,
   listWorkspaceNotesInputSchema,
   type ListWorkspaceNotesToolInput,
   prepareAgentHandoffInputSchema,
@@ -59,8 +75,12 @@ import {
   type RegisterWorkspaceAliasToolInput,
   rememberWorkspaceNoteInputSchema,
   type RememberWorkspaceNoteToolInput,
-  removeCatalogEntryInputSchema,
-  type RemoveCatalogEntryToolInput,
+  removeAgentInputSchema,
+  type RemoveAgentToolInput,
+  removeSkillInputSchema,
+  type RemoveSkillToolInput,
+  removeSubagentInputSchema,
+  type RemoveSubagentToolInput,
   removeWorkspaceNoteInputSchema,
   type RemoveWorkspaceNoteToolInput,
   retireAgentInputSchema,
@@ -68,8 +88,12 @@ import {
   sendAgentTaskInputSchema,
   type SendAgentTaskToolInput,
   toolOutputSchema,
-  updateCatalogEntryInputSchema,
-  type UpdateCatalogEntryToolInput,
+  updateAgentInputSchema,
+  type UpdateAgentToolInput,
+  updateSkillInputSchema,
+  type UpdateSkillToolInput,
+  updateSubagentInputSchema,
+  type UpdateSubagentToolInput,
 } from "@src/tools/schemas.ts";
 import {
   errorResult,
@@ -161,48 +185,131 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
-    "list_catalog_entries",
+    "list_agents",
     {
-      description:
-        "List introduced agents, skills, and subagents in a workspace catalog.",
-      inputSchema: listCatalogEntriesInputSchema,
+      description: "List introduced Codex agents in a workspace.",
+      inputSchema: listAgentsInputSchema,
       outputSchema: toolOutputSchema,
     },
-    (input: ListCatalogEntriesToolInput) =>
+    (input: ListAgentsToolInput) =>
       withLoggedRuntime(
-        "list_catalog_entries",
+        "list_agents",
         input,
         logger,
         runtimeFactory,
         async (runtime) => {
-          const entries = await runtime.service.listEntries(input);
+          const agents = await runtime.service.listAgents(input);
+          return okResult({ agents }, `Found ${agents.length} agents.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "list_skills",
+    {
+      description:
+        "List introduced skills visible to a workspace, including global skills by default.",
+      inputSchema: listSkillsInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: ListSkillsToolInput) =>
+      withLoggedRuntime(
+        "list_skills",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const skills = await runtime.service.listSkills(input);
+          return okResult({ skills }, `Found ${skills.length} skills.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "list_subagents",
+    {
+      description:
+        "List introduced reusable subagent prompt profiles visible to a workspace.",
+      inputSchema: listSubagentsInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: ListSubagentsToolInput) =>
+      withLoggedRuntime(
+        "list_subagents",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const subagents = await runtime.service.listSubagents(input);
           return okResult(
-            { entries },
-            `Found ${entries.length} catalog entries.`,
+            { subagents },
+            `Found ${subagents.length} subagents.`,
           );
         },
       ),
   );
 
   server.registerTool(
-    "clear_workspace_catalog",
+    "clear_workspace_agents",
     {
       description:
-        "Clear introduced agents and skills from one workspace catalog.",
-      inputSchema: clearWorkspaceCatalogInputSchema,
+        "Clear introduced agents from one workspace after explicit confirmation.",
+      inputSchema: clearWorkspaceAgentsInputSchema,
       outputSchema: toolOutputSchema,
     },
-    (input: ClearWorkspaceCatalogToolInput) =>
+    (input: ClearWorkspaceAgentsToolInput) =>
       withLoggedRuntime(
-        "clear_workspace_catalog",
+        "clear_workspace_agents",
         input,
         logger,
         runtimeFactory,
         async (runtime) => {
-          const result = await runtime.service.clearWorkspaceCatalog(input);
+          const result = await runtime.service.clearWorkspaceAgents(input);
+          return okResult(result, `Cleared ${result.deletedAgents} agents.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "clear_workspace_skills",
+    {
+      description:
+        "Clear introduced workspace-local skills from one workspace after explicit confirmation.",
+      inputSchema: clearWorkspaceSkillsInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: ClearWorkspaceSkillsToolInput) =>
+      withLoggedRuntime(
+        "clear_workspace_skills",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.clearWorkspaceSkills(input);
+          return okResult(result, `Cleared ${result.deletedSkills} skills.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "clear_workspace_subagents",
+    {
+      description:
+        "Clear introduced workspace-local subagent prompt profiles from one workspace after explicit confirmation.",
+      inputSchema: clearWorkspaceSubagentsInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: ClearWorkspaceSubagentsToolInput) =>
+      withLoggedRuntime(
+        "clear_workspace_subagents",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.clearWorkspaceSubagents(input);
           return okResult(
             result,
-            `Cleared ${result.deletedTotal} catalog entries.`,
+            `Cleared ${result.deletedSubagents} subagents.`,
           );
         },
       ),
@@ -262,26 +369,24 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
-    "get_catalog_entry_detail",
+    "get_agent_detail",
     {
-      description: "Get full metadata for one introduced catalog entry.",
-      inputSchema: getCatalogEntryDetailInputSchema,
+      description: "Get full metadata for one introduced Codex agent.",
+      inputSchema: getAgentDetailInputSchema,
       outputSchema: toolOutputSchema,
     },
-    (input: GetCatalogEntryDetailToolInput) =>
+    (input: GetAgentDetailToolInput) =>
       withLoggedRuntime(
-        "get_catalog_entry_detail",
+        "get_agent_detail",
         input,
         logger,
         runtimeFactory,
         async (runtime) => {
-          const entry = await runtime.service.getEntryDetail(input);
+          const entry = await runtime.service.getAgentDetail(input);
           if (!entry) {
-            throw new LorError(
-              "not_found",
-              "Catalog entry was not found.",
-              { entryType: input.entryType },
-            );
+            throw new LorError("not_found", "Agent was not found.", {
+              entryType: "agent",
+            });
           }
           return okResult(entry, `Found ${entry.displayName}.`);
         },
@@ -289,20 +394,112 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
-    "update_catalog_entry",
+    "get_skill_detail",
     {
-      description: "Update editable metadata for one introduced catalog entry.",
-      inputSchema: updateCatalogEntryInputSchema,
+      description: "Get full metadata for one introduced skill.",
+      inputSchema: getSkillDetailInputSchema,
       outputSchema: toolOutputSchema,
     },
-    (input: UpdateCatalogEntryToolInput) =>
+    (input: GetSkillDetailToolInput) =>
       withLoggedRuntime(
-        "update_catalog_entry",
+        "get_skill_detail",
         input,
         logger,
         runtimeFactory,
         async (runtime) => {
-          const entry = await runtime.service.updateCatalogEntry(input);
+          const entry = await runtime.service.getSkillDetail(input);
+          if (!entry) {
+            throw new LorError("not_found", "Skill was not found.", {
+              entryType: "skill",
+            });
+          }
+          return okResult(entry, `Found ${entry.displayName}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "get_subagent_detail",
+    {
+      description:
+        "Get full metadata and rendered prompt for one introduced subagent profile.",
+      inputSchema: getSubagentDetailInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: GetSubagentDetailToolInput) =>
+      withLoggedRuntime(
+        "get_subagent_detail",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.getSubagentDetail(input);
+          if (!entry) {
+            throw new LorError("not_found", "Subagent was not found.", {
+              entryType: "subagent",
+            });
+          }
+          return okResult(entry, `Found ${entry.displayName}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "update_agent",
+    {
+      description: "Update editable metadata for one introduced Codex agent.",
+      inputSchema: updateAgentInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: UpdateAgentToolInput) =>
+      withLoggedRuntime(
+        "update_agent",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.updateAgent(input);
+          return okResult(entry, `Updated ${entry.displayName}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "update_skill",
+    {
+      description: "Update editable metadata for one introduced skill.",
+      inputSchema: updateSkillInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: UpdateSkillToolInput) =>
+      withLoggedRuntime(
+        "update_skill",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.updateSkill(input);
+          return okResult(entry, `Updated ${entry.displayName}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "update_subagent",
+    {
+      description:
+        "Update editable metadata for one introduced subagent prompt profile.",
+      inputSchema: updateSubagentInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: UpdateSubagentToolInput) =>
+      withLoggedRuntime(
+        "update_subagent",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const entry = await runtime.service.updateSubagent(input);
           return okResult(entry, `Updated ${entry.displayName}.`);
         },
       ),
@@ -461,24 +658,62 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
-    "remove_catalog_entry",
+    "remove_agent",
     {
-      description: "Remove one introduced catalog entry from a workspace.",
-      inputSchema: removeCatalogEntryInputSchema,
+      description: "Remove one introduced Codex agent from a workspace.",
+      inputSchema: removeAgentInputSchema,
       outputSchema: toolOutputSchema,
     },
-    (input: RemoveCatalogEntryToolInput) =>
+    (input: RemoveAgentToolInput) =>
       withLoggedRuntime(
-        "remove_catalog_entry",
+        "remove_agent",
         input,
         logger,
         runtimeFactory,
         async (runtime) => {
-          const result = await runtime.service.removeCatalogEntry(input);
-          return okResult(
-            result,
-            `Removed ${result.entryType} ${result.entryKey}.`,
-          );
+          const result = await runtime.service.removeAgent(input);
+          return okResult(result, `Removed agent ${result.entryKey}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "remove_skill",
+    {
+      description: "Remove one introduced skill from a workspace or scope.",
+      inputSchema: removeSkillInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: RemoveSkillToolInput) =>
+      withLoggedRuntime(
+        "remove_skill",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.removeSkill(input);
+          return okResult(result, `Removed skill ${result.entryKey}.`);
+        },
+      ),
+  );
+
+  server.registerTool(
+    "remove_subagent",
+    {
+      description:
+        "Remove one introduced subagent prompt profile from a workspace or scope.",
+      inputSchema: removeSubagentInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: RemoveSubagentToolInput) =>
+      withLoggedRuntime(
+        "remove_subagent",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.removeSubagent(input);
+          return okResult(result, `Removed subagent ${result.entryKey}.`);
         },
       ),
   );
@@ -942,39 +1177,89 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
-    "find_matching_catalog_entry",
+    "find_matching_agent",
     {
-      description:
-        "Find matching introduced agents, skills, and subagents for a task.",
-      inputSchema: findMatchingCatalogEntryInputSchema,
+      description: "Find matching introduced Codex agents for a task.",
+      inputSchema: findMatchingAgentInputSchema,
       outputSchema: toolOutputSchema,
     },
-    (input: FindMatchingCatalogEntryToolInput) =>
+    (input: FindMatchingAgentToolInput) =>
       withLoggedRuntime(
-        "find_matching_catalog_entry",
+        "find_matching_agent",
         input,
         logger,
         runtimeFactory,
-        async (runtime) => {
-          const result = await runtime.service.findMatchingEntries(input);
-          if (result.status === "no_match") {
-            return statusResult(
-              "no_match",
-              result.data,
-              "No matching entries.",
-            );
-          }
-          if (result.status === "conflict") {
-            return statusResult(
-              "conflict",
-              result.data,
-              "Multiple agents matched with near-equal strength.",
-            );
-          }
-          return okResult(result.data, "Found matching catalog entries.");
-        },
+        async (runtime) =>
+          matchToolResult(
+            await runtime.service.findMatchingAgents(input),
+            "agent",
+          ),
       ),
   );
+
+  server.registerTool(
+    "find_matching_skill",
+    {
+      description: "Find matching introduced skills for a task.",
+      inputSchema: findMatchingSkillInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: FindMatchingSkillToolInput) =>
+      withLoggedRuntime(
+        "find_matching_skill",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) =>
+          matchToolResult(
+            await runtime.service.findMatchingSkills(input),
+            "skill",
+          ),
+      ),
+  );
+
+  server.registerTool(
+    "find_matching_subagent",
+    {
+      description:
+        "Find matching reusable subagent prompt profiles for a task.",
+      inputSchema: findMatchingSubagentInputSchema,
+      outputSchema: toolOutputSchema,
+    },
+    (input: FindMatchingSubagentToolInput) =>
+      withLoggedRuntime(
+        "find_matching_subagent",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) =>
+          matchToolResult(
+            await runtime.service.findMatchingSubagents(input),
+            "subagent",
+          ),
+      ),
+  );
+}
+
+function matchToolResult(
+  result: Awaited<ReturnType<ToolRuntime["service"]["findMatchingEntries"]>>,
+  entryLabel: "agent" | "skill" | "subagent",
+): ToolResult {
+  if (result.status === "no_match") {
+    return statusResult(
+      "no_match",
+      result.data,
+      `No matching ${entryLabel}s.`,
+    );
+  }
+  if (result.status === "conflict") {
+    return statusResult(
+      "conflict",
+      result.data,
+      "Multiple agents matched with near-equal strength.",
+    );
+  }
+  return okResult(result.data, `Found matching ${entryLabel}s.`);
 }
 
 function withLoggedToolErrors(
@@ -1115,6 +1400,9 @@ function safeInputFields(input: unknown): LogFields {
   }
   if (typeof input.name === "string") {
     fields.subagentName = input.name;
+  }
+  if (typeof input.subagentName === "string") {
+    fields.subagentName = input.subagentName;
   }
   if (typeof input.proposalId === "string") {
     fields.proposalId = input.proposalId;

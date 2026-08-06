@@ -47,8 +47,8 @@ Conceptual `RecommendationExplanation` fields:
 
 ## 7. Error Handling
 
-- Missing match request context must return a validation error through
-  `find_matching_catalog_entry`.
+- Missing match request context must return a validation error through typed
+  matching tools.
 - Explanation generation must be deterministic and attached only to returned
   candidates.
 
@@ -70,4 +70,4 @@ Conceptual `RecommendationExplanation` fields:
 - 2026-07-11: Treat detailed ranking policy as part of matching and conflict
   features.
 - 2026-07-17: Implement explanations inline on returned match candidates from
-  `find_matching_catalog_entry`; no separate explanation tool in v1.
+  typed matching tools; no separate explanation tool in v1.

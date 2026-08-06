@@ -1113,6 +1113,7 @@ Deno.test("CatalogService clears entries from list detail and match results", as
       entryType: undefined,
       deletedAgents: 1,
       deletedSkills: 1,
+      deletedSubagents: 0,
       deletedTotal: 2,
     });
     assertEquals(entries, []);

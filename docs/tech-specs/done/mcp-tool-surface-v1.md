@@ -53,23 +53,33 @@ explanation tools.
 
 ## 5. Proposed Design
 
-The current 2.0.0 server registers thirty-four MCP tools with snake_case names:
+The current 2.0.0 server registers forty-six MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
 - `introduce_subagent`
-- `list_catalog_entries`
-- `clear_workspace_catalog`
+- `list_agents`
+- `list_skills`
+- `list_subagents`
+- `clear_workspace_agents`
+- `clear_workspace_skills`
+- `clear_workspace_subagents`
 - `register_workspace_alias`
 - `promote_skill_to_global`
-- `get_catalog_entry_detail`
-- `update_catalog_entry`
+- `get_agent_detail`
+- `get_skill_detail`
+- `get_subagent_detail`
+- `update_agent`
+- `update_skill`
+- `update_subagent`
 - `retire_agent`
 - `propose_skill_update`
 - `apply_skill_update`
 - `preview_skill_file_sync`
 - `apply_skill_file_sync`
-- `remove_catalog_entry`
+- `remove_agent`
+- `remove_skill`
+- `remove_subagent`
 - `export_catalog`
 - `import_catalog`
 - `preview_workspace_catalog_sync`
@@ -88,7 +98,9 @@ The current 2.0.0 server registers thirty-four MCP tools with snake_case names:
 - `get_agent_task_result`
 - `prepare_agent_regeneration`
 - `generate_agent_prompt`
-- `find_matching_catalog_entry`
+- `find_matching_agent`
+- `find_matching_skill`
+- `find_matching_subagent`
 
 Each tool should be registered with the MCP SDK `registerTool` API and a Zod
 `inputSchema`. Tool handlers should validate the client-supplied `workspace`
@@ -195,25 +207,61 @@ It may return validation, session/setup, duplicate, or storage errors.
 metadata and rendered prompt. It may return validation, duplicate, or storage
 errors. It must not create, message, or manage Codex subagent tasks.
 
-`list_catalog_entries` input:
+`list_agents` input:
 
 - `workspace`
-- optional `entryType`
 - optional `projectName`
 
-`list_catalog_entries` output data should include compact catalog entries. It
-may return validation, session/setup, or storage errors.
+`list_agents` output data should include compact agent entries. It may return
+validation, session/setup, or storage errors.
 
-`clear_workspace_catalog` input:
+`list_skills` input:
+
+- `workspace`
+- optional `projectName`
+- optional `scope`
+
+`list_skills` output data should include compact skill entries visible to the
+workspace. It may return validation, session/setup, or storage errors.
+
+`list_subagents` input:
+
+- `workspace`
+- optional `projectName`
+- optional `scope`
+
+`list_subagents` output data should include compact subagent entries visible to
+the workspace. It may return validation, session/setup, or storage errors.
+
+`clear_workspace_agents` input:
 
 - `workspace`
 - `confirm`: literal `true`
-- optional `entryType`: `agent` or `skill`
 
-`clear_workspace_catalog` output data should include the requested workspace,
-optional entry type filter, deleted agent count, deleted skill count, and total
-deleted count. It may return validation, session/setup, or storage errors.
-Clearing an empty workspace should return zero counts.
+`clear_workspace_agents` output data should include the requested workspace,
+deleted agent count, and total deleted count. It may return validation,
+session/setup, or storage errors. Clearing an empty workspace should return zero
+counts.
+
+`clear_workspace_skills` input:
+
+- `workspace`
+- `confirm`: literal `true`
+
+`clear_workspace_skills` output data should include the requested workspace,
+deleted skill count, and total deleted count. It may return validation,
+session/setup, or storage errors. Clearing an empty workspace should return zero
+counts.
+
+`clear_workspace_subagents` input:
+
+- `workspace`
+- `confirm`: literal `true`
+
+`clear_workspace_subagents` output data should include the requested workspace,
+deleted subagent count, and total deleted count. It may return validation,
+session/setup, or storage errors. Clearing an empty workspace should return zero
+counts.
 
 `register_workspace_alias` input:
 
@@ -227,29 +275,46 @@ workspace, normalized alias, whether the alias was created, and whether it was
 reassigned. It may return validation, session/setup, or storage errors. Aliasing
 a workspace to itself is valid and idempotent.
 
-`get_catalog_entry_detail` input:
+`get_agent_detail` input:
 
 - `workspace`
-- `entryType`
-- `entryKey`
+- `agentEntryKey`
 
-`get_catalog_entry_detail` output data should include full stored metadata for
-one entry. It may return validation, session/setup, not-found, or storage
-errors.
+`get_agent_detail` output data should include full stored metadata for one
+agent. It may return validation, session/setup, not-found, or storage errors.
 
-`update_catalog_entry` input:
+`get_skill_detail` input:
 
 - `workspace`
-- `entryType`
-- `entryKey`
+- `skillName`
+- optional `scope`
+
+`get_skill_detail` output data should include full stored metadata for one
+skill. It may return validation, session/setup, not-found, or storage errors.
+
+`get_subagent_detail` input:
+
+- `workspace`
+- `subagentName`
+- optional `scope`
+
+`get_subagent_detail` output data should include full stored metadata and the
+rendered prompt for one subagent profile. It may return validation,
+session/setup, not-found, or storage errors.
+
+`update_agent`, `update_skill`, and `update_subagent` input:
+
+- `workspace`
+- typed key: `agentEntryKey`, `skillName`, or `subagentName`
+- optional `scope` for skill and subagent tools
 - optional `projectName`
 - optional `displayName`
 - optional `primarySpecialty`
 - optional `specialtyTags`
 
-`update_catalog_entry` output data should include the updated entry metadata. It
-may return validation, session/setup, not-found, or storage errors. It must
-reject empty update patches and must not allow changing the stable entry key.
+Typed update tool output data should include the updated entry metadata. It may
+return validation, session/setup, not-found, or storage errors. It must reject
+empty update patches and must not allow changing the stable entry key.
 
 `retire_agent` input:
 
@@ -312,16 +377,17 @@ belong to the requested skill.
 `SKILL.md` file. It must resolve files from server-configured skill roots and
 must not accept arbitrary file paths.
 
-`remove_catalog_entry` input:
+`remove_agent`, `remove_skill`, and `remove_subagent` input:
 
 - `workspace`
-- `entryType`
-- `entryKey`
+- typed key: `agentEntryKey`, `skillName`, or `subagentName`
+- optional `scope` for skill and subagent tools
 
-`remove_catalog_entry` output data should include the removed entry type, key,
-workspace, and removal confirmation. It may return validation, session/setup,
-not-found, or storage errors. Removing an entry must not affect the underlying
-Codex agent session or skill file.
+Typed remove tool output data should include the removed entry type, key,
+workspace, scope when relevant, and removal confirmation. It may return
+validation, session/setup, not-found, or storage errors. Removing an entry must
+not affect the underlying Codex agent session, skill file, or generated subagent
+prompt source.
 
 `export_catalog` input:
 
@@ -529,21 +595,21 @@ selected role, ready-to-paste prompt, suggested display name, suggested
 instructions. It may return validation or session/setup errors. It must not
 write to catalog storage.
 
-`find_matching_catalog_entry` input:
+`find_matching_agent`, `find_matching_skill`, and `find_matching_subagent`
+input:
 
 - `workspace`
 - `task`
 - optional `projectName`
-- optional `preferredType`
 - optional `specialtyHints`
 
-`find_matching_catalog_entry` output data should represent one of three
-non-error outcomes: match, no match, or conflict. It may return validation,
-session/setup, or storage errors. It should exclude retired agents from normal
-matching while keeping skills, subagents, and active agents routable. Conflict
-output is agents-only in v1 and should include ambiguous candidates, candidate
-explanations, differentiating fields/signals, a clarification question, and a
-recommended next action.
+Typed matching tool output data should represent one of three non-error
+outcomes: match, no match, or conflict. It may return validation, session/setup,
+or storage errors. Agent matching should exclude retired agents from normal
+matching. Skill and subagent matching should rank visible workspace/global
+entries without agent conflict handling. Conflict output is agents-only in v1
+and should include ambiguous candidates, candidate explanations, differentiating
+fields/signals, a clarification question, and a recommended next action.
 
 Stable error codes for the current surface should include:
 
@@ -617,7 +683,7 @@ checking the docs tree, running `git diff --check`, and checking git status.
 - Should `entryKey` be the raw stable reference, such as Codex session ID or
   skill name, or a generated catalog ID?
 - Should `specialtyTags` allow an empty list, or require at least one tag?
-- Should `list_catalog_entries` support specialty tag filtering in v1?
+- Should typed list tools support specialty tag filtering in a later version?
 
 ## 11. Decision Log
 
@@ -645,6 +711,9 @@ checking the docs tree, running `git diff --check`, and checking git status.
   JSON backup and restore flows.
 - 2026-07-17: Add `check_catalog_health` for read-only metadata-derived catalog
   health reporting.
+- 2026-08-06: Replace public generic list, detail, update, remove, clear, and
+  match tools with type-specific agent, skill, and subagent tool names while
+  retaining shared internal catalog helpers.
 - 2026-08-06: Add `get_workspace_diagnostics` for read-only workspace
   resolution, alias, catalog count, and sanitized setup visibility.
 - 2026-08-06: Add workspace memory tools for durable scoped notes outside the
