@@ -13,15 +13,32 @@ The project follows Semantic Versioning:
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-06
+
 ### Added
 
-- Document planned Subagent Suggestions catalog feature, including use cases,
-  feature behavior, future technical design, and related catalog spec updates.
-- Document planned Agent Reachability And Dispatch Model for distinguishing
-  catalog-only agents from known reachable Codex-native dispatch targets.
-- Document planned delegated task lifecycle, task follow-up/result collection,
-  workspace memory primitives, HTTP discovery probe logging cleanup, and
-  workspace diagnostics.
+- Subagent profile support for reusable scoped delegation prompts, including
+  workspace/global scope, matching, detail, import/export, and workspace sync
+  behavior.
+- Agent reachability metadata and dispatch outcome tracking for registered Codex
+  agents.
+- Delegated agent task lifecycle tools for sending, queuing, listing, and
+  checking workspace-scoped agent tasks.
+- Delegated task follow-up and result retrieval tools for task-scoped context
+  and recorded outcomes.
+- Workspace diagnostics for resolved aliases, catalog counts, and sanitized
+  storage/runtime status.
+- Workspace memory primitives for durable workspace notes outside the routing
+  catalog.
+- Lower-noise HTTP logging for expected OAuth/OIDC discovery probe `404`
+  responses without adding fake authorization metadata.
+
+### Changed
+
+- Expanded the active MCP tool surface to include orchestration, diagnostics,
+  and workspace memory workflows.
+- Updated README, roadmap, feature specs, use cases, and completed tech specs to
+  reflect the implemented 2.0.0 server state.
 
 ## [1.0.0] - 2026-08-04
 

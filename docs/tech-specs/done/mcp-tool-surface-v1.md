@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Implemented for the current v1 runtime. This tech spec defines the first usable
-MCP tool set for Local Orchestration Router (LOR). The v1 surface supports
+Implemented for the current 2.0.0 runtime. This tech spec defines the active MCP
+tool set for Local Orchestration Router (LOR). The current surface supports
 introducing agents, skills, and subagent profiles; inspecting, updating,
 removing, clearing, exporting, and importing the catalog; registering workspace
 aliases; managing stored skill context updates; syncing approved skill context
@@ -20,14 +20,14 @@ SQLite-backed catalog storage.
 
 ## 2. Context
 
-Local Orchestration Router (LOR) v1 runs as a Deno TypeScript MCP server over
-local Streamable HTTP, with stdio retained as a fallback. Catalog scope comes
-from the client-supplied `workspace` tool input, and durable storage uses SQLite
-through the resolved local database path.
+Local Orchestration Router (LOR) runs as a Deno TypeScript MCP server over local
+Streamable HTTP, with stdio retained as a fallback. Catalog scope comes from the
+client-supplied `workspace` tool input, and durable storage uses SQLite through
+the resolved local database path.
 
 The MCP TypeScript SDK supports registering tools with `registerTool`, Zod
 `inputSchema` validation, `structuredContent`, text `content`, and `isError` for
-error results. V1 should use those SDK surfaces directly.
+error results. LOR should use those SDK surfaces directly.
 
 Existing feature specs define more catalog capabilities than the first
 implementation should expose. The first tool set should cover a complete basic
@@ -37,12 +37,12 @@ explanation tools.
 ## 3. Goals
 
 - Define the minimal usable routing workflow.
-- Keep v1 tool names stable and predictable.
+- Keep tool names stable and predictable.
 - Define a stable structured response envelope.
 - Keep MCP handlers thin over session and catalog domain modules.
 - Require callers to provide workspace scope explicitly.
 - Avoid exposing storage details in normal tool inputs.
-- Keep later tool expansions compatible with the v1 response style.
+- Keep later tool expansions compatible with the established response style.
 
 ## 4. Non-Goals
 
@@ -53,7 +53,7 @@ explanation tools.
 
 ## 5. Proposed Design
 
-V1 should register thirty-four MCP tools with snake_case names:
+The current 2.0.0 server registers thirty-four MCP tools with snake_case names:
 
 - `introduce_agent`
 - `introduce_skill`
@@ -102,7 +102,7 @@ Tool inputs must not include `connectionId`, `mcpSessionId`, or `LOR_DB_PATH`.
 Those values are server configuration and protocol context, not
 caller-controlled tool arguments.
 
-All v1 tools must require:
+All tools must require:
 
 - Completed MCP initialization.
 - Client-supplied `workspace`.
@@ -545,7 +545,7 @@ output is agents-only in v1 and should include ambiguous candidates, candidate
 explanations, differentiating fields/signals, a clarification question, and a
 recommended next action.
 
-Stable error codes for v1 should include:
+Stable error codes for the current surface should include:
 
 - `validation_error`
 - `session_error`
@@ -556,8 +556,9 @@ Stable error codes for v1 should include:
 
 ## 8. Risks and Tradeoffs
 
-- Adding single-entry maintenance and import tools makes v1 more complete but
-  increases the catalog mutation surface that must stay workspace-scoped.
+- Adding single-entry maintenance and import tools makes the surface more
+  complete but increases the catalog mutation surface that must stay
+  workspace-scoped.
 - Structured envelopes add small implementation overhead but make agent
   consumption more reliable.
 - Leaving exact field-level constraints to implementation gives flexibility but
@@ -569,7 +570,7 @@ Stable error codes for v1 should include:
 
 When this tech spec is implemented as code, verification should include:
 
-- Each v1 tool is registered with the expected snake_case name.
+- Each tool is registered with the expected snake_case name.
 - Zod rejects missing or invalid required inputs.
 - Tools fail before MCP initialization completes.
 - Tools use default local database storage when database path env config is
@@ -611,8 +612,8 @@ checking the docs tree, running `git diff --check`, and checking git status.
 
 ## 10. Open Questions
 
-- Should v1 tool output schemas be registered with SDK `outputSchema`, or should
-  the first implementation only return `structuredContent`?
+- Should future tool output schemas be registered with SDK `outputSchema`, or
+  should implementations only return `structuredContent`?
 - Should `entryKey` be the raw stable reference, such as Codex session ID or
   skill name, or a generated catalog ID?
 - Should `specialtyTags` allow an empty list, or require at least one tag?

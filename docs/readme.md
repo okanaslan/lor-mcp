@@ -3,13 +3,13 @@
 This folder is the planning, specification, and implementation-status home for
 the LOR MCP Server.
 
-LOR is currently a runnable local Deno TypeScript MCP server with Streamable
-HTTP, SQLite-backed workspace catalog storage, deterministic matching, agent
-handoff and regeneration prompt preparation, agent retirement, workspace catalog
-sync, shared global skill scope, registered skill context updates, and
-approval-gated local `SKILL.md` sync. Subagent support adds reusable
-workspace/global prompt profiles for small, scoped delegation without requiring
-a registered Codex agent session.
+LOR is currently a runnable local 2.0.0 Deno TypeScript MCP server with
+Streamable HTTP, SQLite-backed workspace catalog storage, deterministic
+matching, agent handoff and regeneration prompt preparation, agent retirement,
+workspace catalog sync, shared global skill scope, registered skill context
+updates, and approval-gated local `SKILL.md` sync. Subagent support adds
+reusable workspace/global prompt profiles for small, scoped delegation without
+requiring a registered Codex agent session.
 
 Reachability metadata distinguishes catalog-only registered agents from agents
 known reachable through Codex-native dispatch outcomes. This is the foundation

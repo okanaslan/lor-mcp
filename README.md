@@ -1,199 +1,16 @@
 # Local Orchestration Router (LOR) MCP Server
 
 Local Orchestration Router (LOR) is a local MCP server that acts as a catalog
-for Codex agents, skills, and reusable subagent prompt profiles. It lets a
-configured workspace register known entries, store routing metadata, find
-relevant catalog entries for a task, prepare agent handoff prompts, and improve
-registered skill context over time.
+and task manager for Codex agents, skills, and reusable subagent prompt
+profiles. It lets a configured workspace register known entries, store routing
+metadata, find relevant catalog entries for a task, prepare agent handoff
+prompts, manage delegated agent tasks, and improve registered skill context over
+time.
 
 The current implementation is a Deno TypeScript MCP server that runs as a local
 Streamable HTTP server for Codex, with stdio kept as a compatibility and
 development fallback. Product specs, use cases, and technical decisions remain
 documented under `docs/`.
-
-## Current Status
-
-LOR is implemented as a runnable local v1 MCP server.
-
-- Version: `1.0.0`.
-- Runtime: Deno TypeScript.
-- Primary transport: local Streamable HTTP at `http://127.0.0.1:8765/mcp`.
-- Fallback transport: stdio through `deno task run`.
-- Storage: server-owned local SQLite database under `.lor-mcp/` by default.
-- Catalog scope: caller-supplied `workspace`, resolved through canonical
-  workspace paths and registered aliases.
-- Matching: deterministic local fuzzy scoring with structured explanations,
-  conflict reporting, and registered skill context signals.
-- Skill improvement: approval-gated stored skill context updates, with optional
-  approval-gated sync into a LOR-managed `SKILL.md` section.
-- Global skills: shared skills can be introduced or promoted with
-  `scope: "global"` and are included in list/match by default, while agents
-  remain workspace-scoped.
-- Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
-  tools remain responsible for sending work to registered Codex sessions.
-- Reachability model: LOR distinguishes catalog-only agents from agents known
-  reachable through Codex-native dispatch outcomes before adding direct
-  delegated task tools.
-- Delegated task lifecycle: LOR can create workspace-scoped delegated task
-  records, send through an injected Codex-native dispatcher when available, or
-  queue tasks with manual delivery instructions in the local runtime.
-- Follow-up and result retrieval: LOR stores task-scoped follow-up messages and
-  returns status-only results until a delegated task result is recorded.
-- Workspace diagnostics: LOR can report resolved workspace aliases, catalog
-  counts, and sanitized storage/runtime status without exposing catalog entries.
-- HTTP discovery logging: expected OAuth/OIDC `.well-known` discovery probe
-  `404` responses stay below warning severity while real unrelated `4xx`
-  responses remain warnings.
-- Workspace memory: LOR stores small workspace-scoped notes for durable
-  coordination context outside the routing catalog.
-- Subagents: reusable prompt profiles for small, scoped delegation, with
-  workspace/global scope and ready-to-use prompts returned from introduction,
-  matching, and detail flows.
-
-## Project Goals
-
-- Provide a workspace-scoped catalog of introduced Codex agents, skills, and
-  subagent prompt profiles.
-- Support shared global skills across workspaces while keeping agents
-  workspace-specific.
-- Support reusable subagent prompt profiles for scoped delegation when a full
-  registered agent is not needed.
-- Support task-based lookup for relevant agents, skills, and subagent profiles.
-- Return structured MCP tool responses that Codex agents can consume reliably.
-- Keep catalog data durable, local, and isolated by client-supplied workspace.
-- Keep local skill-file writes explicit, previewed, and limited to managed
-  sections.
-
-## Documentation
-
-- `CHANGELOG.md`: version history.
-- `VERSION`: current project version.
-- `docs/readme.md`: planning docs overview.
-- `docs/versioning.md`: versioning and changelog rules.
-- `docs/roadmap.md`: feature spec roadmap.
-- `docs/feature-specs/`: feature specification drafts and template.
-- `docs/use-cases/`: use case scenario drafts and template.
-- `docs/tech-specs/`: technical specs, with completed specs under `done/`,
-  future specs under `future/`, and `template.md` for new specs.
-- Reachability docs:
-  `docs/feature-specs/agent-reachability-and-dispatch-model.md`,
-  `docs/use-cases/check-agent-reachability-before-handoff.md`, and
-  `docs/tech-specs/done/agent-reachability-and-dispatch-model.md`.
-- Orchestration docs cover delegated task lifecycle, task follow-up/result
-  collection, and workspace memory.
-- Subagent docs: `docs/feature-specs/subagent-suggestions.md`,
-  `docs/use-cases/introduce-subagent-profile.md`,
-  `docs/use-cases/suggest-subagents-for-scoped-work.md`, and
-  `docs/tech-specs/done/subagent-suggestions.md`.
-
-## MCP Tool Map
-
-```mermaid
-flowchart RL
-  catalog["CATALOG"]
-
-  introduceAgent["introduce_agent"] --> catalog
-  introduceSkill["introduce_skill"] --> catalog
-  introduceSubagent["introduce_subagent"] --> catalog
-  promoteSkill["promote_skill_to_global"] --> catalog
-  registerAlias["register_workspace_alias"] --> catalog
-  catalog --> checkHealth["check_catalog_health"]
-  catalog --> workspaceDiagnostics["get_workspace_diagnostics"]
-  catalog --> rememberWorkspaceNote["remember_workspace_note"]
-  rememberWorkspaceNote --> listWorkspaceNotes["list_workspace_notes"]
-  listWorkspaceNotes --> getWorkspaceNote["get_workspace_note"]
-  getWorkspaceNote --> removeWorkspaceNote["remove_workspace_note"]
-  catalog --> exportCatalog["export_catalog"]
-  exportCatalog --> importCatalog["import_catalog"]
-  catalog --> previewWorkspaceSync["preview_workspace_catalog_sync"]
-  previewWorkspaceSync --> applyWorkspaceSync["apply_workspace_catalog_sync"]
-  applyWorkspaceSync --> catalog
-  catalog --> listEntries["list_catalog_entries"]
-
-  listEntries --> removeEntry["remove_catalog_entry"]
-  removeEntry --> clearCatalog["clear_workspace_catalog"]
-  listEntries --> updateEntry["update_catalog_entry"]
-  updateEntry --> retireAgent["retire_agent"]
-  retireAgent --> catalog
-  updateEntry --> proposeSkillUpdate["propose_skill_update"]
-  proposeSkillUpdate --> applySkillUpdate["apply_skill_update"]
-  applySkillUpdate --> catalog
-  applySkillUpdate --> previewSkillFileSync["preview_skill_file_sync"]
-  previewSkillFileSync --> applySkillFileSync["apply_skill_file_sync"]
-  listEntries --> findMatch["find_matching_catalog_entry"]
-  findMatch --> detail["get_catalog_entry_detail"]
-  detail --> handoff["prepare_agent_handoff"]
-  detail --> regeneration["prepare_agent_regeneration"]
-  handoff --> generatePrompt["generate_agent_prompt"]
-  regeneration --> generatePrompt
-```
-
-## Daily Usage
-
-Use LOR in two loops: routing and catalog improvement.
-
-Before starting meaningful work, ask the active Codex agent to route through
-LOR:
-
-```text
-Before starting, use LOR MCP with workspace `<workspace>` to find relevant
-agents or skills for this task. Fetch details for promising results. If another
-agent is a better fit, prepare a handoff prompt and send it through the
-registered Codex session when reachable.
-```
-
-Common routing flow:
-
-1. `find_matching_catalog_entry`
-2. `get_catalog_entry_detail`
-3. `prepare_agent_handoff` when another registered agent should receive work
-4. Codex-native thread communication using the registered `codexSessionId`
-
-Reachability metadata makes agent results clearer by showing whether a
-recommended registered agent is only a catalog entry, unknown, reachable, or
-known unreachable.
-
-Delegated task work builds on that model with `send_agent_task`,
-`get_agent_task_status`, `list_active_tasks`, `append_agent_context`, and
-`get_agent_task_result`.
-
-Common agent lifecycle flow:
-
-1. `get_catalog_entry_detail` for the context-heavy registered agent.
-2. `prepare_agent_regeneration` to render a ready-to-paste replacement prompt.
-3. Start a new Codex chat manually and register its new session ID with
-   `introduce_agent`, optionally using `replacesAgentEntryKey`.
-4. After confirming the replacement works, call `retire_agent` with
-   `confirm: true` for the old agent. Retired agents remain inspectable, but
-   matching and handoff avoid them.
-
-Common catalog improvement flow:
-
-1. `propose_skill_update` to preview better stored skill context.
-2. `apply_skill_update` with `confirm: true` after review.
-3. `preview_skill_file_sync` when the approved context should be written into
-   the local skill file.
-4. `apply_skill_file_sync` with `confirm: true` after reviewing the rendered
-   managed section.
-
-Catalog maintenance and expansion tools:
-
-- `list_catalog_entries`
-- `check_catalog_health`
-- `update_catalog_entry`
-- `promote_skill_to_global`
-- `retire_agent`
-- `remove_catalog_entry`
-- `clear_workspace_catalog`
-- `export_catalog`
-- `import_catalog`
-- `preview_workspace_catalog_sync`
-- `apply_workspace_catalog_sync`
-- `introduce_subagent`
-
-Subagent profiles are included in `list_catalog_entries` and
-`find_matching_catalog_entry` by default. `get_catalog_entry_detail` returns
-their rendered prompts.
 
 ## Runtime
 
@@ -273,6 +90,232 @@ deno task fmt
 
 The configured SQLite driver uses a native library through Deno FFI and may
 download/cache that library on first use.
+
+## Daily Usage
+
+Use LOR as a local routing, task-management, and workspace-knowledge layer for
+Codex. Every catalog, task, and memory call should include the caller's
+`workspace` so LOR can resolve aliases and keep data isolated by project.
+
+### Start A Workspace Session
+
+Before meaningful work, ask the active Codex agent to inspect the workspace and
+route through LOR:
+
+```text
+Use LOR MCP with workspace `<workspace>`.
+First call get_workspace_diagnostics and check_catalog_health.
+Then find matching agents, skills, or subagent profiles for this task.
+```
+
+Use `get_workspace_diagnostics` when a workspace path, folder-name alias, or
+older slug may be resolving to the wrong catalog. Use `check_catalog_health` to
+inspect stored verification metadata for registered agents and skills.
+
+### Route Work
+
+Use routing when deciding who or what should handle a task:
+
+1. `find_matching_catalog_entry`
+2. `get_catalog_entry_detail`
+3. `prepare_agent_handoff` when a registered agent should receive work
+4. Codex-native thread communication using the registered `codexSessionId`, or
+   `send_agent_task` when using LOR's delegated task lifecycle
+
+Reachability metadata makes agent results clearer by showing whether a
+recommended registered agent is only a catalog entry, unknown, reachable, or
+known unreachable.
+
+Subagent profiles are included in `list_catalog_entries` and
+`find_matching_catalog_entry` by default. `get_catalog_entry_detail` returns
+their rendered prompts.
+
+### Manage Delegated Tasks
+
+Use delegated task tools when the work should be tracked as a task record rather
+than only a one-off handoff prompt:
+
+1. `send_agent_task` to create and dispatch or queue the task.
+2. `get_agent_task_status` to inspect one task.
+3. `list_active_tasks` to see open delegated work for a workspace or agent.
+4. `append_agent_context` to add follow-up context while the task is open.
+5. `get_agent_task_result` to retrieve a recorded result, or status-only data
+   until a result exists.
+
+The local runtime queues manual delivery instructions when no Codex-native
+dispatcher is injected.
+
+### Refresh Or Replace Agents
+
+1. `get_catalog_entry_detail` for the context-heavy registered agent.
+2. `prepare_agent_regeneration` to render a ready-to-paste replacement prompt.
+3. Start a new Codex chat manually and register its new session ID with
+   `introduce_agent`, optionally using `replacesAgentEntryKey`.
+4. After confirming the replacement works, call `retire_agent` with
+   `confirm: true` for the old agent. Retired agents remain inspectable, but
+   matching and handoff avoid them.
+
+### Improve Skills
+
+1. `propose_skill_update` to preview better stored skill context.
+2. `apply_skill_update` with `confirm: true` after review.
+3. `preview_skill_file_sync` when the approved context should be written into
+   the local skill file.
+4. `apply_skill_file_sync` with `confirm: true` after reviewing the rendered
+   managed section.
+
+Use `promote_skill_to_global` when a workspace skill should become available to
+other workspaces. Global skills are included in list and match by default.
+
+### Remember Workspace Context
+
+Use workspace memory for small coordination notes that are not routing metadata
+and are not tied to one delegated task:
+
+1. `remember_workspace_note` for branch plans, review summaries, migration
+   notes, or reapply instructions.
+2. `list_workspace_notes` to scan note summaries, optionally by tag.
+3. `get_workspace_note` to retrieve the full note body.
+4. `remove_workspace_note` when the note is obsolete.
+
+Workspace notes are not catalog entries and are not used by matching in the
+current version.
+
+### Maintain The Catalog
+
+Use maintenance and expansion tools when the workspace catalog needs cleanup,
+backup, or migration:
+
+- `list_catalog_entries`
+- `update_catalog_entry`
+- `retire_agent`
+- `remove_catalog_entry`
+- `clear_workspace_catalog`
+- `export_catalog`
+- `import_catalog`
+- `preview_workspace_catalog_sync`
+- `apply_workspace_catalog_sync`
+- `introduce_subagent`
+
+## MCP Tool Map
+
+```mermaid
+flowchart RL
+  catalog["CATALOG"]
+  agents["AGENTS"]
+  skills["SKILLS"]
+  subagents["SUBAGENTS"]
+  task["TASK"]
+
+  catalog --> agents
+  catalog --> skills
+  catalog --> subagents
+
+  generatePrompt["generate_agent_prompt"] --> introduceAgent["introduce_agent"]
+  introduceAgent --> agents
+  agents --> handoff["prepare_agent_handoff"]
+  agents --> regeneration["prepare_agent_regeneration"]
+  handoff --> sendAgentTask["send_agent_task"]
+  regeneration --> introduceAgent
+  retireAgent["retire_agent"] --> agents
+
+  introduceSkill["introduce_skill"] --> skills
+  promoteSkill["promote_skill_to_global"] --> skills
+  proposeSkillUpdate["propose_skill_update"] --> applySkillUpdate["apply_skill_update"]
+  applySkillUpdate --> skills
+  applySkillUpdate --> previewSkillFileSync["preview_skill_file_sync"]
+  previewSkillFileSync --> applySkillFileSync["apply_skill_file_sync"]
+  applySkillFileSync --> skills
+
+  introduceSubagent["introduce_subagent"] --> subagents
+
+  registerAlias["register_workspace_alias"] --> catalog
+  catalog --> checkHealth["check_catalog_health"]
+  catalog --> workspaceDiagnostics["get_workspace_diagnostics"]
+  catalog --> rememberWorkspaceNote["remember_workspace_note"]
+  rememberWorkspaceNote --> listWorkspaceNotes["list_workspace_notes"]
+  listWorkspaceNotes --> getWorkspaceNote["get_workspace_note"]
+  getWorkspaceNote --> removeWorkspaceNote["remove_workspace_note"]
+  catalog --> exportCatalog["export_catalog"]
+  exportCatalog --> importCatalog["import_catalog"]
+  catalog --> previewWorkspaceSync["preview_workspace_catalog_sync"]
+  previewWorkspaceSync --> applyWorkspaceSync["apply_workspace_catalog_sync"]
+  applyWorkspaceSync --> catalog
+  catalog --> listEntries["list_catalog_entries"]
+
+  listEntries --> removeEntry["remove_catalog_entry"]
+  removeEntry --> clearCatalog["clear_workspace_catalog"]
+  listEntries --> updateEntry["update_catalog_entry"]
+  updateEntry --> agents
+  updateEntry --> skills
+  updateEntry --> subagents
+  listEntries --> findMatch["find_matching_catalog_entry"]
+  findMatch --> detail["get_catalog_entry_detail"]
+  detail --> agents
+  detail --> skills
+  detail --> subagents
+
+  sendAgentTask --> task
+  task --> getAgentTaskStatus["get_agent_task_status"]
+  task --> listActiveTasks["list_active_tasks"]
+  task --> appendAgentContext["append_agent_context"]
+  task --> getAgentTaskResult["get_agent_task_result"]
+  appendAgentContext --> task
+  getAgentTaskResult --> task
+```
+
+## Current Status
+
+LOR is implemented as a runnable local 2.0.0 MCP server.
+
+### Runtime And Storage
+
+- Version: `2.0.0`.
+- Runtime: Deno TypeScript.
+- Primary transport: local Streamable HTTP at `http://127.0.0.1:8765/mcp`.
+- Fallback transport: stdio through `deno task run`.
+- Storage: server-owned local SQLite database under `.lor-mcp/` by default.
+- Catalog scope: caller-supplied `workspace`, resolved through canonical
+  workspace paths and registered aliases.
+
+### Catalog And Routing
+
+- Matching: deterministic local fuzzy scoring with structured explanations,
+  conflict reporting, and registered skill context signals.
+- Global skills: shared skills can be introduced or promoted with
+  `scope: "global"` and are included in list/match by default, while agents
+  remain workspace-scoped.
+- Subagents: reusable prompt profiles for small, scoped delegation, with
+  workspace/global scope and ready-to-use prompts returned from introduction,
+  matching, and detail flows.
+
+### Agent Orchestration
+
+- Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
+  tools remain responsible for sending work to registered Codex sessions.
+- Reachability model: LOR distinguishes catalog-only agents from agents known
+  reachable through Codex-native dispatch outcomes before adding direct
+  delegated task tools.
+- Delegated task lifecycle: LOR can create workspace-scoped delegated task
+  records, send through an injected Codex-native dispatcher when available, or
+  queue tasks with manual delivery instructions in the local runtime.
+- Follow-up and result retrieval: LOR stores task-scoped follow-up messages and
+  returns status-only results until a delegated task result is recorded.
+
+### Skill And Workspace Knowledge
+
+- Skill improvement: approval-gated stored skill context updates, with optional
+  approval-gated sync into a LOR-managed `SKILL.md` section.
+- Workspace memory: LOR stores small workspace-scoped notes for durable
+  coordination context outside the routing catalog.
+
+### Operational Support
+
+- Workspace diagnostics: LOR can report resolved workspace aliases, catalog
+  counts, and sanitized storage/runtime status without exposing catalog entries.
+- HTTP discovery logging: expected OAuth/OIDC `.well-known` discovery probe
+  `404` responses stay below warning severity while real unrelated `4xx`
+  responses remain warnings.
 
 ## Repository Notes
 

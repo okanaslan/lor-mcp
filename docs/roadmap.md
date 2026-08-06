@@ -5,7 +5,7 @@ Orchestration Router (LOR) MCP Server.
 
 ## Current Implementation
 
-Implemented in the runnable local v1:
+Implemented in the runnable local 2.0.0 server:
 
 - Deno TypeScript MCP server.
 - Local Streamable HTTP server through `deno task serve`, exposed at
@@ -20,7 +20,7 @@ Implemented in the runnable local v1:
   client-supplied `workspace`.
 - Workspace alias resolution for path, trailing-slash, and registered
   folder-name variants.
-- V1 MCP tools:
+- Current MCP tools:
   - `introduce_agent`
   - `introduce_skill`
   - `introduce_subagent`
@@ -47,6 +47,11 @@ Implemented in the runnable local v1:
   - `get_workspace_note`
   - `remove_workspace_note`
   - `prepare_agent_handoff`
+  - `send_agent_task`
+  - `get_agent_task_status`
+  - `list_active_tasks`
+  - `append_agent_context`
+  - `get_agent_task_result`
   - `prepare_agent_regeneration`
   - `generate_agent_prompt`
   - `find_matching_catalog_entry`
@@ -203,7 +208,6 @@ Latest implementation verification:
 
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
-- Add workspace memory primitives around delegated workflows.
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can
   resolve and prepare handoff prompts today, while Codex thread tools perform
   the actual send/read loop.
