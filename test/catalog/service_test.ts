@@ -2476,7 +2476,7 @@ Deno.test("CatalogService returns empty catalog health for empty workspace", asy
     assertEquals(report.coverage.recommendedActions, [
       "Register at least one workspace skill with introduce_skill before relying on task initialization.",
       "Register at least one scoped subagent profile with introduce_subagent for repeatable focused work.",
-      "Use prepare_agent_initialization to see what context is missing for real tasks.",
+      "Review skill and subagent coverage before relying on LOR for task context.",
     ]);
     assertEquals(report.entries, []);
   } finally {
@@ -2663,7 +2663,7 @@ Deno.test("CatalogService prepares agent regeneration from stored metadata", asy
     );
     assertEquals(
       result.prompt.includes(
-        "After this chat exists, ask the caller to register the new session",
+        "public LOR agent registration tools are not available",
       ),
       true,
     );

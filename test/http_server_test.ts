@@ -55,29 +55,22 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
   assertEquals(
     toolsBody.result.tools.map((tool: { name: string }) => tool.name),
     [
-      "introduce_agent",
       "introduce_skill",
       "introduce_subagent",
-      "list_agents",
       "list_skills",
       "list_subagents",
-      "clear_workspace_agents",
       "clear_workspace_skills",
       "clear_workspace_subagents",
       "register_workspace_alias",
       "promote_skill_to_global",
-      "get_agent_detail",
       "get_skill_detail",
       "get_subagent_detail",
-      "update_agent",
       "update_skill",
       "update_subagent",
-      "retire_agent",
       "propose_skill_update",
       "apply_skill_update",
       "preview_skill_file_sync",
       "apply_skill_file_sync",
-      "remove_agent",
       "remove_skill",
       "remove_subagent",
       "export_catalog",
@@ -90,11 +83,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "list_workspace_notes",
       "get_workspace_note",
       "remove_workspace_note",
-      "prepare_agent_handoff",
-      "prepare_agent_initialization",
-      "prepare_agent_regeneration",
       "generate_agent_prompt",
-      "find_matching_agent",
       "find_matching_skill",
       "find_matching_subagent",
     ],
@@ -142,109 +131,6 @@ Deno.test("HTTP MCP handler calls introduce_subagent", async () => {
     assertEquals(
       body.result.structuredContent.data.prompt.includes("API Test Subagent"),
       true,
-    );
-  } finally {
-    repo.close();
-  }
-});
-
-Deno.test("HTTP MCP handler calls update_agent", async () => {
-  const { repo, service } = await createCatalogService();
-  try {
-    await service.introduceAgent({
-      workspace: "LOR-MCP",
-      codexSessionId: "agent-1",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend Agent",
-      primarySpecialty: "backend api",
-      specialtyTags: ["api"],
-    });
-
-    const handler = createHttpMcpHandler({
-      runtimeFactory: () =>
-        Promise.resolve({
-          service,
-          close: () => {},
-        }),
-    });
-    const sessionId = await initializeSession(handler);
-    const response = await postMcp(handler, sessionId, {
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "update_agent",
-        arguments: {
-          workspace: "LOR-MCP",
-          agentEntryKey: "agent-1",
-          displayName: "Deno Backend Agent",
-          specialtyTags: ["deno", "mcp"],
-        },
-      },
-    });
-    const body = await response.json();
-
-    assertEquals(response.status, 200);
-    assertEquals(body.result.structuredContent.status, "ok");
-    assertEquals(
-      body.result.structuredContent.data.displayName,
-      "Deno Backend Agent",
-    );
-    assertEquals(body.result.structuredContent.data.entryKey, "agent-1");
-    assertEquals(body.result.structuredContent.data.specialtyTags, [
-      "deno",
-      "mcp",
-    ]);
-  } finally {
-    repo.close();
-  }
-});
-
-Deno.test("HTTP MCP handler calls retire_agent", async () => {
-  const { repo, service } = await createCatalogService();
-  try {
-    await service.introduceAgent({
-      workspace: "LOR-MCP",
-      codexSessionId: "agent-old",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend Agent",
-      primarySpecialty: "backend api",
-      specialtyTags: ["api"],
-    });
-
-    const handler = createHttpMcpHandler({
-      runtimeFactory: () =>
-        Promise.resolve({
-          service,
-          close: () => {},
-        }),
-    });
-    const sessionId = await initializeSession(handler);
-    const response = await postMcp(handler, sessionId, {
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "retire_agent",
-        arguments: {
-          workspace: "LOR-MCP",
-          agentEntryKey: "agent-old",
-          reason: "Replaced after regeneration.",
-          confirm: true,
-        },
-      },
-    });
-    const body = await response.json();
-
-    assertEquals(response.status, 200);
-    assertEquals(body.result.structuredContent.status, "ok");
-    assertEquals(
-      body.result.structuredContent.data.agent.agentStatus,
-      "retired",
-    );
-    assertEquals(
-      body.result.structuredContent.data.agent.retirementReason,
-      "Replaced after regeneration.",
     );
   } finally {
     repo.close();
@@ -717,21 +603,13 @@ Deno.test("HTTP MCP handler calls get_workspace_diagnostics", async () => {
         }),
     });
     const sessionId = await initializeSession(handler);
-    await postMcp(handler, sessionId, {
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "introduce_agent",
-        arguments: {
-          workspace: "/workspaces/LOR-MCP",
-          codexSessionId: "agent-1",
-          projectName: "Local Orchestration Router (LOR)",
-          displayName: "Backend Agent",
-          primarySpecialty: "backend api",
-          specialtyTags: ["api"],
-        },
-      },
+    await service.introduceAgent({
+      workspace: "/workspaces/LOR-MCP",
+      codexSessionId: "agent-1",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Agent",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
     });
 
     const response = await postMcp(handler, sessionId, {
@@ -856,223 +734,6 @@ Deno.test("HTTP MCP handler calls workspace note tools", async () => {
   }
 });
 
-Deno.test("HTTP MCP handler calls prepare_agent_handoff", async () => {
-  const { repo, service } = await createCatalogService();
-  try {
-    await service.introduceAgent({
-      workspace: "LOR-MCP",
-      codexSessionId: "agent-1",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend Agent",
-      primarySpecialty: "backend api",
-      specialtyTags: ["api"],
-      handoff: {
-        whenToUse: "Backend API changes",
-        handoffPromptTemplate: "Handle {task} with {context}.",
-        requiredContext: ["requirements"],
-        expectedOutput: "Patch summary",
-        constraints: ["Stay scoped"],
-      },
-    });
-
-    const handler = createHttpMcpHandler({
-      runtimeFactory: () =>
-        Promise.resolve({
-          service,
-          close: () => {},
-        }),
-    });
-    const sessionId = await initializeSession(handler);
-    const response = await postMcp(handler, sessionId, {
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "prepare_agent_handoff",
-        arguments: {
-          workspace: "LOR-MCP",
-          agentEntryKey: "agent-1",
-          task: "Add endpoint",
-          context: "Follow service patterns",
-        },
-      },
-    });
-    const body = await response.json();
-
-    assertEquals(response.status, 200);
-    assertEquals(body.result.structuredContent.status, "ok");
-    assertEquals(
-      body.result.structuredContent.data.prompt,
-      "Handle Add endpoint with Follow service patterns.",
-    );
-    assertEquals(body.result.structuredContent.data.usedStoredHandoff, true);
-  } finally {
-    repo.close();
-  }
-});
-
-Deno.test("HTTP MCP handler calls prepare_agent_initialization", async () => {
-  const { repo, service } = await createCatalogService();
-  try {
-    await service.introduceSkill({
-      workspace: "LOR-MCP",
-      skillName: "backend-api",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend API Skill",
-      primarySpecialty: "backend api implementation",
-      specialtyTags: ["backend", "api"],
-      skillContext: {
-        whenToUse: "Use for backend API work.",
-      },
-    });
-    await service.introduceSubagent({
-      workspace: "LOR-MCP",
-      name: "backend-api-test-profile",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend API Test Subagent",
-      purpose: "Write focused backend API tests.",
-      limitedScope: "Only inspect service and HTTP tool tests.",
-      primarySpecialty: "backend api testing",
-      specialtyTags: ["backend", "api", "tests"],
-    });
-
-    const logger = new CapturingLogger();
-    const handler = createHttpMcpHandler({
-      logger,
-      runtimeFactory: () =>
-        Promise.resolve({
-          service,
-          close: () => {},
-        }),
-    });
-    const sessionId = await initializeSession(handler);
-    const response = await postMcp(handler, sessionId, {
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "prepare_agent_initialization",
-        arguments: {
-          workspace: "LOR-MCP",
-          task: "secret backend API task",
-          specialtyHints: ["backend api"],
-        },
-      },
-    });
-    const body = await response.json();
-
-    assertEquals(response.status, 200);
-    assertEquals(body.result.structuredContent.status, "ok");
-    assertEquals(body.result.structuredContent.data.workspace, "LOR-MCP");
-    assertEquals(
-      body.result.structuredContent.data.recommendedSkills[0].displayName,
-      "Backend API Skill",
-    );
-    assertEquals(
-      body.result.structuredContent.data.recommendedSubagents[0].displayName,
-      "Backend API Test Subagent",
-    );
-    assert(
-      body.result.structuredContent.data.prompt.includes(
-        "Recommended LOR skills",
-      ),
-    );
-    assert(
-      logger.logs.some((log) =>
-        log.level === "info" &&
-        log.fields.event === "mcp_tool_call" &&
-        log.fields.toolName === "prepare_agent_initialization" &&
-        log.fields.workspace === "LOR-MCP" &&
-        log.fields.status === "ok"
-      ),
-    );
-    assertEquals(
-      JSON.stringify(logger.logs).includes("secret backend API task"),
-      false,
-    );
-  } finally {
-    repo.close();
-  }
-});
-
-Deno.test("HTTP MCP handler calls prepare_agent_regeneration", async () => {
-  const { repo, service } = await createCatalogService();
-  try {
-    await service.introduceAgent({
-      workspace: "LOR-MCP",
-      codexSessionId: "agent-1",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend Agent",
-      primarySpecialty: "backend api",
-      specialtyTags: ["api"],
-    });
-
-    const logger = new CapturingLogger();
-    const handler = createHttpMcpHandler({
-      logger,
-      runtimeFactory: () =>
-        Promise.resolve({
-          service,
-          close: () => {},
-        }),
-    });
-    const sessionId = await initializeSession(handler);
-    const response = await postMcp(handler, sessionId, {
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "prepare_agent_regeneration",
-        arguments: {
-          workspace: "LOR-MCP",
-          agentEntryKey: "agent-1",
-          reason: "secret context pressure",
-          replacementTask: "Read the repo",
-        },
-      },
-    });
-    const body = await response.json();
-
-    assertEquals(response.status, 200);
-    assertEquals(body.result.structuredContent.status, "ok");
-    assertEquals(
-      body.result.structuredContent.data.sourceAgent.entryKey,
-      "agent-1",
-    );
-    assertEquals(
-      body.result.structuredContent.data.suggestedReplacementMetadata
-        .displayName,
-      "Backend Agent",
-    );
-    assertEquals(
-      "codexSessionId" in
-        body.result.structuredContent.data.suggestedReplacementMetadata,
-      false,
-    );
-    assertEquals(
-      body.result.structuredContent.data.prompt.includes(
-        "secret context pressure",
-      ),
-      true,
-    );
-    assert(
-      logger.logs.some((log) =>
-        log.level === "info" &&
-        log.fields.event === "mcp_tool_call" &&
-        log.fields.toolName === "prepare_agent_regeneration" &&
-        log.fields.workspace === "LOR-MCP" &&
-        log.fields.agentEntryKey === "agent-1"
-      ),
-    );
-    assertEquals(
-      JSON.stringify(logger.logs).includes("secret context pressure"),
-      false,
-    );
-  } finally {
-    repo.close();
-  }
-});
-
 Deno.test("HTTP MCP handler calls generate_agent_prompt", async () => {
   const logger = new CapturingLogger();
   const handler = createHttpMcpHandler({ logger });
@@ -1150,10 +811,10 @@ Deno.test("HTTP MCP handler logs structured tool errors", async () => {
       id: 2,
       method: "tools/call",
       params: {
-        name: "get_agent_detail",
+        name: "get_skill_detail",
         arguments: {
           workspace: "LOR-MCP",
-          agentEntryKey: "missing-agent",
+          skillName: "missing-skill",
         },
       },
     });
@@ -1166,9 +827,9 @@ Deno.test("HTTP MCP handler logs structured tool errors", async () => {
       logger.logs.some((log) =>
         log.level === "warn" &&
         log.fields.event === "mcp_tool_call" &&
-        log.fields.toolName === "get_agent_detail" &&
+        log.fields.toolName === "get_skill_detail" &&
         log.fields.workspace === "LOR-MCP" &&
-        log.fields.agentEntryKey === "missing-agent" &&
+        log.fields.skillName === "missing-skill" &&
         log.fields.status === "error" &&
         log.fields.errorCode === "not_found"
       ),

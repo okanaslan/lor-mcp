@@ -1,10 +1,10 @@
 # Local Orchestration Router (LOR) MCP Server
 
 Local Orchestration Router (LOR) is a local MCP server that acts as a catalog,
-prompt, and workspace-readiness layer for Codex agents, skills, and reusable
-subagent prompt profiles. It lets a configured workspace register known entries,
-store routing metadata, find relevant catalog entries for a task, prepare manual
-prompts, and improve registered skill context over time.
+prompt, and workspace-readiness layer for Codex skills and reusable subagent
+prompt profiles. It lets a configured workspace register known entries, store
+routing metadata, find relevant catalog entries for a task, generate manual
+Codex prompts, and improve registered skill context over time.
 
 The current implementation is a Deno TypeScript MCP server that runs as a local
 Streamable HTTP server for Codex, with stdio kept as a compatibility and
@@ -21,9 +21,10 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 - Storage: server-owned local SQLite database under `.lor-mcp/` by default.
 - Catalog scope: caller-supplied `workspace`, resolved through canonical
   workspace paths and registered aliases.
-- Tool surface: type-specific agent, skill, and subagent tools, plus catalog
-  import/export, workspace sync, diagnostics, prompt helpers, and workspace
-  memory.
+- Tool surface: type-specific skill and subagent tools, plus catalog
+  import/export, workspace sync, diagnostics, prompt generation, and workspace
+  memory. Public registered-agent catalog tools have been removed from the V2
+  surface.
 - Local context: diagnostics report `AGENTS.md` status and local Codex skill
   alignment without rewriting local instruction files.
 
@@ -106,6 +107,34 @@ deno task fmt
 The configured SQLite driver uses a native library through Deno FFI and may
 download/cache that library on first use.
 
+## Codex Personalization Snippet
+
+Copy this into your Codex personalization or custom instructions so LOR is used
+consistently across prompts:
+
+```text
+When working in a repository, use LOR MCP before substantive planning,
+implementation, or review.
+
+Use the current repository path as the LOR workspace. Start by calling
+get_workspace_diagnostics and check_catalog_health for that workspace. If the
+workspace resolves unexpectedly, use the reported diagnostics to fix or explain
+the workspace/alias issue before relying on catalog results.
+
+For routing and context, prefer LOR skills and subagent profiles:
+- Use find_matching_skill for relevant registered skill metadata.
+- Use find_matching_subagent for reusable scoped prompt profiles.
+- Use get_skill_detail or get_subagent_detail when a match needs full metadata.
+- Use generate_agent_prompt only when preparing a fresh short-lived Codex chat.
+
+LOR prepares context and prompts; it does not create Codex chats, send messages,
+or control other agents. Use native Codex behavior for any chat creation or
+handoff, and report clearly when LOR is unavailable or has no useful match.
+
+Keep edits scoped to the user's request, preserve unrelated user work, prefer
+existing project patterns, and report exact verification commands and results.
+```
+
 ## Daily Usage
 
 Use LOR as a local routing, prompt, and workspace-knowledge layer for Codex.
@@ -120,7 +149,7 @@ route through LOR:
 ```text
 Use LOR MCP with workspace `<workspace>`.
 First call get_workspace_diagnostics and check_catalog_health.
-Then call prepare_agent_initialization for the current task.
+Then use find_matching_skill and find_matching_subagent for the current task.
 ```
 
 Use `get_workspace_diagnostics` when a workspace path, folder-name alias, or
@@ -131,32 +160,16 @@ skill/subagent coverage.
 
 ### Route Work
 
-Use routing when deciding who or what should handle a task:
+Use routing when deciding what context should shape a task:
 
-1. `prepare_agent_initialization` for short-lived task-oriented startup context.
-2. `find_matching_agent`, `find_matching_skill`, or `find_matching_subagent`
-   when you need lower-level routing results.
-3. `get_agent_detail`, `get_skill_detail`, or `get_subagent_detail`
-4. `prepare_agent_handoff` when a registered agent should receive work.
-5. Codex-native thread communication using the registered `codexSessionId`.
+1. `find_matching_skill` for relevant stored skill metadata.
+2. `find_matching_subagent` for scoped reusable prompt profiles.
+3. `get_skill_detail` or `get_subagent_detail` when the match result needs full
+   metadata.
+4. `generate_agent_prompt` when a fresh short-lived Codex task prompt is useful.
 
-Reachability metadata makes agent results clearer by showing whether a
-recommended registered agent is only a catalog entry, unknown, reachable, or
-known unreachable.
-
-Use `list_agents`, `list_skills`, and `list_subagents` when browsing by entry
-family. `get_subagent_detail` returns the rendered prompt for a subagent
-profile.
-
-### Refresh Or Replace Agents
-
-1. `get_agent_detail` for the context-heavy registered agent.
-2. `prepare_agent_regeneration` to render a ready-to-paste replacement prompt.
-3. Start a new Codex chat manually and register its new session ID with
-   `introduce_agent`, optionally using `replacesAgentEntryKey`.
-4. After confirming the replacement works, call `retire_agent` with
-   `confirm: true` for the old agent. Retired agents remain inspectable, but
-   matching and handoff avoid them.
+Use `list_skills` and `list_subagents` when browsing by entry family.
+`get_subagent_detail` returns the rendered prompt for a subagent profile.
 
 ### Improve Skills
 
@@ -188,12 +201,10 @@ current version.
 Use maintenance and expansion tools when the workspace catalog needs cleanup,
 backup, or migration:
 
-- `list_agents`, `list_skills`, `list_subagents`
-- `update_agent`, `update_skill`, `update_subagent`
-- `retire_agent`
-- `remove_agent`, `remove_skill`, `remove_subagent`
-- `clear_workspace_agents`, `clear_workspace_skills`,
-  `clear_workspace_subagents`
+- `list_skills`, `list_subagents`
+- `update_skill`, `update_subagent`
+- `remove_skill`, `remove_subagent`
+- `clear_workspace_skills`, `clear_workspace_subagents`
 - `export_catalog`
 - `import_catalog`
 - `preview_workspace_catalog_sync`
@@ -205,23 +216,14 @@ backup, or migration:
 ```mermaid
 flowchart RL
   catalog["CATALOG"]
-  agents["AGENTS"]
   skills["SKILLS"]
   subagents["SUBAGENTS"]
 
-  catalog --> agents
   catalog --> skills
   catalog --> subagents
 
-  init["prepare_agent_initialization"] --> skills
-  init --> subagents
-  init --> generatePrompt["generate_agent_prompt"]
-  generatePrompt["generate_agent_prompt"] --> introduceAgent["introduce_agent"]
-  introduceAgent --> agents
-  agents --> handoff["prepare_agent_handoff"]
-  agents --> regeneration["prepare_agent_regeneration"]
-  regeneration --> introduceAgent
-  retireAgent["retire_agent"] --> agents
+  generatePrompt["generate_agent_prompt"] --> skills
+  generatePrompt --> subagents
 
   introduceSkill["introduce_skill"] --> skills
   promoteSkill["promote_skill_to_global"] --> skills
@@ -245,29 +247,21 @@ flowchart RL
   catalog --> previewWorkspaceSync["preview_workspace_catalog_sync"]
   previewWorkspaceSync --> applyWorkspaceSync["apply_workspace_catalog_sync"]
   applyWorkspaceSync --> catalog
-  agents --> listAgents["list_agents"]
   skills --> listSkills["list_skills"]
   subagents --> listSubagents["list_subagents"]
 
-  listAgents --> updateAgent["update_agent"]
-  updateAgent --> agents
   listSkills --> updateSkill["update_skill"]
   updateSkill --> skills
   listSubagents --> updateSubagent["update_subagent"]
   updateSubagent --> subagents
-  listAgents --> removeAgent["remove_agent"]
   listSkills --> removeSkill["remove_skill"]
   listSubagents --> removeSubagent["remove_subagent"]
-  removeAgent --> clearAgents["clear_workspace_agents"]
   removeSkill --> clearSkills["clear_workspace_skills"]
   removeSubagent --> clearSubagents["clear_workspace_subagents"]
-  agents --> findAgent["find_matching_agent"]
   skills --> findSkill["find_matching_skill"]
   subagents --> findSubagent["find_matching_subagent"]
-  findAgent --> getAgent["get_agent_detail"]
   findSkill --> getSkill["get_skill_detail"]
   findSubagent --> getSubagent["get_subagent_detail"]
-  getAgent --> agents
   getSkill --> skills
   getSubagent --> subagents
 ```
@@ -289,19 +283,15 @@ flowchart RL
 - Matching: deterministic local fuzzy scoring with structured explanations,
   conflict reporting, and registered skill context signals.
 - Global skills: shared skills can be introduced or promoted with
-  `scope: "global"` and are included in list/match by default, while agents
-  remain workspace-scoped.
+  `scope: "global"` and are included in list/match by default.
 - Subagents: reusable prompt profiles for small, scoped delegation, with
   workspace/global scope and ready-to-use prompts returned from introduction,
   matching, and detail flows.
 
-### Agent Orchestration
+### Prompt Support
 
-- Handoff: LOR prepares ready-to-send handoff prompts; Codex-native thread tools
-  remain responsible for sending work to registered Codex sessions.
-- Reachability model: LOR distinguishes catalog-only agents from agents known
-  reachable through Codex-native dispatch outcomes and uses that state in
-  handoff guidance.
+- Agent prompts: `generate_agent_prompt` creates deterministic ready-to-paste
+  prompts for fresh Codex chats without registering or messaging agents.
 
 ### Skill And Workspace Knowledge
 

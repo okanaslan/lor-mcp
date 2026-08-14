@@ -2,10 +2,10 @@
 
 ## 1. Summary
 
-Implemented for V2. This feature shifts LOR from long-lived, skill-oriented
-agents to short-lived, task-oriented agent initialization. LOR should help a new
-Codex agent start with relevant skills, subagents, local instructions, and task
-guidance.
+Superseded for the current V2 public MCP surface. This feature shifted LOR from
+long-lived, skill-oriented agents toward short-lived, task-oriented agent
+initialization, but the dedicated initialization tool has since been removed in
+favor of skill/subagent matching plus generic prompt generation.
 
 ## 2. Goals
 
@@ -25,7 +25,8 @@ guidance.
 
 ## 4. Functional Requirements
 
-- V2 must provide an agent initialization workflow centered on `task`.
+- V2 should support an agent initialization workflow centered on `task` through
+  remaining prompt and matching tools.
 - The workflow must find relevant registered skills and subagents.
 - The workflow must return a ready-to-paste prompt for a short-lived Codex
   agent.
@@ -72,7 +73,8 @@ Conceptual `AgentInitializationContext` fields:
 
 ## 9. Open Questions
 
-- Should this extend `generate_agent_prompt` or become a new tool?
+- Should richer initialization behavior be folded into `generate_agent_prompt`
+  instead of reintroducing a dedicated initialization tool?
 - Should it require an explicit `task` field, or support generic role prompts?
 - Should local instruction extraction read `AGENTS.md`, or only reference it?
 
@@ -81,7 +83,9 @@ Conceptual `AgentInitializationContext` fields:
 - 2026-08-14: Plan V2 around short-lived task-oriented agents.
 - 2026-08-14: Prefer initialization with skills and subagents over long-lived
   skill-oriented agents.
-- 2026-08-14: Implement `prepare_agent_initialization` as a read-only prompt
-  helper separate from role-preset `generate_agent_prompt`.
+- 2026-08-14: Implement a dedicated read-only initialization prompt helper
+  separate from role-preset `generate_agent_prompt`.
 - 2026-08-14: Reference `AGENTS.md` as local instruction guidance without
   reading, storing, or rewriting local instruction file contents in this pass.
+- 2026-08-14: Remove the dedicated initialization helper from the public MCP
+  surface. Use skill/subagent matching plus `generate_agent_prompt` instead.

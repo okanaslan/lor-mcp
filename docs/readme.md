@@ -5,20 +5,18 @@ the LOR MCP Server.
 
 LOR is currently a runnable local 2.0.0 Deno TypeScript MCP server with
 Streamable HTTP, SQLite-backed workspace catalog storage, deterministic
-matching, agent handoff and regeneration prompt preparation, agent retirement,
-workspace catalog sync, shared global skill scope, registered skill context
-updates, and approval-gated local `SKILL.md` sync. Subagent support adds
-reusable workspace/global prompt profiles for small, scoped delegation without
-requiring a registered Codex agent session.
+skill/subagent matching, prompt generation, workspace catalog sync, shared
+global skill scope, registered skill context updates, and approval-gated local
+`SKILL.md` sync. Subagent support adds reusable workspace/global prompt profiles
+for small, scoped delegation without requiring a registered Codex agent session.
 
-Reachability metadata distinguishes catalog-only registered agents from agents
-known reachable through Codex-native dispatch outcomes. V2 keeps manual prompt
-helpers available, while delegated task lifecycle internals are hidden from the
-normal public MCP surface. Workspace diagnostics reports resolved aliases,
-catalog counts, and sanitized setup status without listing catalog entries.
-Workspace memory stores small durable notes outside the routing catalog.
-Expected HTTP auth discovery probe `404` responses are logged below warning
-severity while unrelated `4xx` responses remain warnings.
+V2 keeps manual prompt generation available, while delegated task lifecycle
+internals and registered-agent catalog tools are hidden from the normal public
+MCP surface. Workspace diagnostics reports resolved aliases, catalog counts, and
+sanitized setup status without listing catalog entries. Workspace memory stores
+small durable notes outside the routing catalog. Expected HTTP auth discovery
+probe `404` responses are logged below warning severity while unrelated `4xx`
+responses remain warnings.
 
 ## Contents
 
@@ -43,26 +41,21 @@ canonical workspace paths before reading or writing catalog records.
 
 The main user flows are:
 
-- Register agents, skills, and subagent profiles with routing metadata.
+- Register skills and subagent profiles with routing metadata.
 - Share selected skills globally across workspaces with `scope: "global"` or
   `promote_skill_to_global`.
-- Find matching agents, skills, and subagent prompt profiles for a task through
+- Find matching skills and subagent prompt profiles for a task through
   type-specific matching tools.
-- Prepare short-lived task-agent initialization prompts from matching skills,
-  subagents, local instruction guidance, next steps, and failure guidance.
-- Fetch typed details and prepare handoff or regeneration prompts for registered
-  Codex agents.
-- Use agent reachability metadata before manual Codex-native handoff.
+- Generate deterministic ready-to-paste prompts for fresh Codex chats.
 - Use diagnostics and workspace memory tools.
 - Use diagnostics to compare local Codex skill files and `AGENTS.md` presence
   with LOR-registered skill metadata.
-- Retire replaced agents while keeping their catalog records inspectable.
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed
   section.
 - Export/import portable catalog data, sync workspace skills/subagents, inspect
-  health coverage and diagnostics, and update/remove/clear agents, skills, and
-  subagents with type-specific maintenance tools.
+  health coverage and diagnostics, and update/remove/clear skills and subagents
+  with type-specific maintenance tools.
 - Introduce subagent prompt profiles for limited-scope work when no existing
   registered agent is appropriate.
 

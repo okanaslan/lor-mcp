@@ -21,8 +21,11 @@ The project follows Semantic Versioning:
   skill/subagent coverage, and local skill/AGENTS.md integration.
 - Hide delegated task lifecycle tools from the normal public MCP surface while
   keeping manual prompt helpers available.
-- Add `prepare_agent_initialization` for task-oriented startup prompts with
-  matching skills, subagents, next steps, and failure guidance.
+- Remove the registered-agent public MCP tools from the V2 surface:
+  `introduce_agent`, `list_agents`, `get_agent_detail`, `update_agent`,
+  `retire_agent`, `remove_agent`, `clear_workspace_agents`,
+  `find_matching_agent`, `prepare_agent_handoff`,
+  `prepare_agent_initialization`, and `prepare_agent_regeneration`.
 - Extend `check_catalog_health` with skill/subagent coverage metrics, status,
   and recommended actions.
 - Extend `get_workspace_diagnostics` with local `AGENTS.md` status and local

@@ -9,24 +9,18 @@ import {
   type ApplyWorkspaceCatalogSyncToolInput,
   checkCatalogHealthInputSchema,
   type CheckCatalogHealthToolInput,
-  clearWorkspaceAgentsInputSchema,
-  type ClearWorkspaceAgentsToolInput,
   clearWorkspaceSkillsInputSchema,
   type ClearWorkspaceSkillsToolInput,
   clearWorkspaceSubagentsInputSchema,
   type ClearWorkspaceSubagentsToolInput,
   exportCatalogInputSchema,
   type ExportCatalogToolInput,
-  findMatchingAgentInputSchema,
-  type FindMatchingAgentToolInput,
   findMatchingSkillInputSchema,
   type FindMatchingSkillToolInput,
   findMatchingSubagentInputSchema,
   type FindMatchingSubagentToolInput,
   generateAgentPromptInputSchema,
   type GenerateAgentPromptToolInput,
-  getAgentDetailInputSchema,
-  type GetAgentDetailToolInput,
   getSkillDetailInputSchema,
   type GetSkillDetailToolInput,
   getSubagentDetailInputSchema,
@@ -37,26 +31,16 @@ import {
   type GetWorkspaceNoteToolInput,
   importCatalogInputSchema,
   type ImportCatalogToolInput,
-  introduceAgentInputSchema,
-  type IntroduceAgentToolInput,
   introduceSkillInputSchema,
   type IntroduceSkillToolInput,
   introduceSubagentInputSchema,
   type IntroduceSubagentToolInput,
-  listAgentsInputSchema,
-  type ListAgentsToolInput,
   listSkillsInputSchema,
   type ListSkillsToolInput,
   listSubagentsInputSchema,
   type ListSubagentsToolInput,
   listWorkspaceNotesInputSchema,
   type ListWorkspaceNotesToolInput,
-  prepareAgentHandoffInputSchema,
-  type PrepareAgentHandoffToolInput,
-  prepareAgentInitializationInputSchema,
-  type PrepareAgentInitializationToolInput,
-  prepareAgentRegenerationInputSchema,
-  type PrepareAgentRegenerationToolInput,
   previewSkillFileSyncInputSchema,
   type PreviewSkillFileSyncToolInput,
   previewWorkspaceCatalogSyncInputSchema,
@@ -69,19 +53,13 @@ import {
   type RegisterWorkspaceAliasToolInput,
   rememberWorkspaceNoteInputSchema,
   type RememberWorkspaceNoteToolInput,
-  removeAgentInputSchema,
-  type RemoveAgentToolInput,
   removeSkillInputSchema,
   type RemoveSkillToolInput,
   removeSubagentInputSchema,
   type RemoveSubagentToolInput,
   removeWorkspaceNoteInputSchema,
   type RemoveWorkspaceNoteToolInput,
-  retireAgentInputSchema,
-  type RetireAgentToolInput,
   toolOutputSchema,
-  updateAgentInputSchema,
-  type UpdateAgentToolInput,
   updateSkillInputSchema,
   type UpdateSkillToolInput,
   updateSubagentInputSchema,
@@ -114,26 +92,6 @@ export function registerCatalogTools(
   const logger = (options.logger ?? createNoopLogger()).child({
     component: "tools",
   });
-
-  server.registerTool(
-    "introduce_agent",
-    {
-      description: "Introduce an existing Codex agent to the catalog.",
-      inputSchema: introduceAgentInputSchema,
-      outputSchema: toolOutputSchema,
-    },
-    (input: IntroduceAgentToolInput) =>
-      withLoggedRuntime(
-        "introduce_agent",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const entry = await runtime.service.introduceAgent(input);
-          return okResult(entry, `Introduced agent ${entry.displayName}.`);
-        },
-      ),
-  );
 
   server.registerTool(
     "introduce_skill",
@@ -172,26 +130,6 @@ export function registerCatalogTools(
         async (runtime) => {
           const entry = await runtime.service.introduceSubagent(input);
           return okResult(entry, `Introduced subagent ${entry.displayName}.`);
-        },
-      ),
-  );
-
-  server.registerTool(
-    "list_agents",
-    {
-      description: "List introduced Codex agents in a workspace.",
-      inputSchema: listAgentsInputSchema,
-      outputSchema: toolOutputSchema,
-    },
-    (input: ListAgentsToolInput) =>
-      withLoggedRuntime(
-        "list_agents",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const agents = await runtime.service.listAgents(input);
-          return okResult({ agents }, `Found ${agents.length} agents.`);
         },
       ),
   );
@@ -237,27 +175,6 @@ export function registerCatalogTools(
             { subagents },
             `Found ${subagents.length} subagents.`,
           );
-        },
-      ),
-  );
-
-  server.registerTool(
-    "clear_workspace_agents",
-    {
-      description:
-        "Clear introduced agents from one workspace after explicit confirmation.",
-      inputSchema: clearWorkspaceAgentsInputSchema,
-      outputSchema: toolOutputSchema,
-    },
-    (input: ClearWorkspaceAgentsToolInput) =>
-      withLoggedRuntime(
-        "clear_workspace_agents",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const result = await runtime.service.clearWorkspaceAgents(input);
-          return okResult(result, `Cleared ${result.deletedAgents} agents.`);
         },
       ),
   );
@@ -361,31 +278,6 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
-    "get_agent_detail",
-    {
-      description: "Get full metadata for one introduced Codex agent.",
-      inputSchema: getAgentDetailInputSchema,
-      outputSchema: toolOutputSchema,
-    },
-    (input: GetAgentDetailToolInput) =>
-      withLoggedRuntime(
-        "get_agent_detail",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const entry = await runtime.service.getAgentDetail(input);
-          if (!entry) {
-            throw new LorError("not_found", "Agent was not found.", {
-              entryType: "agent",
-            });
-          }
-          return okResult(entry, `Found ${entry.displayName}.`);
-        },
-      ),
-  );
-
-  server.registerTool(
     "get_skill_detail",
     {
       description: "Get full metadata for one introduced skill.",
@@ -437,26 +329,6 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
-    "update_agent",
-    {
-      description: "Update editable metadata for one introduced Codex agent.",
-      inputSchema: updateAgentInputSchema,
-      outputSchema: toolOutputSchema,
-    },
-    (input: UpdateAgentToolInput) =>
-      withLoggedRuntime(
-        "update_agent",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const entry = await runtime.service.updateAgent(input);
-          return okResult(entry, `Updated ${entry.displayName}.`);
-        },
-      ),
-  );
-
-  server.registerTool(
     "update_skill",
     {
       description: "Update editable metadata for one introduced skill.",
@@ -493,36 +365,6 @@ export function registerCatalogTools(
         async (runtime) => {
           const entry = await runtime.service.updateSubagent(input);
           return okResult(entry, `Updated ${entry.displayName}.`);
-        },
-      ),
-  );
-
-  server.registerTool(
-    "retire_agent",
-    {
-      description:
-        "Mark one introduced Codex agent as retired after explicit confirmation.",
-      inputSchema: retireAgentInputSchema,
-      outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    (input: RetireAgentToolInput) =>
-      withLoggedRuntime(
-        "retire_agent",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const result = await runtime.service.retireAgent(input);
-          return okResult(
-            result,
-            `Retired agent ${result.agent.displayName}.`,
-          );
         },
       ),
   );
@@ -645,26 +487,6 @@ export function registerCatalogTools(
               ? `Synced local skill file for ${result.skillName}.`
               : `Local skill file already matched ${result.skillName}.`,
           );
-        },
-      ),
-  );
-
-  server.registerTool(
-    "remove_agent",
-    {
-      description: "Remove one introduced Codex agent from a workspace.",
-      inputSchema: removeAgentInputSchema,
-      outputSchema: toolOutputSchema,
-    },
-    (input: RemoveAgentToolInput) =>
-      withLoggedRuntime(
-        "remove_agent",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const result = await runtime.service.removeAgent(input);
-          return okResult(result, `Removed agent ${result.entryKey}.`);
         },
       ),
   );
@@ -976,92 +798,6 @@ export function registerCatalogTools(
   );
 
   server.registerTool(
-    "prepare_agent_handoff",
-    {
-      description:
-        "Prepare a manual handoff prompt for an introduced Codex agent.",
-      inputSchema: prepareAgentHandoffInputSchema,
-      outputSchema: toolOutputSchema,
-    },
-    (input: PrepareAgentHandoffToolInput) =>
-      withLoggedRuntime(
-        "prepare_agent_handoff",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const result = await runtime.service.prepareAgentHandoff(input);
-          return okResult(
-            result,
-            `Prepared handoff prompt for ${result.targetAgent.displayName}.`,
-          );
-        },
-      ),
-  );
-
-  server.registerTool(
-    "prepare_agent_initialization",
-    {
-      description:
-        "Prepare a manual task-oriented Codex agent startup prompt from matching skills, subagents, local instruction guidance, next steps, and failure guidance. LOR prepares context only; it does not create, dispatch, or message Codex chats.",
-      inputSchema: prepareAgentInitializationInputSchema,
-      outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    (input: PrepareAgentInitializationToolInput) =>
-      withLoggedRuntime(
-        "prepare_agent_initialization",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const result = await runtime.service.prepareAgentInitialization(
-            input,
-          );
-          return okResult(
-            result,
-            "Prepared task-oriented agent initialization prompt.",
-          );
-        },
-      ),
-  );
-
-  server.registerTool(
-    "prepare_agent_regeneration",
-    {
-      description:
-        "Prepare a manual prompt for regenerating a registered Codex agent in a fresh chat.",
-      inputSchema: prepareAgentRegenerationInputSchema,
-      outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    (input: PrepareAgentRegenerationToolInput) =>
-      withLoggedRuntime(
-        "prepare_agent_regeneration",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) => {
-          const result = await runtime.service.prepareAgentRegeneration(input);
-          return okResult(
-            result,
-            `Prepared regeneration prompt for ${result.sourceAgent.displayName}.`,
-          );
-        },
-      ),
-  );
-
-  server.registerTool(
     "generate_agent_prompt",
     {
       description: "Generate a manual starter prompt for an empty Codex chat.",
@@ -1076,27 +812,6 @@ export function registerCatalogTools(
           `Generated ${result.displayName} starter prompt.`,
         );
       }),
-  );
-
-  server.registerTool(
-    "find_matching_agent",
-    {
-      description: "Find matching introduced Codex agents for a task.",
-      inputSchema: findMatchingAgentInputSchema,
-      outputSchema: toolOutputSchema,
-    },
-    (input: FindMatchingAgentToolInput) =>
-      withLoggedRuntime(
-        "find_matching_agent",
-        input,
-        logger,
-        runtimeFactory,
-        async (runtime) =>
-          matchToolResult(
-            await runtime.service.findMatchingAgents(input),
-            "agent",
-          ),
-      ),
   );
 
   server.registerTool(

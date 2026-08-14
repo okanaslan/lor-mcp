@@ -21,29 +21,22 @@ Implemented in the runnable local 2.0.0 server:
 - Workspace alias resolution for path, trailing-slash, and registered
   folder-name variants.
 - Current MCP tools:
-  - `introduce_agent`
   - `introduce_skill`
   - `introduce_subagent`
-  - `list_agents`
   - `list_skills`
   - `list_subagents`
-  - `clear_workspace_agents`
   - `clear_workspace_skills`
   - `clear_workspace_subagents`
   - `register_workspace_alias`
   - `promote_skill_to_global`
-  - `get_agent_detail`
   - `get_skill_detail`
   - `get_subagent_detail`
-  - `update_agent`
   - `update_skill`
   - `update_subagent`
-  - `retire_agent`
   - `propose_skill_update`
   - `apply_skill_update`
   - `preview_skill_file_sync`
   - `apply_skill_file_sync`
-  - `remove_agent`
   - `remove_skill`
   - `remove_subagent`
   - `export_catalog`
@@ -56,15 +49,12 @@ Implemented in the runnable local 2.0.0 server:
   - `list_workspace_notes`
   - `get_workspace_note`
   - `remove_workspace_note`
-  - `prepare_agent_handoff`
-  - `prepare_agent_initialization`
-  - `prepare_agent_regeneration`
   - `generate_agent_prompt`
-  - `find_matching_agent`
   - `find_matching_skill`
   - `find_matching_subagent`
-- Agent and skill introduction now acts as registration. The server no longer
-  requires server-local pre-verification evidence before accepting new entries.
+- Skill and subagent introduction acts as registration. The server no longer
+  requires server-local pre-verification evidence before accepting new skill
+  entries.
 - Global skills can be introduced directly with `scope: "global"` or promoted
   from workspace skills with `promote_skill_to_global`. Global skills are
   included in `list_skills` and `find_matching_skill` by default; agents remain
@@ -75,15 +65,11 @@ Implemented in the runnable local 2.0.0 server:
 - `check_catalog_health` includes skill/subagent coverage metrics, project and
   specialty coverage, coverage status, and recommended actions for improving
   task-initialization readiness.
-- Agent replacement uses immutable session identity: new agents register as
-  active records, old records can be marked retired, and matching excludes
-  retired agents by default.
 - Deterministic local fuzzy matching with registered skill context signals,
-  structured match explanations, and agents-only near-equal conflict reporting.
+  structured match explanations, and ranked skill/subagent results.
 - Structured MCP response envelopes with output schemas and stable error codes.
-- Dispatch boundary: LOR prepares agent handoff prompts and stores
-  `codexSessionId`; Codex-native thread tools send the prompt to reachable
-  registered sessions.
+- Dispatch boundary: LOR can generate manual Codex prompts, but Codex-native
+  thread tools own any actual chat creation, send, or read loop.
 - Delegated task lifecycle and follow-up/result retrieval internals exist for
   compatibility, but V2 hides those tools from the normal public MCP surface.
 - Workspace diagnostics is implemented for read-only alias, catalog count, and
@@ -114,9 +100,8 @@ Latest implementation verification:
 
 - [MCP Initialization Session](feature-specs/mcp-initialization-session.md):
   Implemented for the current MCP lifecycle and Streamable HTTP session flow.
-- [Introducing Agent](feature-specs/introducing-agent.md): Implemented for v1.
-  Users can register a Codex agent session ID and routing metadata without
-  manual server-side pre-registration.
+- [Introducing Agent](feature-specs/introducing-agent.md): Removed from the
+  public V2 MCP tool surface.
 - [Introducing Skill](feature-specs/introducing-skill.md): Implemented for v1.
   Users can register a skill name and routing metadata without manual skill-root
   pre-verification. Skills can be workspace-scoped or global.
@@ -127,23 +112,23 @@ Latest implementation verification:
   export behavior. Technical planning is tracked in
   [Global Skill Scope](tech-specs/done/global-skill-scope.md).
 - [Type-Specific Tool Surface](feature-specs/type-specific-tool-surface.md):
-  Implemented for 2.0.0. Replaces generic public list/detail/update/remove/
-  clear/match tools with explicit agent, skill, and subagent tool names.
+  Implemented for 2.0.0, then tightened for V2 by removing public registered
+  agent catalog tools while keeping explicit skill and subagent tool names.
 - [Find Matching Catalog Entry](feature-specs/find-matching-catalog-entry.md):
-  Implemented through `find_matching_agent`, `find_matching_skill`, and
-  `find_matching_subagent` deterministic local fuzzy matching.
+  Implemented through `find_matching_skill` and `find_matching_subagent`
+  deterministic local fuzzy matching.
 - [List Catalog Entries](feature-specs/list-catalog-entries.md): Implemented
-  through `list_agents`, `list_skills`, and `list_subagents`.
+  through `list_skills` and `list_subagents` in the current public surface.
 - [Clear Workspace Catalog](feature-specs/clear-workspace-catalog.md):
-  Implemented through `clear_workspace_agents`, `clear_workspace_skills`, and
-  `clear_workspace_subagents` with explicit confirmation.
+  Implemented through `clear_workspace_skills` and `clear_workspace_subagents`
+  with explicit confirmation in the current public surface.
 - [Register Workspace Alias](feature-specs/register-workspace-alias.md):
   Implemented for v1 canonical workspace resolution and explicit alias repair.
 - [Get Catalog Entry Detail](feature-specs/get-catalog-entry-detail.md):
-  Implemented through `get_agent_detail`, `get_skill_detail`, and
-  `get_subagent_detail`.
-- [Prepare Agent Handoff](feature-specs/prepare-agent-handoff.md): Implemented
-  for v1 prompt preparation without dispatching to Codex.
+  Implemented through `get_skill_detail` and `get_subagent_detail` in the
+  current public surface.
+- [Prepare Agent Handoff](feature-specs/prepare-agent-handoff.md): Removed from
+  the public V2 MCP tool surface.
 - [Agent Reachability And Dispatch Model](feature-specs/agent-reachability-and-dispatch-model.md):
   Implemented. Defines passive reachability metadata for registered agents, with
   existing and new agents defaulting to `unknown`, reachability updated only by
@@ -173,15 +158,11 @@ Latest implementation verification:
   planning is tracked in
   [Workspace Diagnostics](tech-specs/done/workspace-diagnostics.md).
 - [Prepare Agent Regeneration](feature-specs/prepare-agent-regeneration.md):
-  Implemented for v1 deterministic prompt preparation for replacing a registered
-  context-heavy Codex agent with a fresh chat and later `introduce_agent`
-  registration.
+  Removed from the public V2 MCP tool surface.
 - [Agent Lifecycle Retirement](feature-specs/agent-lifecycle-retirement.md):
-  Implemented for v1 immutable session identity, explicit `retire_agent`
-  lifecycle mutation, and default routing exclusion for retired agents.
+  Removed from the public V2 MCP tool surface.
 - [Generate Agent Prompt](feature-specs/generate-agent-prompt.md): Implemented
-  for v1 deterministic starter prompts for empty Codex chats and suggested
-  metadata for later agent registration.
+  for v1 deterministic starter prompts for empty Codex chats.
 - [Workspace Catalog Sync](feature-specs/workspace-catalog-sync.md): Implemented
   for v1 workspace-local skill and subagent catalog sync with preview,
   confirmation-gated apply, duplicate skipping, missing-entry reporting, and
@@ -191,15 +172,16 @@ Latest implementation verification:
   and
   [Workspace Catalog Sync Service Flow](tech-specs/done/workspace-catalog-sync-service-flow.md).
 - [Update Catalog Entry](feature-specs/update-catalog-entry.md): Implemented
-  through `update_agent`, `update_skill`, and `update_subagent` partial metadata
-  updates.
+  through `update_skill` and `update_subagent` partial metadata updates in the
+  current public surface.
 - [Registered Skill Context Updates](feature-specs/registered-skill-context-updates.md):
   Implemented for v1 approval-gated stored skill context updates.
 - [Local Skill Sync](feature-specs/local-skill-sync.md): Implemented for v1
   approval-gated sync from applied stored skill context into local `SKILL.md`
   managed sections.
 - [Remove Catalog Entry](feature-specs/remove-catalog-entry.md): Implemented
-  through `remove_agent`, `remove_skill`, and `remove_subagent` hard deletes.
+  through `remove_skill` and `remove_subagent` hard deletes in the current
+  public surface.
 - [Skill / Agent Existence Verification](feature-specs/existence-verification.md):
   Implemented for v1 metadata-only catalog health reporting. Blocking
   verification remains out of scope for introduction flows.
@@ -226,12 +208,12 @@ Latest implementation verification:
   is to reduce task-management and agent-communication tooling, focus on
   short-lived task-oriented agents, and strengthen skill/subagent readiness.
 - [V2 Tool Surface Simplification](feature-specs/v2-tool-surface-simplification.md):
-  Implemented. Task lifecycle tools are hidden from the normal public MCP
-  surface while prompt helpers remain available.
+  Implemented. Task lifecycle tools and registered-agent catalog tools are
+  hidden from the normal public MCP surface while prompt generation remains
+  available.
 - [V2 Agent Initialization Context](feature-specs/v2-agent-initialization-context.md):
-  Implemented. `prepare_agent_initialization` generates short-lived task-agent
-  startup context from task, relevant skills, subagents, local instruction
-  guidance, next steps, and failure guidance.
+  Superseded by the simplified public V2 surface. Use skill/subagent matching
+  plus `generate_agent_prompt` for manual fresh-chat context.
 - [V2 Skill And Subagent Coverage Health](feature-specs/v2-skill-and-subagent-coverage-health.md):
   Implemented. `check_catalog_health` returns workspace/global skill and
   subagent coverage, project/specialty coverage, readiness status, and
@@ -242,9 +224,8 @@ Latest implementation verification:
   without matching local files, and recommended actions.
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
-- Formalize the Codex-native dispatch pattern for registered agents. LOR can
-  resolve and prepare handoff prompts today, while Codex thread tools perform
-  the actual send/read loop.
+- Formalize the Codex-native dispatch pattern outside LOR's public registered
+  agent catalog tool surface.
 - Decide whether future health refresh should probe external evidence sources
   and update stored verification metadata.
 - Decide whether future conflict handling should persist caller feedback or

@@ -11,7 +11,8 @@ catalog, prompt, readiness, and guidance workflows.
 - Hide or remove task lifecycle tools from the normal public MCP surface.
 - Hide or remove direct agent communication tools from the normal public MCP
   surface.
-- Preserve prompt helper tools for manual coordination.
+- Preserve generic prompt generation for manual coordination.
+- Remove registered-agent catalog tools from the normal public MCP surface.
 - Make the public tool list easier for Codex agents to choose from.
 - Reduce user confusion between catalog entries and live executable agents.
 
@@ -20,7 +21,6 @@ catalog, prompt, readiness, and guidance workflows.
 - Delete stored catalog data.
 - Remove prompt generation.
 - Remove skill or subagent registration.
-- Remove agent registration if still useful as metadata.
 - Build a custom Codex execution harness.
 
 ## 4. Functional Requirements
@@ -32,10 +32,11 @@ catalog, prompt, readiness, and guidance workflows.
   - `append_agent_context`
   - `get_agent_task_result`
 - V2 must avoid adding new direct agent-to-agent communication tools.
-- V2 must keep prompt helper tools available:
+- V2 must keep generic prompt generation available:
   - `generate_agent_prompt`
-  - `prepare_agent_handoff`
-  - `prepare_agent_regeneration`
+- V2 must remove registered-agent public tools from `tools/list`, including
+  registration, listing, detail, update, retirement, removal, clearing,
+  matching, handoff, initialization, and regeneration.
 - Tool descriptions must clearly say when LOR prepares prompts but does not
   execute or dispatch them.
 - Documentation must explain that Codex agents generally own their own work.
@@ -68,8 +69,7 @@ should not depend on them.
 - Should task tools be fully unregistered, or kept behind an explicit
   experimental configuration flag?
 - Should existing task storage be left untouched or migrated out later?
-- Should agent registration remain, or should agents become prompt presets plus
-  metadata only?
+- Should stored legacy agent catalog data be migrated or left for compatibility?
 
 ## 10. Decision Log
 
@@ -78,3 +78,5 @@ should not depend on them.
 - 2026-08-14: Hide delegated task lifecycle tools from the normal public MCP
   tool surface while keeping task service/storage code in place for migration
   safety.
+- 2026-08-14: Remove registered-agent catalog, matching, handoff,
+  initialization, and regeneration tools from the public MCP surface.

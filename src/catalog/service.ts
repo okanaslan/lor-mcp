@@ -1526,7 +1526,7 @@ export class CatalogService {
       catalogAction: {
         mode: "manual",
         instruction:
-          `After confirming the replacement works, introduce the replacement agent, then call retire_agent for old catalog entry ${entry.entryKey}; LOR will not mutate the catalog from this preparation step.`,
+          `After confirming the replacement works, handle old catalog entry ${entry.entryKey} outside the public MCP tool surface; LOR will not mutate the catalog from this preparation step.`,
       },
       delivery: {
         mode: "manual",
@@ -2323,7 +2323,7 @@ function coverageRecommendedActions(counts: {
     );
   } else {
     actions.push(
-      "Use prepare_agent_initialization to see what context is missing for real tasks.",
+      "Review skill and subagent coverage before relying on LOR for task context.",
     );
   }
 
@@ -2736,8 +2736,7 @@ function renderAgentRegenerationPrompt(
       "Registration instructions:",
       "- This is a new Codex chat and will have a new Codex session ID.",
       "- Do not reuse the previous Codex session ID.",
-      "- After this chat exists, ask the caller to register the new session with `introduce_agent` using the suggested replacement metadata returned by LOR plus the new `codexSessionId`.",
-      "- After confirming the replacement works, ask the caller to mark the old agent retired with `retire_agent`.",
+      "- After this chat exists, continue through the current manual Codex workflow; public LOR agent registration tools are not available.",
     );
   }
 
@@ -2753,7 +2752,7 @@ function replacementInstructions(
   ];
   if (includeRegistrationInstructions) {
     instructions.push(
-      "After the new chat has a Codex session ID, call introduce_agent with the suggested replacement metadata and the new codexSessionId.",
+      "After the new chat exists, continue through the current manual Codex workflow; public LOR agent registration tools are not available.",
       `Do not reuse the old codexSessionId ${entry.codexSessionId}.`,
     );
   } else {
@@ -2762,7 +2761,7 @@ function replacementInstructions(
     );
   }
   instructions.push(
-    `Only call retire_agent for old catalog entry ${entry.entryKey} after confirming the replacement is usable.`,
+    `Handle old catalog entry ${entry.entryKey} outside the public MCP tool surface after confirming the replacement is usable.`,
   );
   return instructions;
 }

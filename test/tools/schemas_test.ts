@@ -5,15 +5,12 @@ import {
   applySkillUpdateInputSchema,
   applyWorkspaceCatalogSyncInputSchema,
   checkCatalogHealthInputSchema,
-  clearWorkspaceAgentsInputSchema,
   clearWorkspaceSkillsInputSchema,
   clearWorkspaceSubagentsInputSchema,
   exportCatalogInputSchema,
-  findMatchingAgentInputSchema,
   findMatchingSkillInputSchema,
   findMatchingSubagentInputSchema,
   generateAgentPromptInputSchema,
-  getAgentDetailInputSchema,
   getAgentTaskResultInputSchema,
   getAgentTaskStatusInputSchema,
   getSkillDetailInputSchema,
@@ -21,30 +18,22 @@ import {
   getWorkspaceDiagnosticsInputSchema,
   getWorkspaceNoteInputSchema,
   importCatalogInputSchema,
-  introduceAgentInputSchema,
   introduceSkillInputSchema,
   introduceSubagentInputSchema,
   listActiveTasksInputSchema,
-  listAgentsInputSchema,
   listSkillsInputSchema,
   listSubagentsInputSchema,
   listWorkspaceNotesInputSchema,
-  prepareAgentHandoffInputSchema,
-  prepareAgentInitializationInputSchema,
-  prepareAgentRegenerationInputSchema,
   previewSkillFileSyncInputSchema,
   previewWorkspaceCatalogSyncInputSchema,
   promoteSkillToGlobalInputSchema,
   proposeSkillUpdateInputSchema,
   registerWorkspaceAliasInputSchema,
   rememberWorkspaceNoteInputSchema,
-  removeAgentInputSchema,
   removeSkillInputSchema,
   removeSubagentInputSchema,
   removeWorkspaceNoteInputSchema,
-  retireAgentInputSchema,
   sendAgentTaskInputSchema,
-  updateAgentInputSchema,
   updateSkillInputSchema,
   updateSubagentInputSchema,
 } from "@src/tools/schemas.ts";
@@ -90,56 +79,7 @@ Deno.test("introduceSubagentInputSchema accepts workspace and global prompt prof
   );
 });
 
-Deno.test("introduceAgentInputSchema accepts optional replacement pointer", () => {
-  assertEquals(
-    introduceAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      codexSessionId: "agent-new",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend Agent",
-      primarySpecialty: "backend api",
-      specialtyTags: ["api"],
-      replacesAgentEntryKey: "agent-old",
-    }).success,
-    true,
-  );
-  assertEquals(
-    introduceAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      codexSessionId: "agent-new",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend Agent",
-      primarySpecialty: "backend api",
-      specialtyTags: ["api"],
-      replacesAgentEntryKey: " ",
-    }).success,
-    false,
-  );
-});
-
-Deno.test("introduceAgentInputSchema rejects global scope", () => {
-  assertEquals(
-    introduceAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      scope: "global",
-      codexSessionId: "agent-new",
-      projectName: "Local Orchestration Router (LOR)",
-      displayName: "Backend Agent",
-      primarySpecialty: "backend api",
-      specialtyTags: ["api"],
-    }).success,
-    false,
-  );
-});
-
 Deno.test("typed clear workspace schemas require confirm true", () => {
-  assertEquals(
-    clearWorkspaceAgentsInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      confirm: true,
-    }).success,
-    true,
-  );
   assertEquals(
     clearWorkspaceSkillsInputSchema.safeParse({
       workspace: "LOR-MCP",
@@ -153,12 +93,6 @@ Deno.test("typed clear workspace schemas require confirm true", () => {
       confirm: true,
     }).success,
     true,
-  );
-  assertEquals(
-    clearWorkspaceAgentsInputSchema.safeParse({
-      workspace: "LOR-MCP",
-    }).success,
-    false,
   );
   assertEquals(
     clearWorkspaceSkillsInputSchema.safeParse({
@@ -196,69 +130,6 @@ Deno.test("registerWorkspaceAliasInputSchema requires workspace and alias", () =
       workspace: "/Users/ablo/repo/Agentic-Router",
       alias: "Agentic-Router",
       confirm: false,
-    }).success,
-    false,
-  );
-});
-
-Deno.test("prepareAgentHandoffInputSchema requires workspace agent and task", () => {
-  assertEquals(
-    prepareAgentHandoffInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-      task: "Review code",
-    }).success,
-    true,
-  );
-  assertEquals(
-    prepareAgentHandoffInputSchema.safeParse({
-      agentEntryKey: "agent-1",
-      task: "Review code",
-    }).success,
-    false,
-  );
-  assertEquals(
-    prepareAgentHandoffInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      task: "Review code",
-    }).success,
-    false,
-  );
-  assertEquals(
-    prepareAgentHandoffInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-    }).success,
-    false,
-  );
-});
-
-Deno.test("prepareAgentInitializationInputSchema requires workspace and task", () => {
-  assertEquals(
-    prepareAgentInitializationInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      task: "Implement backend route",
-      specialtyHints: ["backend"],
-    }).success,
-    true,
-  );
-  assertEquals(
-    prepareAgentInitializationInputSchema.safeParse({
-      task: "Implement backend route",
-    }).success,
-    false,
-  );
-  assertEquals(
-    prepareAgentInitializationInputSchema.safeParse({
-      workspace: "LOR-MCP",
-    }).success,
-    false,
-  );
-  assertEquals(
-    prepareAgentInitializationInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      task: "Implement backend route",
-      specialtyHints: [],
     }).success,
     false,
   );
@@ -324,49 +195,7 @@ Deno.test("agent task follow-up schemas require task and message inputs", () => 
   );
 });
 
-Deno.test("prepareAgentRegenerationInputSchema requires workspace and agent", () => {
-  assertEquals(
-    prepareAgentRegenerationInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-      reason: "Context is too large",
-      carryForwardContext: "Preserve repo-specific instructions",
-      replacementTask: "Read the repo and wait for work",
-      includeRegistrationInstructions: false,
-    }).success,
-    true,
-  );
-  assertEquals(
-    prepareAgentRegenerationInputSchema.safeParse({
-      agentEntryKey: "agent-1",
-    }).success,
-    false,
-  );
-  assertEquals(
-    prepareAgentRegenerationInputSchema.safeParse({
-      workspace: "LOR-MCP",
-    }).success,
-    false,
-  );
-  assertEquals(
-    prepareAgentRegenerationInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-      includeRegistrationInstructions: "yes",
-    }).success,
-    false,
-  );
-});
-
 Deno.test("typed update schemas require an editable field", () => {
-  assertEquals(
-    updateAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-      displayName: "Backend Agent",
-    }).success,
-    true,
-  );
   assertEquals(
     updateSkillInputSchema.safeParse({
       workspace: "LOR-MCP",
@@ -385,53 +214,10 @@ Deno.test("typed update schemas require an editable field", () => {
     true,
   );
   assertEquals(
-    updateAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-    }).success,
-    false,
-  );
-  assertEquals(
     updateSkillInputSchema.safeParse({
       workspace: "LOR-MCP",
       skillName: "backend-skill",
       specialtyTags: [],
-    }).success,
-    false,
-  );
-});
-
-Deno.test("retireAgentInputSchema requires agent and confirm true", () => {
-  assertEquals(
-    retireAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-old",
-      reason: "Replaced after context regeneration.",
-      replacedByAgentEntryKey: "agent-new",
-      confirm: true,
-    }).success,
-    true,
-  );
-  assertEquals(
-    retireAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-old",
-    }).success,
-    false,
-  );
-  assertEquals(
-    retireAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-old",
-      confirm: false,
-    }).success,
-    false,
-  );
-  assertEquals(
-    retireAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: " ",
-      confirm: true,
     }).success,
     false,
   );
@@ -572,13 +358,6 @@ Deno.test("typed remove schemas require workspace and typed key", () => {
     true,
   );
   assertEquals(
-    removeAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-    }).success,
-    true,
-  );
-  assertEquals(
     removeSubagentInputSchema.safeParse({
       workspace: "LOR-MCP",
       subagentName: "api-test-subagent",
@@ -589,13 +368,6 @@ Deno.test("typed remove schemas require workspace and typed key", () => {
   assertEquals(
     removeSkillInputSchema.safeParse({
       workspace: "LOR-MCP",
-    }).success,
-    false,
-  );
-  assertEquals(
-    removeAgentInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: " ",
     }).success,
     false,
   );
@@ -888,13 +660,6 @@ Deno.test("generateAgentPromptInputSchema requires workspace and role", () => {
 
 Deno.test("typed list and detail schemas accept type-specific keys", () => {
   assertEquals(
-    listAgentsInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      projectName: "Local Orchestration Router (LOR)",
-    }).success,
-    true,
-  );
-  assertEquals(
     listSkillsInputSchema.safeParse({
       workspace: "LOR-MCP",
       scope: "global",
@@ -905,13 +670,6 @@ Deno.test("typed list and detail schemas accept type-specific keys", () => {
     listSubagentsInputSchema.safeParse({
       workspace: "LOR-MCP",
       scope: "workspace",
-    }).success,
-    true,
-  );
-  assertEquals(
-    getAgentDetailInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
     }).success,
     true,
   );
@@ -932,11 +690,10 @@ Deno.test("typed matching schemas accept task and hints", () => {
     specialtyHints: ["backend"],
   };
 
-  assertEquals(findMatchingAgentInputSchema.safeParse(input).success, true);
   assertEquals(findMatchingSkillInputSchema.safeParse(input).success, true);
   assertEquals(findMatchingSubagentInputSchema.safeParse(input).success, true);
   assertEquals(
-    findMatchingAgentInputSchema.safeParse({
+    findMatchingSkillInputSchema.safeParse({
       workspace: "LOR-MCP",
       specialtyHints: ["backend"],
     }).success,
