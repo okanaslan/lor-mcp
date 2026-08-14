@@ -89,6 +89,24 @@ Deno.test("LocalSkillSync rejects missing files and path-shaped skill names", as
   );
 });
 
+Deno.test("LocalSkillSync inventories local skill names from configured roots", async () => {
+  const { root } = await createSkillFile("backend-skill", "# Backend Skill\n");
+  await Deno.mkdir(join(root, "frontend-skill"), { recursive: true });
+  await Deno.writeTextFile(
+    join(root, "frontend-skill", "SKILL.md"),
+    "# Frontend Skill\n",
+  );
+  await Deno.mkdir(join(root, "not-a-skill"), { recursive: true });
+  const sync = new LocalSkillSync({ skillRoots: [root] });
+
+  const inventory = await sync.inventory();
+
+  assertEquals(sync.configuredRootCount, 1);
+  assertEquals(inventory.skillNames, ["backend-skill", "frontend-skill"]);
+  assertEquals(await sync.hasSkillFile("backend-skill"), true);
+  assertEquals(await sync.hasSkillFile("missing-skill"), false);
+});
+
 async function createSkillFile(
   skillName: string,
   content: string,

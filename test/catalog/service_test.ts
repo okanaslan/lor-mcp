@@ -2200,9 +2200,76 @@ Deno.test("CatalogService reports workspace diagnostics without listing entries"
     assertEquals(diagnostics.storageStatus.configured, true);
     assertEquals(diagnostics.storageStatus.reachable, true);
     assertEquals(diagnostics.runtimeStatus.transport, "mcp");
+    assertEquals(diagnostics.localContext.agentsMd.status, "missing");
+    assertEquals(
+      diagnostics.localContext.skills.registeredSkillsWithoutLocalFile,
+      ["backend-skill"],
+    );
     assertEquals(diagnostics.checkedAt, FIXED_NOW);
     assertEquals(JSON.stringify(diagnostics).includes("Backend Agent"), false);
-    assertEquals(JSON.stringify(diagnostics).includes("backend-skill"), false);
+    assertEquals(JSON.stringify(diagnostics).includes("Backend Skill"), false);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService reports local skill and AGENTS alignment in diagnostics", async () => {
+  const local = await createSkillFileForService("backend-skill");
+  await Deno.mkdir(join(local.root, "local-only-skill"), { recursive: true });
+  await Deno.writeTextFile(
+    join(local.root, "local-only-skill", "SKILL.md"),
+    "# Local Only Skill\n",
+  );
+  const workspace = await Deno.makeTempDir();
+  await Deno.writeTextFile(join(workspace, "AGENTS.md"), "# Instructions\n");
+  const { repo, service } = await createCatalogService({
+    skillRoots: [local.root],
+  });
+  try {
+    await service.introduceSkill({
+      workspace,
+      skillName: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+    await service.introduceSkill({
+      workspace,
+      skillName: "missing-local-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Missing Local Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["api"],
+    });
+
+    const diagnostics = await service.getWorkspaceDiagnostics({ workspace });
+
+    assertEquals(diagnostics.localContext.agentsMd.status, "present");
+    assertEquals(diagnostics.localContext.skills.configuredRoots, 1);
+    assertEquals(diagnostics.localContext.skills.discoveredSkillNames, [
+      "backend-skill",
+      "local-only-skill",
+    ]);
+    assertEquals(
+      diagnostics.localContext.skills.registeredSkillsWithLocalFile,
+      ["backend-skill"],
+    );
+    assertEquals(
+      diagnostics.localContext.skills.registeredSkillsWithoutLocalFile,
+      ["missing-local-skill"],
+    );
+    assertEquals(
+      diagnostics.localContext.skills.unregisteredLocalSkillNames,
+      ["local-only-skill"],
+    );
+    assertEquals(
+      diagnostics.localContext.recommendedActions.includes(
+        "Resolve registered LOR skills that do not have matching local SKILL.md files in configured skill roots.",
+      ),
+      true,
+    );
+    assertEquals(JSON.stringify(diagnostics).includes(local.root), false);
   } finally {
     repo.close();
   }
@@ -2227,6 +2294,7 @@ Deno.test("CatalogService returns sanitized workspace diagnostics when storage i
   });
   assertEquals(diagnostics.storageStatus.configured, true);
   assertEquals(diagnostics.storageStatus.reachable, false);
+  assertEquals(diagnostics.localContext.agentsMd.status, "not_inspected");
   assertEquals(
     diagnostics.storageStatus.message,
     "Catalog storage is not reachable.",

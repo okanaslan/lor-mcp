@@ -700,6 +700,25 @@ export interface WorkspaceDiagnosticsRuntimeStatus {
   activeHttpSessions?: number;
 }
 
+export interface WorkspaceDiagnosticsAgentsMdStatus {
+  status: "present" | "missing" | "not_inspected";
+  instruction: string;
+}
+
+export interface WorkspaceDiagnosticsLocalSkillStatus {
+  configuredRoots: number;
+  discoveredSkillNames: readonly string[];
+  registeredSkillsWithLocalFile: readonly string[];
+  registeredSkillsWithoutLocalFile: readonly string[];
+  unregisteredLocalSkillNames: readonly string[];
+}
+
+export interface WorkspaceDiagnosticsLocalContext {
+  agentsMd: WorkspaceDiagnosticsAgentsMdStatus;
+  skills: WorkspaceDiagnosticsLocalSkillStatus;
+  recommendedActions: readonly string[];
+}
+
 export interface WorkspaceDiagnosticsReport {
   inputWorkspace: string;
   resolvedWorkspace: string;
@@ -707,6 +726,7 @@ export interface WorkspaceDiagnosticsReport {
   catalogCounts: WorkspaceCatalogCounts;
   storageStatus: WorkspaceDiagnosticsStorageStatus;
   runtimeStatus: WorkspaceDiagnosticsRuntimeStatus;
+  localContext: WorkspaceDiagnosticsLocalContext;
   checkedAt: string;
 }
 

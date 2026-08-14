@@ -54,6 +54,8 @@ The main user flows are:
   Codex agents.
 - Use agent reachability metadata before manual Codex-native handoff.
 - Use diagnostics and workspace memory tools.
+- Use diagnostics to compare local Codex skill files and `AGENTS.md` presence
+  with LOR-registered skill metadata.
 - Retire replaced agents while keeping their catalog records inspectable.
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed

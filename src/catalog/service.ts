@@ -81,6 +81,7 @@ import {
   type WorkspaceCatalogSyncInput,
   type WorkspaceCatalogSyncPreview,
   type WorkspaceDiagnosticsInput,
+  type WorkspaceDiagnosticsLocalContext,
   type WorkspaceDiagnosticsReport,
   type WorkspaceNote,
   type WorkspaceNoteSummary,
@@ -123,6 +124,7 @@ import { findCatalogMatches } from "@src/catalog/matcher.ts";
 import { LorError } from "@src/errors.ts";
 import { LocalSkillSync } from "@src/skills/local_skill_sync.ts";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
+import { isAbsolute, join } from "@std/path";
 
 interface CatalogServiceOptions {
   repository: CatalogRepository;
@@ -1262,6 +1264,7 @@ export class CatalogService {
         runtimeStatus: {
           transport: "mcp",
         },
+        localContext: await this.localContextDiagnostics(workspace, entries),
         checkedAt,
       };
     } catch {
@@ -1278,6 +1281,7 @@ export class CatalogService {
         runtimeStatus: {
           transport: "mcp",
         },
+        localContext: emptyLocalContextDiagnostics(),
         checkedAt,
       };
     }
@@ -1586,6 +1590,68 @@ export class CatalogService {
       ...validated,
       now: this.#now(),
     });
+  }
+
+  private async localContextDiagnostics(
+    workspace: string,
+    entries: readonly CatalogEntry[],
+  ): Promise<WorkspaceDiagnosticsLocalContext> {
+    const registeredSkills = entries.filter((
+      entry,
+    ): entry is SkillCatalogEntry => entry.entryType === "skill");
+    const inventory = await this.safeLocalSkillInventory();
+    const discoveredSkillNames = [...inventory];
+    const registeredSkillsWithLocalFile: string[] = [];
+    const registeredSkillsWithoutLocalFile: string[] = [];
+
+    for (const skill of registeredSkills) {
+      if (await this.safeHasSkillFile(skill.skillName)) {
+        registeredSkillsWithLocalFile.push(skill.skillName);
+      } else {
+        registeredSkillsWithoutLocalFile.push(skill.skillName);
+      }
+    }
+
+    const registeredSkillNames = new Set(
+      registeredSkills.map((skill) => skill.skillName),
+    );
+    const unregisteredLocalSkillNames = discoveredSkillNames.filter((name) =>
+      !registeredSkillNames.has(name)
+    );
+    const agentsMd = await agentsMdStatus(workspace);
+
+    return {
+      agentsMd,
+      skills: {
+        configuredRoots: this.#localSkillSync.configuredRootCount,
+        discoveredSkillNames,
+        registeredSkillsWithLocalFile: registeredSkillsWithLocalFile.sort(),
+        registeredSkillsWithoutLocalFile: registeredSkillsWithoutLocalFile
+          .sort(),
+        unregisteredLocalSkillNames,
+      },
+      recommendedActions: localContextRecommendedActions({
+        agentsMdStatus: agentsMd.status,
+        registeredSkillsWithoutLocalFile,
+        unregisteredLocalSkillNames,
+      }),
+    };
+  }
+
+  private async safeLocalSkillInventory(): Promise<readonly string[]> {
+    try {
+      return (await this.#localSkillSync.inventory()).skillNames;
+    } catch {
+      return [];
+    }
+  }
+
+  private async safeHasSkillFile(skillName: string): Promise<boolean> {
+    try {
+      return await this.#localSkillSync.hasSkillFile(skillName);
+    } catch {
+      return false;
+    }
   }
 
   private async resolveWorkspace(
@@ -2296,6 +2362,95 @@ function emptyCatalogCounts(): {
     skills: 0,
     subagents: 0,
   };
+}
+
+function emptyLocalContextDiagnostics(): WorkspaceDiagnosticsLocalContext {
+  return {
+    agentsMd: {
+      status: "not_inspected",
+      instruction:
+        "Local context was not inspected because catalog storage was unavailable.",
+    },
+    skills: {
+      configuredRoots: 0,
+      discoveredSkillNames: [],
+      registeredSkillsWithLocalFile: [],
+      registeredSkillsWithoutLocalFile: [],
+      unregisteredLocalSkillNames: [],
+    },
+    recommendedActions: [
+      "Restore catalog storage before relying on local skill or AGENTS.md diagnostics.",
+    ],
+  };
+}
+
+async function agentsMdStatus(
+  workspace: string,
+): Promise<WorkspaceDiagnosticsLocalContext["agentsMd"]> {
+  if (!isAbsolute(workspace)) {
+    return {
+      status: "not_inspected",
+      instruction:
+        "Workspace is not an absolute path, so LOR cannot safely inspect AGENTS.md. Read local repository instructions manually.",
+    };
+  }
+
+  try {
+    const stat = await Deno.stat(join(workspace, "AGENTS.md"));
+    return {
+      status: stat.isFile ? "present" : "missing",
+      instruction: stat.isFile
+        ? "Read AGENTS.md before changing files."
+        : "No AGENTS.md file was found at the workspace root. Read nearby instructions manually or add AGENTS.md if this workspace needs durable guidance.",
+    };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return {
+        status: "missing",
+        instruction:
+          "No AGENTS.md file was found at the workspace root. Read nearby instructions manually or add AGENTS.md if this workspace needs durable guidance.",
+      };
+    }
+    return {
+      status: "not_inspected",
+      instruction:
+        "AGENTS.md could not be inspected. Continue from visible repository instructions and report the limitation.",
+    };
+  }
+}
+
+function localContextRecommendedActions(input: {
+  agentsMdStatus: WorkspaceDiagnosticsLocalContext["agentsMd"]["status"];
+  registeredSkillsWithoutLocalFile: readonly string[];
+  unregisteredLocalSkillNames: readonly string[];
+}): string[] {
+  const actions: string[] = [];
+  if (input.agentsMdStatus === "missing") {
+    actions.push(
+      "Add a workspace AGENTS.md or document which existing local instructions agents should read.",
+    );
+  } else if (input.agentsMdStatus === "not_inspected") {
+    actions.push(
+      "Confirm local repository instructions manually before starting implementation.",
+    );
+  }
+
+  if (input.registeredSkillsWithoutLocalFile.length > 0) {
+    actions.push(
+      "Resolve registered LOR skills that do not have matching local SKILL.md files in configured skill roots.",
+    );
+  }
+  if (input.unregisteredLocalSkillNames.length > 0) {
+    actions.push(
+      "Register useful local Codex skills in LOR so task initialization can recommend them.",
+    );
+  }
+  if (actions.length === 0) {
+    actions.push(
+      "Local instruction and skill metadata alignment looks usable; keep it current as skills change.",
+    );
+  }
+  return actions;
 }
 
 function toWorkspaceNoteSummary(note: WorkspaceNote): WorkspaceNoteSummary {

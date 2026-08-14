@@ -87,7 +87,7 @@ Implemented in the runnable local 2.0.0 server:
 - Delegated task lifecycle and follow-up/result retrieval internals exist for
   compatibility, but V2 hides those tools from the normal public MCP surface.
 - Workspace diagnostics is implemented for read-only alias, catalog count, and
-  sanitized setup visibility.
+  sanitized setup visibility, including local skill and `AGENTS.md` alignment.
 - HTTP discovery probe logging cleanup is implemented so expected auth discovery
   `404` responses log below warning severity without adding fake auth endpoints.
 - Workspace memory is implemented as durable workspace-scoped notes outside the
@@ -237,8 +237,9 @@ Latest implementation verification:
   subagent coverage, project/specialty coverage, readiness status, and
   recommended actions.
 - [V2 Local Skill And AGENTS.md Integration](feature-specs/v2-local-skill-and-agents-integration.md):
-  Planned. Clarify local Codex skills, LOR skill metadata, and `AGENTS.md`
-  responsibilities.
+  Implemented. `get_workspace_diagnostics` reports local `AGENTS.md` status,
+  configured local skill roots, unregistered local skills, registered LOR skills
+  without matching local files, and recommended actions.
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can

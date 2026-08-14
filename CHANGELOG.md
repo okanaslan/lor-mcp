@@ -25,6 +25,8 @@ The project follows Semantic Versioning:
   matching skills, subagents, next steps, and failure guidance.
 - Extend `check_catalog_health` with skill/subagent coverage metrics, status,
   and recommended actions.
+- Extend `get_workspace_diagnostics` with local `AGENTS.md` status and local
+  Codex skill/LOR skill alignment reporting.
 
 ## [2.0.0] - 2026-08-06
 

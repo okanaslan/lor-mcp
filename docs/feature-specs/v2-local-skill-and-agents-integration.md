@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Planned for V2. This feature clarifies how LOR should work with local Codex
+Implemented for V2. This feature clarifies how LOR should work with local Codex
 skills and local `AGENTS.md` instructions. The goal is a clean division between
 filesystem-based Codex guidance and LOR's workspace catalog metadata.
 
@@ -75,3 +75,9 @@ may add local inventory snapshots or AGENTS.md sync proposals.
 
 - 2026-08-14: Plan V2 to clarify local skills, LOR skill metadata, and
   `AGENTS.md` responsibilities.
+- 2026-08-14: Extend `get_workspace_diagnostics` with read-only local context
+  reporting for `AGENTS.md`, configured local skill roots, unregistered local
+  skills, and registered LOR skills without matching local `SKILL.md` files.
+- 2026-08-14: Keep `AGENTS.md` manually maintained in this pass. LOR reports
+  whether it is present and provides guidance, but does not generate, augment,
+  or rewrite it.

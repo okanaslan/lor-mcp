@@ -22,11 +22,19 @@ export interface LocalSkillSyncApplyResult extends LocalSkillSyncPreview {
   written: boolean;
 }
 
+export interface LocalSkillInventory {
+  skillNames: readonly string[];
+}
+
 export class LocalSkillSync {
   readonly #skillRoots: readonly string[];
 
   constructor(options: LocalSkillSyncOptions) {
     this.#skillRoots = options.skillRoots;
+  }
+
+  get configuredRootCount(): number {
+    return this.#skillRoots.length;
   }
 
   async preview(entry: SkillCatalogEntry): Promise<LocalSkillSyncPreview> {
@@ -89,6 +97,40 @@ export class LocalSkillSync {
       "Skill file was not found in the configured skill roots.",
       { skillName },
     );
+  }
+
+  async hasSkillFile(skillName: string): Promise<boolean> {
+    try {
+      await this.resolveSkillFile(skillName);
+      return true;
+    } catch (error) {
+      if (error instanceof LorError && error.code === "not_found") {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  async inventory(): Promise<LocalSkillInventory> {
+    const skillNames = new Set<string>();
+    for (const root of this.#skillRoots) {
+      const rootPath = await realPathOrUndefined(root);
+      if (!rootPath) {
+        continue;
+      }
+      for await (const entry of Deno.readDir(rootPath)) {
+        if (!entry.isDirectory) {
+          continue;
+        }
+        const skillFile = await realPathOrUndefined(
+          join(rootPath, entry.name, "SKILL.md"),
+        );
+        if (skillFile && isWithinRoot(rootPath, skillFile)) {
+          skillNames.add(entry.name);
+        }
+      }
+    }
+    return { skillNames: [...skillNames].sort() };
   }
 }
 

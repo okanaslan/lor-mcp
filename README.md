@@ -24,6 +24,8 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 - Tool surface: type-specific agent, skill, and subagent tools, plus catalog
   import/export, workspace sync, diagnostics, prompt helpers, and workspace
   memory.
+- Local context: diagnostics report `AGENTS.md` status and local Codex skill
+  alignment without rewriting local instruction files.
 
 ## Runtime
 
@@ -122,8 +124,10 @@ Then call prepare_agent_initialization for the current task.
 ```
 
 Use `get_workspace_diagnostics` when a workspace path, folder-name alias, or
-older slug may be resolving to the wrong catalog. Use `check_catalog_health` to
-inspect stored verification metadata for registered agents and skills.
+older slug may be resolving to the wrong catalog, or when you need to compare
+local Codex skills with LOR-registered skill metadata. Use
+`check_catalog_health` to inspect stored verification metadata and
+skill/subagent coverage.
 
 ### Route Work
 

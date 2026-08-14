@@ -755,6 +755,10 @@ Deno.test("HTTP MCP handler calls get_workspace_diagnostics", async () => {
     );
     assertEquals(body.result.structuredContent.data.catalogCounts.agents, 1);
     assertEquals(
+      body.result.structuredContent.data.localContext.agentsMd.status,
+      "missing",
+    );
+    assertEquals(
       JSON.stringify(body.result.structuredContent.data).includes(
         "Backend Agent",
       ),
