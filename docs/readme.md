@@ -12,16 +12,13 @@ reusable workspace/global prompt profiles for small, scoped delegation without
 requiring a registered Codex agent session.
 
 Reachability metadata distinguishes catalog-only registered agents from agents
-known reachable through Codex-native dispatch outcomes. This is the foundation
-for later delegated task lifecycle tools.
-
-Delegated task lifecycle tools now create durable task records, store
-task-scoped follow-up messages, return results when recorded, and can use a
-host-provided dispatcher when one is available. Workspace diagnostics reports
-resolved aliases, catalog counts, and sanitized setup status without listing
-catalog entries. Workspace memory stores small durable notes outside the routing
-catalog. Expected HTTP auth discovery probe `404` responses are logged below
-warning severity while unrelated `4xx` responses remain warnings.
+known reachable through Codex-native dispatch outcomes. V2 keeps manual prompt
+helpers available, while delegated task lifecycle internals are hidden from the
+normal public MCP surface. Workspace diagnostics reports resolved aliases,
+catalog counts, and sanitized setup status without listing catalog entries.
+Workspace memory stores small durable notes outside the routing catalog.
+Expected HTTP auth discovery probe `404` responses are logged below warning
+severity while unrelated `4xx` responses remain warnings.
 
 ## Contents
 
@@ -29,6 +26,8 @@ warning severity while unrelated `4xx` responses remain warnings.
 - `../VERSION`: current project version.
 - `versioning.md`: versioning and changelog rules.
 - `roadmap.md`: high-level feature roadmap and current implementation status.
+- `v2/`: next-direction planning notes from feedback about task-oriented agents,
+  skill/subagent support, local skills, and local `AGENTS.md`.
 - `feature-specs/`: product behavior specs for implemented and planned features.
 - `use-cases/`: workflow and scenario documents linked from feature specs.
 - `tech-specs/`: technical design notes, implementation decisions, and
@@ -51,9 +50,8 @@ The main user flows are:
   type-specific matching tools.
 - Fetch typed details and prepare handoff or regeneration prompts for registered
   Codex agents.
-- Use agent reachability metadata before direct delegated task dispatch.
-- Use delegated task lifecycle, follow-up/result, diagnostics, and workspace
-  memory tools.
+- Use agent reachability metadata before manual Codex-native handoff.
+- Use diagnostics and workspace memory tools.
 - Retire replaced agents while keeping their catalog records inspectable.
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed
@@ -81,3 +79,5 @@ preview first, then apply with `confirm: true`.
   public MCP tool surface changes.
 - Keep planned-tool language explicit so future docs do not imply unimplemented
   MCP tools are available.
+- Keep V2 planning docs separate from current implementation docs until scope is
+  accepted for implementation.

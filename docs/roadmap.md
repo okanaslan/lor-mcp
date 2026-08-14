@@ -57,11 +57,6 @@ Implemented in the runnable local 2.0.0 server:
   - `get_workspace_note`
   - `remove_workspace_note`
   - `prepare_agent_handoff`
-  - `send_agent_task`
-  - `get_agent_task_status`
-  - `list_active_tasks`
-  - `append_agent_context`
-  - `get_agent_task_result`
   - `prepare_agent_regeneration`
   - `generate_agent_prompt`
   - `find_matching_agent`
@@ -156,14 +151,12 @@ Latest implementation verification:
   planning is tracked in
   [Agent Reachability And Dispatch Model](tech-specs/done/agent-reachability-and-dispatch-model.md).
 - [Delegated Agent Task Lifecycle](feature-specs/delegated-agent-task-lifecycle.md):
-  Implemented. Defines `send_agent_task`, `get_agent_task_status`, and
-  `list_active_tasks` for workspace-scoped delegated work sent or queued for
-  registered agents. Technical planning is tracked in
+  Implemented internally in 2.0.0, then hidden from the normal public MCP
+  surface by V2 tool-surface simplification. Technical planning is tracked in
   [Delegated Agent Task Lifecycle](tech-specs/done/delegated-agent-task-lifecycle.md).
 - [Agent Task Follow-Up And Result Collection](feature-specs/agent-task-follow-up-and-result-collection.md):
-  Implemented. Defines `append_agent_context` and `get_agent_task_result` for
-  delegated task follow-up and result retrieval. Technical planning is tracked
-  in
+  Implemented internally in 2.0.0, then hidden from the normal public MCP
+  surface by V2 tool-surface simplification. Technical planning is tracked in
   [Agent Task Follow-Up And Result Collection](tech-specs/done/agent-task-follow-up-and-result-collection.md).
 - [Workspace Memory Primitives](feature-specs/workspace-memory-primitives.md):
   Implemented. Defines lightweight workspace notes for branch plans, review
@@ -227,6 +220,22 @@ Latest implementation verification:
 
 ## Next
 
+- V2 direction planning is tracked in [V2 Direction](v2/readme.md) and
+  [V2 Feedback Summary](v2/feedback-summary.md). The current proposed V2 shift
+  is to reduce task-management and agent-communication tooling, focus on
+  short-lived task-oriented agents, and strengthen skill/subagent readiness.
+- [V2 Tool Surface Simplification](feature-specs/v2-tool-surface-simplification.md):
+  Implemented. Task lifecycle tools are hidden from the normal public MCP
+  surface while prompt helpers remain available.
+- [V2 Agent Initialization Context](feature-specs/v2-agent-initialization-context.md):
+  Planned. Generate short-lived task-agent startup context from task, relevant
+  skills, subagents, local instructions, next steps, and failure guidance.
+- [V2 Skill And Subagent Coverage Health](feature-specs/v2-skill-and-subagent-coverage-health.md):
+  Planned. Add coverage metrics and recommended actions for registered skills
+  and subagents.
+- [V2 Local Skill And AGENTS.md Integration](feature-specs/v2-local-skill-and-agents-integration.md):
+  Planned. Clarify local Codex skills, LOR skill metadata, and `AGENTS.md`
+  responsibilities.
 - Keep feature specs aligned with client-supplied canonical `workspace` scoping,
   workspace alias resolution, and the Streamable HTTP runtime.
 - Formalize the Codex-native dispatch pattern for registered agents. LOR can

@@ -1,11 +1,10 @@
 # Local Orchestration Router (LOR) MCP Server
 
-Local Orchestration Router (LOR) is a local MCP server that acts as a catalog
-and task manager for Codex agents, skills, and reusable subagent prompt
-profiles. It lets a configured workspace register known entries, store routing
-metadata, find relevant catalog entries for a task, prepare agent handoff
-prompts, manage delegated agent tasks, and improve registered skill context over
-time.
+Local Orchestration Router (LOR) is a local MCP server that acts as a catalog,
+prompt, and workspace-readiness layer for Codex agents, skills, and reusable
+subagent prompt profiles. It lets a configured workspace register known entries,
+store routing metadata, find relevant catalog entries for a task, prepare manual
+prompts, and improve registered skill context over time.
 
 The current implementation is a Deno TypeScript MCP server that runs as a local
 Streamable HTTP server for Codex, with stdio kept as a compatibility and
@@ -23,7 +22,7 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 - Catalog scope: caller-supplied `workspace`, resolved through canonical
   workspace paths and registered aliases.
 - Tool surface: type-specific agent, skill, and subagent tools, plus catalog
-  import/export, workspace sync, diagnostics, delegated tasks, and workspace
+  import/export, workspace sync, diagnostics, prompt helpers, and workspace
   memory.
 
 ## Runtime
@@ -107,9 +106,9 @@ download/cache that library on first use.
 
 ## Daily Usage
 
-Use LOR as a local routing, task-management, and workspace-knowledge layer for
-Codex. Every catalog, task, and memory call should include the caller's
-`workspace` so LOR can resolve aliases and keep data isolated by project.
+Use LOR as a local routing, prompt, and workspace-knowledge layer for Codex.
+Every catalog, prompt, and memory call should include the caller's `workspace`
+so LOR can resolve aliases and keep data isolated by project.
 
 ### Start A Workspace Session
 
@@ -133,8 +132,7 @@ Use routing when deciding who or what should handle a task:
 1. `find_matching_agent`, `find_matching_skill`, or `find_matching_subagent`
 2. `get_agent_detail`, `get_skill_detail`, or `get_subagent_detail`
 3. `prepare_agent_handoff` when a registered agent should receive work
-4. Codex-native thread communication using the registered `codexSessionId`, or
-   `send_agent_task` when using LOR's delegated task lifecycle
+4. Codex-native thread communication using the registered `codexSessionId`
 
 Reachability metadata makes agent results clearer by showing whether a
 recommended registered agent is only a catalog entry, unknown, reachable, or
@@ -143,21 +141,6 @@ known unreachable.
 Use `list_agents`, `list_skills`, and `list_subagents` when browsing by entry
 family. `get_subagent_detail` returns the rendered prompt for a subagent
 profile.
-
-### Manage Delegated Tasks
-
-Use delegated task tools when the work should be tracked as a task record rather
-than only a one-off handoff prompt:
-
-1. `send_agent_task` to create and dispatch or queue the task.
-2. `get_agent_task_status` to inspect one task.
-3. `list_active_tasks` to see open delegated work for a workspace or agent.
-4. `append_agent_context` to add follow-up context while the task is open.
-5. `get_agent_task_result` to retrieve a recorded result, or status-only data
-   until a result exists.
-
-The local runtime queues manual delivery instructions when no Codex-native
-dispatcher is injected.
 
 ### Refresh Or Replace Agents
 
@@ -183,8 +166,7 @@ other workspaces. Global skills are included in list and match by default.
 
 ### Remember Workspace Context
 
-Use workspace memory for small coordination notes that are not routing metadata
-and are not tied to one delegated task:
+Use workspace memory for small coordination notes that are not routing metadata:
 
 1. `remember_workspace_note` for branch plans, review summaries, migration
    notes, or reapply instructions.
@@ -220,7 +202,6 @@ flowchart RL
   agents["AGENTS"]
   skills["SKILLS"]
   subagents["SUBAGENTS"]
-  task["TASK"]
 
   catalog --> agents
   catalog --> skills
@@ -230,7 +211,6 @@ flowchart RL
   introduceAgent --> agents
   agents --> handoff["prepare_agent_handoff"]
   agents --> regeneration["prepare_agent_regeneration"]
-  handoff --> sendAgentTask["send_agent_task"]
   regeneration --> introduceAgent
   retireAgent["retire_agent"] --> agents
 
@@ -281,14 +261,6 @@ flowchart RL
   getAgent --> agents
   getSkill --> skills
   getSubagent --> subagents
-
-  sendAgentTask --> task
-  task --> getAgentTaskStatus["get_agent_task_status"]
-  task --> listActiveTasks["list_active_tasks"]
-  task --> appendAgentContext["append_agent_context"]
-  task --> getAgentTaskResult["get_agent_task_result"]
-  appendAgentContext --> task
-  getAgentTaskResult --> task
 ```
 
 ## Capability Details
@@ -316,16 +288,11 @@ flowchart RL
 
 ### Agent Orchestration
 
-- Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
-  tools remain responsible for sending work to registered Codex sessions.
+- Handoff: LOR prepares ready-to-send handoff prompts; Codex-native thread tools
+  remain responsible for sending work to registered Codex sessions.
 - Reachability model: LOR distinguishes catalog-only agents from agents known
   reachable through Codex-native dispatch outcomes and uses that state in
-  delegated task flows.
-- Delegated task lifecycle: LOR can create workspace-scoped delegated task
-  records, send through an injected Codex-native dispatcher when available, or
-  queue tasks with manual delivery instructions in the local runtime.
-- Follow-up and result retrieval: LOR stores task-scoped follow-up messages and
-  returns status-only results until a delegated task result is recorded.
+  handoff guidance.
 
 ### Skill And Workspace Knowledge
 
