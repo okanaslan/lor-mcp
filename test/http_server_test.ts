@@ -690,6 +690,14 @@ Deno.test("HTTP MCP handler calls check_catalog_health", async () => {
       skills: 1,
     });
     assertEquals(
+      body.result.structuredContent.data.coverage.coverageStatus,
+      "low_coverage",
+    );
+    assertEquals(
+      body.result.structuredContent.data.coverage.workspaceSkillCount,
+      1,
+    );
+    assertEquals(
       body.result.structuredContent.data.entries[0].entryKey,
       "backend-skill",
     );

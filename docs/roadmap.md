@@ -71,8 +71,10 @@ Implemented in the runnable local 2.0.0 server:
   workspace-scoped.
 - Subagent suggestions are implemented for reusable prompt profiles with
   workspace/global scope. Workspace and global subagents are included in
-  `list_subagents` and `find_matching_subagent` by default, while health checks
-  remain agent/skill-only.
+  `list_subagents` and `find_matching_subagent` by default.
+- `check_catalog_health` includes skill/subagent coverage metrics, project and
+  specialty coverage, coverage status, and recommended actions for improving
+  task-initialization readiness.
 - Agent replacement uses immutable session identity: new agents register as
   active records, old records can be marked retired, and matching excludes
   retired agents by default.
@@ -82,10 +84,8 @@ Implemented in the runnable local 2.0.0 server:
 - Dispatch boundary: LOR prepares agent handoff prompts and stores
   `codexSessionId`; Codex-native thread tools send the prompt to reachable
   registered sessions.
-- Delegated task lifecycle and follow-up/result retrieval are implemented with
-  durable task records, task-scoped messages, adapter-backed dispatch outcomes
-  when available, and queued manual delivery when the local runtime has no
-  Codex-native dispatcher.
+- Delegated task lifecycle and follow-up/result retrieval internals exist for
+  compatibility, but V2 hides those tools from the normal public MCP surface.
 - Workspace diagnostics is implemented for read-only alias, catalog count, and
   sanitized setup visibility.
 - HTTP discovery probe logging cleanup is implemented so expected auth discovery
@@ -233,8 +233,9 @@ Latest implementation verification:
   startup context from task, relevant skills, subagents, local instruction
   guidance, next steps, and failure guidance.
 - [V2 Skill And Subagent Coverage Health](feature-specs/v2-skill-and-subagent-coverage-health.md):
-  Planned. Add coverage metrics and recommended actions for registered skills
-  and subagents.
+  Implemented. `check_catalog_health` returns workspace/global skill and
+  subagent coverage, project/specialty coverage, readiness status, and
+  recommended actions.
 - [V2 Local Skill And AGENTS.md Integration](feature-specs/v2-local-skill-and-agents-integration.md):
   Planned. Clarify local Codex skills, LOR skill metadata, and `AGENTS.md`
   responsibilities.

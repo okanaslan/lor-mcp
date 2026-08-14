@@ -642,6 +642,27 @@ export interface CatalogHealthSummary {
   skills: number;
 }
 
+export type CoverageStatus = "healthy" | "needs_attention" | "low_coverage";
+
+export interface CatalogCoverageDimension {
+  name: string;
+  skills: number;
+  subagents: number;
+}
+
+export interface CatalogCoverageHealth {
+  workspaceSkillCount: number;
+  globalSkillCount: number;
+  workspaceSubagentCount: number;
+  globalSubagentCount: number;
+  skillCount: number;
+  subagentCount: number;
+  projectCoverage: CatalogCoverageDimension[];
+  specialtyCoverage: CatalogCoverageDimension[];
+  coverageStatus: CoverageStatus;
+  recommendedActions: string[];
+}
+
 export interface CatalogHealthReport {
   checkedAt: string;
   workspace: string;
@@ -652,6 +673,7 @@ export interface CatalogHealthReport {
     entryKey?: string;
   };
   summary: CatalogHealthSummary;
+  coverage: CatalogCoverageHealth;
   entries: CatalogHealthEntry[];
 }
 

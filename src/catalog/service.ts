@@ -7,6 +7,8 @@ import {
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type ApplyWorkspaceCatalogSyncInput,
+  type CatalogCoverageDimension,
+  type CatalogCoverageHealth,
   type CatalogEntry,
   type CatalogEntryUpdate,
   type CatalogExport,
@@ -1211,6 +1213,11 @@ export class CatalogService {
     const healthEntries = filteredEntries.filter(isHealthEntry).map(
       toHealthEntry,
     );
+    const coverageEntries = await this.#repository.listEntries(workspace, {
+      workspace,
+      projectName: validated.projectName,
+      scope: validated.scope,
+    });
 
     return {
       checkedAt: this.#now(),
@@ -1224,6 +1231,7 @@ export class CatalogService {
         entryKey: validated.entryKey,
       },
       summary: summarizeHealth(healthEntries),
+      coverage: summarizeCoverage(coverageEntries),
       entries: healthEntries,
     };
   }
@@ -2116,6 +2124,144 @@ function summarizeHealth(
     agents: entries.filter((entry) => entry.entryType === "agent").length,
     skills: entries.filter((entry) => entry.entryType === "skill").length,
   };
+}
+
+function summarizeCoverage(
+  entries: readonly CatalogEntry[],
+): CatalogCoverageHealth {
+  const skills = entries.filter((entry): entry is SkillCatalogEntry =>
+    entry.entryType === "skill"
+  );
+  const subagents = entries.filter((entry): entry is SubagentCatalogEntry =>
+    entry.entryType === "subagent"
+  );
+  const workspaceSkillCount =
+    skills.filter((entry) => entry.scope === "workspace").length;
+  const globalSkillCount = skills.filter((entry) => entry.scope === "global")
+    .length;
+  const workspaceSubagentCount =
+    subagents.filter((entry) => entry.scope === "workspace").length;
+  const globalSubagentCount =
+    subagents.filter((entry) => entry.scope === "global").length;
+  const skillCount = workspaceSkillCount + globalSkillCount;
+  const subagentCount = workspaceSubagentCount + globalSubagentCount;
+  const coverageStatus = coverageStatusFor({
+    workspaceSkillCount,
+    globalSkillCount,
+    workspaceSubagentCount,
+    globalSubagentCount,
+  });
+
+  return {
+    workspaceSkillCount,
+    globalSkillCount,
+    workspaceSubagentCount,
+    globalSubagentCount,
+    skillCount,
+    subagentCount,
+    projectCoverage: coverageBy(entries, (entry) => entry.projectName),
+    specialtyCoverage: coverageBy(entries, (entry) => entry.primarySpecialty),
+    coverageStatus,
+    recommendedActions: coverageRecommendedActions({
+      workspaceSkillCount,
+      globalSkillCount,
+      workspaceSubagentCount,
+      globalSubagentCount,
+      coverageStatus,
+    }),
+  };
+}
+
+function coverageBy(
+  entries: readonly CatalogEntry[],
+  keyFor: (entry: CatalogEntry) => string,
+): CatalogCoverageDimension[] {
+  const dimensions = new Map<string, CatalogCoverageDimension>();
+  for (const entry of entries) {
+    if (entry.entryType !== "skill" && entry.entryType !== "subagent") {
+      continue;
+    }
+    const key = keyFor(entry);
+    const current = dimensions.get(key) ?? {
+      name: key,
+      skills: 0,
+      subagents: 0,
+    };
+    if (entry.entryType === "skill") {
+      current.skills += 1;
+    } else {
+      current.subagents += 1;
+    }
+    dimensions.set(key, current);
+  }
+
+  return [...dimensions.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function coverageStatusFor(counts: {
+  workspaceSkillCount: number;
+  globalSkillCount: number;
+  workspaceSubagentCount: number;
+  globalSubagentCount: number;
+}): CatalogCoverageHealth["coverageStatus"] {
+  const skillCount = counts.workspaceSkillCount + counts.globalSkillCount;
+  const subagentCount = counts.workspaceSubagentCount +
+    counts.globalSubagentCount;
+  if (skillCount === 0 || subagentCount === 0) {
+    return "low_coverage";
+  }
+  if (
+    counts.workspaceSkillCount === 0 ||
+    counts.workspaceSubagentCount === 0
+  ) {
+    return "needs_attention";
+  }
+  return "healthy";
+}
+
+function coverageRecommendedActions(counts: {
+  workspaceSkillCount: number;
+  globalSkillCount: number;
+  workspaceSubagentCount: number;
+  globalSubagentCount: number;
+  coverageStatus: CatalogCoverageHealth["coverageStatus"];
+}): string[] {
+  const actions: string[] = [];
+  const skillCount = counts.workspaceSkillCount + counts.globalSkillCount;
+  const subagentCount = counts.workspaceSubagentCount +
+    counts.globalSubagentCount;
+
+  if (skillCount === 0) {
+    actions.push(
+      "Register at least one workspace skill with introduce_skill before relying on task initialization.",
+    );
+  } else if (counts.workspaceSkillCount === 0) {
+    actions.push(
+      "Add a workspace-local skill so global skills do not hide missing project-specific guidance.",
+    );
+  }
+
+  if (subagentCount === 0) {
+    actions.push(
+      "Register at least one scoped subagent profile with introduce_subagent for repeatable focused work.",
+    );
+  } else if (counts.workspaceSubagentCount === 0) {
+    actions.push(
+      "Add a workspace-local subagent profile for project-specific scoped delegation.",
+    );
+  }
+
+  if (counts.coverageStatus === "healthy") {
+    actions.push(
+      "Keep skill and subagent metadata current as project responsibilities change.",
+    );
+  } else {
+    actions.push(
+      "Use prepare_agent_initialization to see what context is missing for real tasks.",
+    );
+  }
+
+  return actions;
 }
 
 function countCatalogEntries(

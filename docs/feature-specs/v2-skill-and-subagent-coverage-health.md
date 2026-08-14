@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-Planned for V2. This feature improves workspace health by measuring whether a
-workspace has enough registered skills and subagents to support useful
+Implemented for V2. This feature improves workspace health by measuring whether
+a workspace has enough registered skills and subagents to support useful
 task-oriented agent initialization.
 
 ## 2. Goals
@@ -70,3 +70,9 @@ Conceptual `CoverageHealth` fields:
 
 - 2026-08-14: Plan V2 health around skill and subagent coverage metrics.
 - 2026-08-14: Health should guide registration, not block usage.
+- 2026-08-14: Extend `check_catalog_health` with a non-blocking `coverage` block
+  for skills and subagents instead of adding a separate health tool.
+- 2026-08-14: Use deterministic thresholds: `low_coverage` when either skills or
+  subagents are absent, `needs_attention` when coverage exists only through
+  global entries for a family, and `healthy` when the workspace has at least one
+  workspace-local skill and subagent.

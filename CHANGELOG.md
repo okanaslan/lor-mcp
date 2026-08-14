@@ -23,6 +23,8 @@ The project follows Semantic Versioning:
   keeping manual prompt helpers available.
 - Add `prepare_agent_initialization` for task-oriented startup prompts with
   matching skills, subagents, next steps, and failure guidance.
+- Extend `check_catalog_health` with skill/subagent coverage metrics, status,
+  and recommended actions.
 
 ## [2.0.0] - 2026-08-06
 

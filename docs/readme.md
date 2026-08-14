@@ -59,8 +59,8 @@ The main user flows are:
 - Optionally sync approved skill context into a local `SKILL.md` managed
   section.
 - Export/import portable catalog data, sync workspace skills/subagents, inspect
-  health and diagnostics, and update/remove/clear agents, skills, and subagents
-  with type-specific maintenance tools.
+  health coverage and diagnostics, and update/remove/clear agents, skills, and
+  subagents with type-specific maintenance tools.
 - Introduce subagent prompt profiles for limited-scope work when no existing
   registered agent is appropriate.
 

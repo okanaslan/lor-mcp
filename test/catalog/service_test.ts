@@ -729,7 +729,7 @@ Deno.test("CatalogService keeps export sync and clear workspace-local for global
   }
 });
 
-Deno.test("CatalogService includes subagents in match export import sync remove and excludes health", async () => {
+Deno.test("CatalogService includes subagents in match export import sync remove and coverage", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceSkill({
@@ -838,6 +838,11 @@ Deno.test("CatalogService includes subagents in match export import sync remove 
       agents: 0,
       skills: 1,
     });
+    assertEquals(health.coverage.workspaceSkillCount, 1);
+    assertEquals(health.coverage.globalSkillCount, 0);
+    assertEquals(health.coverage.workspaceSubagentCount, 1);
+    assertEquals(health.coverage.globalSubagentCount, 1);
+    assertEquals(health.coverage.coverageStatus, "healthy");
     assertEquals(health.entries.map((entry) => entry.entryType), ["skill"]);
     assertEquals(removed, {
       workspace: "Source",
@@ -2131,6 +2136,11 @@ Deno.test("CatalogService reports catalog health from stored verification metada
       agents: 1,
       skills: 2,
     });
+    assertEquals(report.coverage.workspaceSkillCount, 2);
+    assertEquals(report.coverage.globalSkillCount, 0);
+    assertEquals(report.coverage.workspaceSubagentCount, 0);
+    assertEquals(report.coverage.globalSubagentCount, 0);
+    assertEquals(report.coverage.coverageStatus, "low_coverage");
     assertEquals(report.entries.map((entry) => entry.entryKey), [
       "agent-1",
       "unknown-skill",
@@ -2369,6 +2379,8 @@ Deno.test("CatalogService filters catalog health by type project and entry key",
       agents: 0,
       skills: 1,
     });
+    assertEquals(report.coverage.workspaceSkillCount, 1);
+    assertEquals(report.coverage.coverageStatus, "low_coverage");
     assertEquals(report.entries.map((entry) => entry.displayName), [
       "Backend Skill",
     ]);
@@ -2392,6 +2404,12 @@ Deno.test("CatalogService returns empty catalog health for empty workspace", asy
       agents: 0,
       skills: 0,
     });
+    assertEquals(report.coverage.coverageStatus, "low_coverage");
+    assertEquals(report.coverage.recommendedActions, [
+      "Register at least one workspace skill with introduce_skill before relying on task initialization.",
+      "Register at least one scoped subagent profile with introduce_subagent for repeatable focused work.",
+      "Use prepare_agent_initialization to see what context is missing for real tasks.",
+    ]);
     assertEquals(report.entries, []);
   } finally {
     repo.close();
