@@ -22,6 +22,7 @@ import {
   type ListActiveTasksInput,
   type ListWorkspaceNotesInput,
   type PrepareAgentHandoffInput,
+  type PrepareAgentInitializationInput,
   type PrepareAgentRegenerationInput,
   type PromoteSkillToGlobalInput,
   type ProposeSkillUpdateInput,
@@ -377,6 +378,19 @@ export function validatePrepareAgentHandoff(
     agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
     task: requireString(input.task, "task"),
     context: context || undefined,
+  };
+}
+
+export function validatePrepareAgentInitialization(
+  input: PrepareAgentInitializationInput,
+): PrepareAgentInitializationInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    task: requireString(input.task, "task"),
+    projectName: input.projectName?.trim() || undefined,
+    specialtyHints: input.specialtyHints === undefined
+      ? undefined
+      : requireStringList(input.specialtyHints, "specialtyHints"),
   };
 }
 

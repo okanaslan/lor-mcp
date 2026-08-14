@@ -39,10 +39,14 @@ import {
   type ListEntriesFilter,
   type ListWorkspaceNotesInput,
   type ListWorkspaceNotesResult,
+  type LocalInstructionSource,
+  type MatchCandidate,
   type MatchRequest,
   type MatchResult,
   type PrepareAgentHandoffInput,
   type PrepareAgentHandoffResult,
+  type PrepareAgentInitializationInput,
+  type PrepareAgentInitializationResult,
   type PrepareAgentRegenerationInput,
   type PrepareAgentRegenerationResult,
   type PromoteSkillToGlobalInput,
@@ -98,6 +102,7 @@ import {
   validateListActiveTasks,
   validateListWorkspaceNotes,
   validatePrepareAgentHandoff,
+  validatePrepareAgentInitialization,
   validatePrepareAgentRegeneration,
   validatePromoteSkillToGlobal,
   validateProposeSkillUpdate,
@@ -1345,6 +1350,56 @@ export class CatalogService {
     };
   }
 
+  async prepareAgentInitialization(
+    input: PrepareAgentInitializationInput,
+  ): Promise<PrepareAgentInitializationResult> {
+    const validated = validatePrepareAgentInitialization(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const matchResult = await this.findMatchingEntries({
+      workspace,
+      task: validated.task,
+      projectName: validated.projectName,
+      specialtyHints: validated.specialtyHints
+        ? [...validated.specialtyHints]
+        : undefined,
+    });
+    const localInstructionSources = defaultLocalInstructionSources();
+    const nextSteps = agentInitializationNextSteps(
+      matchResult.data.skills.length,
+      matchResult.data.subagents.length,
+    );
+    const failureGuidance = agentInitializationFailureGuidance(
+      matchResult.data.skills.length,
+      matchResult.data.subagents.length,
+    );
+
+    return {
+      workspace,
+      task: validated.task,
+      recommendedSkills: matchResult.data.skills,
+      recommendedSubagents: matchResult.data.subagents,
+      localInstructionSources,
+      prompt: renderAgentInitializationPrompt({
+        workspace,
+        task: validated.task,
+        projectName: validated.projectName,
+        specialtyHints: validated.specialtyHints,
+        skills: matchResult.data.skills,
+        subagents: matchResult.data.subagents,
+        localInstructionSources,
+        nextSteps,
+        failureGuidance,
+      }),
+      nextSteps,
+      failureGuidance,
+      delivery: {
+        mode: "manual",
+        instruction:
+          "Paste this prompt into a new or current Codex chat. LOR does not create, message, or steer Codex chats.",
+      },
+    };
+  }
+
   async prepareAgentHandoff(
     input: PrepareAgentHandoffInput,
   ): Promise<PrepareAgentHandoffResult> {
@@ -2124,6 +2179,148 @@ function verificationIssues(entry: CatalogEntry): CatalogHealthIssue[] {
     code: "verification_unknown",
     message: "Stored verification metadata marks this entry as unknown.",
   }];
+}
+
+function defaultLocalInstructionSources(): LocalInstructionSource[] {
+  return [{
+    name: "AGENTS.md",
+    status: "manual_reference",
+    instruction:
+      "Read the nearest AGENTS.md files before editing. If they are unavailable, continue with the repository's visible README, docs, tests, and current code patterns.",
+  }];
+}
+
+function agentInitializationNextSteps(
+  skillCount: number,
+  subagentCount: number,
+): string[] {
+  const steps = [
+    "Read local repository instructions before changing files.",
+    "Use the recommended skills when they are available in the Codex skill list.",
+    "Use recommended subagent profiles as scoped prompt guidance when the task needs a smaller focused helper.",
+    "Keep the task in the current Codex chat unless the user explicitly asks to create or message another chat.",
+    "Report exact files changed and exact verification commands/results.",
+  ];
+
+  if (skillCount === 0) {
+    steps.push(
+      "No registered skills matched; proceed from repository instructions and consider registering useful skills after the task.",
+    );
+  }
+  if (subagentCount === 0) {
+    steps.push(
+      "No registered subagent profiles matched; continue without inventing unavailable subagents.",
+    );
+  }
+
+  return steps;
+}
+
+function agentInitializationFailureGuidance(
+  skillCount: number,
+  subagentCount: number,
+): string[] {
+  const guidance = [
+    "If a recommended local skill is not installed or visible to Codex, continue without it and mention the missing skill in the handoff.",
+    "If local instructions cannot be opened, continue from the visible code/docs and report that limitation.",
+    "If recommended context conflicts with repository instructions or the user's latest request, follow the user's latest request and local repository instructions.",
+  ];
+
+  if (skillCount === 0) {
+    guidance.push(
+      "If skill coverage looks weak, suggest registering a LOR skill after completing the current task.",
+    );
+  }
+  if (subagentCount === 0) {
+    guidance.push(
+      "If the task would benefit from a scoped helper, suggest introducing a reusable subagent profile later.",
+    );
+  }
+
+  return guidance;
+}
+
+function renderAgentInitializationPrompt(input: {
+  workspace: string;
+  task: string;
+  projectName?: string;
+  specialtyHints?: readonly string[];
+  skills: readonly MatchCandidate[];
+  subagents: readonly MatchCandidate[];
+  localInstructionSources: readonly LocalInstructionSource[];
+  nextSteps: readonly string[];
+  failureGuidance: readonly string[];
+}): string {
+  const sections = [
+    "You are a short-lived, task-oriented Codex agent initialized by Local Orchestration Router (LOR).",
+    "",
+    "Workspace:",
+    input.workspace,
+  ];
+
+  if (input.projectName) {
+    sections.push("", "Project hint:", input.projectName);
+  }
+  if (input.specialtyHints?.length) {
+    sections.push("", "Specialty hints:", input.specialtyHints.join(", "));
+  }
+
+  sections.push("", "Task:", input.task);
+
+  sections.push("", "Local instruction guidance:");
+  for (const source of input.localInstructionSources) {
+    sections.push(`- ${source.name}: ${source.instruction}`);
+  }
+
+  sections.push("", "Recommended LOR skills:");
+  if (input.skills.length === 0) {
+    sections.push(
+      "- None matched. Do not invent skills; continue from local instructions and repository context.",
+    );
+  } else {
+    for (const skill of input.skills) {
+      sections.push(
+        `- ${skill.displayName} (${skill.scope}, key: ${skill.entryKey})`,
+        `  Specialty: ${skill.primarySpecialty}`,
+        `  Why: ${skill.explanation.summary}`,
+      );
+      if (skill.skillContext?.whenToUse) {
+        sections.push(`  When to use: ${skill.skillContext.whenToUse}`);
+      }
+    }
+  }
+
+  sections.push("", "Recommended LOR subagent profiles:");
+  if (input.subagents.length === 0) {
+    sections.push(
+      "- None matched. Do not invent subagents; keep the task in this Codex chat unless the user asks otherwise.",
+    );
+  } else {
+    for (const subagent of input.subagents) {
+      sections.push(
+        `- ${subagent.displayName} (${subagent.scope}, key: ${subagent.entryKey})`,
+        `  Purpose: ${subagent.purpose ?? subagent.primarySpecialty}`,
+        `  Scope: ${
+          subagent.limitedScope ?? "Use only for a focused slice of the task."
+        }`,
+        `  Why: ${subagent.explanation.summary}`,
+      );
+    }
+  }
+
+  sections.push(
+    "",
+    "Next steps:",
+    ...input.nextSteps.map((step) => `- ${step}`),
+    "",
+    "Failure guidance:",
+    ...input.failureGuidance.map((item) => `- ${item}`),
+    "",
+    "Boundary:",
+    "LOR prepared this prompt and catalog context only. It did not create, message, dispatch, or steer any Codex chat.",
+  );
+
+  return sections.join("\n");
 }
 
 function renderHandoffTemplate(

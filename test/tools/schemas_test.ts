@@ -30,6 +30,7 @@ import {
   listSubagentsInputSchema,
   listWorkspaceNotesInputSchema,
   prepareAgentHandoffInputSchema,
+  prepareAgentInitializationInputSchema,
   prepareAgentRegenerationInputSchema,
   previewSkillFileSyncInputSchema,
   previewWorkspaceCatalogSyncInputSchema,
@@ -227,6 +228,37 @@ Deno.test("prepareAgentHandoffInputSchema requires workspace agent and task", ()
     prepareAgentHandoffInputSchema.safeParse({
       workspace: "LOR-MCP",
       agentEntryKey: "agent-1",
+    }).success,
+    false,
+  );
+});
+
+Deno.test("prepareAgentInitializationInputSchema requires workspace and task", () => {
+  assertEquals(
+    prepareAgentInitializationInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      task: "Implement backend route",
+      specialtyHints: ["backend"],
+    }).success,
+    true,
+  );
+  assertEquals(
+    prepareAgentInitializationInputSchema.safeParse({
+      task: "Implement backend route",
+    }).success,
+    false,
+  );
+  assertEquals(
+    prepareAgentInitializationInputSchema.safeParse({
+      workspace: "LOR-MCP",
+    }).success,
+    false,
+  );
+  assertEquals(
+    prepareAgentInitializationInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      task: "Implement backend route",
+      specialtyHints: [],
     }).success,
     false,
   );

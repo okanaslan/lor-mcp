@@ -517,6 +517,13 @@ export const prepareAgentHandoffInputSchema = z.object({
   context: z.string().trim().min(1).optional(),
 });
 
+export const prepareAgentInitializationInputSchema = z.object({
+  workspace: workspaceSchema,
+  task: z.string().trim().min(1),
+  projectName: z.string().trim().min(1).optional(),
+  specialtyHints: z.array(z.string().trim().min(1)).min(1).optional(),
+});
+
 export const sendAgentTaskInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -682,6 +689,9 @@ export type RemoveWorkspaceNoteToolInput = z.infer<
 >;
 export type PrepareAgentHandoffToolInput = z.infer<
   typeof prepareAgentHandoffInputSchema
+>;
+export type PrepareAgentInitializationToolInput = z.infer<
+  typeof prepareAgentInitializationInputSchema
 >;
 export type SendAgentTaskToolInput = z.infer<typeof sendAgentTaskInputSchema>;
 export type GetAgentTaskStatusToolInput = z.infer<

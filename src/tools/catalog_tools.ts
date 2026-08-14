@@ -53,6 +53,8 @@ import {
   type ListWorkspaceNotesToolInput,
   prepareAgentHandoffInputSchema,
   type PrepareAgentHandoffToolInput,
+  prepareAgentInitializationInputSchema,
+  type PrepareAgentInitializationToolInput,
   prepareAgentRegenerationInputSchema,
   type PrepareAgentRegenerationToolInput,
   previewSkillFileSyncInputSchema,
@@ -992,6 +994,38 @@ export function registerCatalogTools(
           return okResult(
             result,
             `Prepared handoff prompt for ${result.targetAgent.displayName}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "prepare_agent_initialization",
+    {
+      description:
+        "Prepare a manual task-oriented Codex agent startup prompt from matching skills, subagents, local instruction guidance, next steps, and failure guidance. LOR prepares context only; it does not create, dispatch, or message Codex chats.",
+      inputSchema: prepareAgentInitializationInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: PrepareAgentInitializationToolInput) =>
+      withLoggedRuntime(
+        "prepare_agent_initialization",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.prepareAgentInitialization(
+            input,
+          );
+          return okResult(
+            result,
+            "Prepared task-oriented agent initialization prompt.",
           );
         },
       ),

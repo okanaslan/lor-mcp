@@ -91,6 +91,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "get_workspace_note",
       "remove_workspace_note",
       "prepare_agent_handoff",
+      "prepare_agent_initialization",
       "prepare_agent_regeneration",
       "generate_agent_prompt",
       "find_matching_agent",
@@ -893,6 +894,90 @@ Deno.test("HTTP MCP handler calls prepare_agent_handoff", async () => {
       "Handle Add endpoint with Follow service patterns.",
     );
     assertEquals(body.result.structuredContent.data.usedStoredHandoff, true);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls prepare_agent_initialization", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-api",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Skill",
+      primarySpecialty: "backend api implementation",
+      specialtyTags: ["backend", "api"],
+      skillContext: {
+        whenToUse: "Use for backend API work.",
+      },
+    });
+    await service.introduceSubagent({
+      workspace: "LOR-MCP",
+      name: "backend-api-test-profile",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Test Subagent",
+      purpose: "Write focused backend API tests.",
+      limitedScope: "Only inspect service and HTTP tool tests.",
+      primarySpecialty: "backend api testing",
+      specialtyTags: ["backend", "api", "tests"],
+    });
+
+    const logger = new CapturingLogger();
+    const handler = createHttpMcpHandler({
+      logger,
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const response = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "prepare_agent_initialization",
+        arguments: {
+          workspace: "LOR-MCP",
+          task: "secret backend API task",
+          specialtyHints: ["backend api"],
+        },
+      },
+    });
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body.result.structuredContent.status, "ok");
+    assertEquals(body.result.structuredContent.data.workspace, "LOR-MCP");
+    assertEquals(
+      body.result.structuredContent.data.recommendedSkills[0].displayName,
+      "Backend API Skill",
+    );
+    assertEquals(
+      body.result.structuredContent.data.recommendedSubagents[0].displayName,
+      "Backend API Test Subagent",
+    );
+    assert(
+      body.result.structuredContent.data.prompt.includes(
+        "Recommended LOR skills",
+      ),
+    );
+    assert(
+      logger.logs.some((log) =>
+        log.level === "info" &&
+        log.fields.event === "mcp_tool_call" &&
+        log.fields.toolName === "prepare_agent_initialization" &&
+        log.fields.workspace === "LOR-MCP" &&
+        log.fields.status === "ok"
+      ),
+    );
+    assertEquals(
+      JSON.stringify(logger.logs).includes("secret backend API task"),
+      false,
+    );
   } finally {
     repo.close();
   }

@@ -118,7 +118,7 @@ route through LOR:
 ```text
 Use LOR MCP with workspace `<workspace>`.
 First call get_workspace_diagnostics and check_catalog_health.
-Then find matching agents, skills, or subagent profiles for this task.
+Then call prepare_agent_initialization for the current task.
 ```
 
 Use `get_workspace_diagnostics` when a workspace path, folder-name alias, or
@@ -129,10 +129,12 @@ inspect stored verification metadata for registered agents and skills.
 
 Use routing when deciding who or what should handle a task:
 
-1. `find_matching_agent`, `find_matching_skill`, or `find_matching_subagent`
-2. `get_agent_detail`, `get_skill_detail`, or `get_subagent_detail`
-3. `prepare_agent_handoff` when a registered agent should receive work
-4. Codex-native thread communication using the registered `codexSessionId`
+1. `prepare_agent_initialization` for short-lived task-oriented startup context.
+2. `find_matching_agent`, `find_matching_skill`, or `find_matching_subagent`
+   when you need lower-level routing results.
+3. `get_agent_detail`, `get_skill_detail`, or `get_subagent_detail`
+4. `prepare_agent_handoff` when a registered agent should receive work.
+5. Codex-native thread communication using the registered `codexSessionId`.
 
 Reachability metadata makes agent results clearer by showing whether a
 recommended registered agent is only a catalog entry, unknown, reachable, or
@@ -207,6 +209,9 @@ flowchart RL
   catalog --> skills
   catalog --> subagents
 
+  init["prepare_agent_initialization"] --> skills
+  init --> subagents
+  init --> generatePrompt["generate_agent_prompt"]
   generatePrompt["generate_agent_prompt"] --> introduceAgent["introduce_agent"]
   introduceAgent --> agents
   agents --> handoff["prepare_agent_handoff"]

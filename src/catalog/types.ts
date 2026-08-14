@@ -871,6 +871,34 @@ export interface MatchResult {
   data: MatchData;
 }
 
+export interface PrepareAgentInitializationInput {
+  workspace: string;
+  task: string;
+  projectName?: string;
+  specialtyHints?: readonly string[];
+}
+
+export interface LocalInstructionSource {
+  name: string;
+  status: "manual_reference";
+  instruction: string;
+}
+
+export interface PrepareAgentInitializationResult {
+  workspace: string;
+  task: string;
+  recommendedSkills: MatchCandidate[];
+  recommendedSubagents: MatchCandidate[];
+  localInstructionSources: LocalInstructionSource[];
+  prompt: string;
+  nextSteps: string[];
+  failureGuidance: string[];
+  delivery: {
+    mode: "manual";
+    instruction: string;
+  };
+}
+
 export interface CatalogRepository {
   initialize(): Promise<void>;
   createAgent(

@@ -48,6 +48,8 @@ The main user flows are:
   `promote_skill_to_global`.
 - Find matching agents, skills, and subagent prompt profiles for a task through
   type-specific matching tools.
+- Prepare short-lived task-agent initialization prompts from matching skills,
+  subagents, local instruction guidance, next steps, and failure guidance.
 - Fetch typed details and prepare handoff or regeneration prompts for registered
   Codex agents.
 - Use agent reachability metadata before manual Codex-native handoff.

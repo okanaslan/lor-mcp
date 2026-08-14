@@ -21,6 +21,8 @@ The project follows Semantic Versioning:
   skill/subagent coverage, and local skill/AGENTS.md integration.
 - Hide delegated task lifecycle tools from the normal public MCP surface while
   keeping manual prompt helpers available.
+- Add `prepare_agent_initialization` for task-oriented startup prompts with
+  matching skills, subagents, next steps, and failure guidance.
 
 ## [2.0.0] - 2026-08-06
 

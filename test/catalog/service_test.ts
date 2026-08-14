@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import {
   createCatalogService,
@@ -2843,6 +2843,114 @@ Deno.test("CatalogService returns not_found for missing regeneration target", as
         }),
       Error,
       "not_found",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService prepares task-oriented agent initialization context", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-api",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Skill",
+      primarySpecialty: "backend api implementation",
+      specialtyTags: ["backend", "api"],
+      skillContext: {
+        whenToUse: "Use for backend API and MCP tool implementation work.",
+        usageNotes: "Follow service and schema test patterns.",
+      },
+    });
+    await service.introduceSubagent({
+      workspace: "LOR-MCP",
+      name: "backend-api-test-profile",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Test Subagent",
+      purpose: "Write focused backend API tests.",
+      limitedScope: "Only inspect service, schema, and HTTP tool tests.",
+      primarySpecialty: "backend api testing",
+      specialtyTags: ["backend", "api", "tests"],
+    });
+
+    const result = await service.prepareAgentInitialization({
+      workspace: "LOR-MCP",
+      task: "Implement a backend API tool with tests",
+      specialtyHints: ["backend api"],
+    });
+
+    assertEquals(result.workspace, "LOR-MCP");
+    assertEquals(result.task, "Implement a backend API tool with tests");
+    assertEquals(result.recommendedSkills.length, 1);
+    assertEquals(result.recommendedSkills[0].displayName, "Backend API Skill");
+    assertEquals(result.recommendedSubagents.length, 1);
+    assertEquals(
+      result.recommendedSubagents[0].displayName,
+      "Backend API Test Subagent",
+    );
+    assertEquals(result.localInstructionSources[0].name, "AGENTS.md");
+    assert(result.prompt.includes("Recommended LOR skills:"));
+    assert(result.prompt.includes("Backend API Skill"));
+    assert(result.prompt.includes("Recommended LOR subagent profiles:"));
+    assert(result.prompt.includes("Backend API Test Subagent"));
+    assert(result.prompt.includes("LOR prepared this prompt"));
+    assertEquals(result.delivery.mode, "manual");
+    assert(result.nextSteps.length > 0);
+    assert(result.failureGuidance.length > 0);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService prepares initialization fallback guidance for empty catalogs", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const result = await service.prepareAgentInitialization({
+      workspace: "LOR-MCP",
+      task: "Fix a small bug",
+    });
+
+    assertEquals(result.recommendedSkills, []);
+    assertEquals(result.recommendedSubagents, []);
+    assert(
+      result.nextSteps.some((step) =>
+        step.includes("No registered skills matched")
+      ),
+    );
+    assert(
+      result.nextSteps.some((step) =>
+        step.includes("No registered subagent profiles matched")
+      ),
+    );
+    assert(result.prompt.includes("Do not invent skills"));
+    assert(result.prompt.includes("Do not invent subagents"));
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService validates prepare initialization inputs", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await assertRejects(
+      () =>
+        service.prepareAgentInitialization({
+          workspace: " ",
+          task: "Fix a bug",
+        }),
+      Error,
+      "workspace is required",
+    );
+    await assertRejects(
+      () =>
+        service.prepareAgentInitialization({
+          workspace: "LOR-MCP",
+          task: " ",
+        }),
+      Error,
+      "task is required",
     );
   } finally {
     repo.close();

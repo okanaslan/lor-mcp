@@ -57,6 +57,7 @@ Implemented in the runnable local 2.0.0 server:
   - `get_workspace_note`
   - `remove_workspace_note`
   - `prepare_agent_handoff`
+  - `prepare_agent_initialization`
   - `prepare_agent_regeneration`
   - `generate_agent_prompt`
   - `find_matching_agent`
@@ -228,8 +229,9 @@ Latest implementation verification:
   Implemented. Task lifecycle tools are hidden from the normal public MCP
   surface while prompt helpers remain available.
 - [V2 Agent Initialization Context](feature-specs/v2-agent-initialization-context.md):
-  Planned. Generate short-lived task-agent startup context from task, relevant
-  skills, subagents, local instructions, next steps, and failure guidance.
+  Implemented. `prepare_agent_initialization` generates short-lived task-agent
+  startup context from task, relevant skills, subagents, local instruction
+  guidance, next steps, and failure guidance.
 - [V2 Skill And Subagent Coverage Health](feature-specs/v2-skill-and-subagent-coverage-health.md):
   Planned. Add coverage metrics and recommended actions for registered skills
   and subagents.

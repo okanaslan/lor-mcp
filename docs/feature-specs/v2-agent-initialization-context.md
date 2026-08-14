@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Planned for V2. This feature shifts LOR from long-lived, skill-oriented agents
-to short-lived, task-oriented agent initialization. LOR should help a new Codex
-agent start with relevant skills, subagents, local instructions, and task
+Implemented for V2. This feature shifts LOR from long-lived, skill-oriented
+agents to short-lived, task-oriented agent initialization. LOR should help a new
+Codex agent start with relevant skills, subagents, local instructions, and task
 guidance.
 
 ## 2. Goals
@@ -81,3 +81,7 @@ Conceptual `AgentInitializationContext` fields:
 - 2026-08-14: Plan V2 around short-lived task-oriented agents.
 - 2026-08-14: Prefer initialization with skills and subagents over long-lived
   skill-oriented agents.
+- 2026-08-14: Implement `prepare_agent_initialization` as a read-only prompt
+  helper separate from role-preset `generate_agent_prompt`.
+- 2026-08-14: Reference `AGENTS.md` as local instruction guidance without
+  reading, storing, or rewriting local instruction file contents in this pass.
