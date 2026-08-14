@@ -12,6 +12,20 @@ Streamable HTTP server for Codex, with stdio kept as a compatibility and
 development fallback. Product specs, use cases, and technical decisions remain
 documented under `docs/`.
 
+## Current Status
+
+LOR is implemented as a runnable local 2.0.0 MCP server.
+
+- Runtime: Deno TypeScript.
+- Primary transport: local Streamable HTTP at `http://127.0.0.1:8765/mcp`.
+- Fallback transport: stdio through `deno task run`.
+- Storage: server-owned local SQLite database under `.lor-mcp/` by default.
+- Catalog scope: caller-supplied `workspace`, resolved through canonical
+  workspace paths and registered aliases.
+- Tool surface: type-specific agent, skill, and subagent tools, plus catalog
+  import/export, workspace sync, diagnostics, delegated tasks, and workspace
+  memory.
+
 ## Runtime
 
 Run the local HTTP MCP server:
@@ -277,9 +291,7 @@ flowchart RL
   getAgentTaskResult --> task
 ```
 
-## Current Status
-
-LOR is implemented as a runnable local 2.0.0 MCP server.
+## Capability Details
 
 ### Runtime And Storage
 
@@ -307,8 +319,8 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 - Handoff: LOR prepares dispatch-ready handoff prompts; Codex-native thread
   tools remain responsible for sending work to registered Codex sessions.
 - Reachability model: LOR distinguishes catalog-only agents from agents known
-  reachable through Codex-native dispatch outcomes before adding direct
-  delegated task tools.
+  reachable through Codex-native dispatch outcomes and uses that state in
+  delegated task flows.
 - Delegated task lifecycle: LOR can create workspace-scoped delegated task
   records, send through an injected Codex-native dispatcher when available, or
   queue tasks with manual delivery instructions in the local runtime.
@@ -332,6 +344,10 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 
 ## Repository Notes
 
+- `CHANGELOG.md`: version history.
+- `VERSION`: current project version.
+- `docs/readme.md`: planning docs overview.
+- `docs/roadmap.md`: feature spec roadmap and implementation status.
 - `AGENTS.md`: repository-specific Codex operating instructions.
 - `.temp/`: local agent-supporting guidance and vendored skills used while
   developing this repository.

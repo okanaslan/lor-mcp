@@ -13,6 +13,11 @@ The project follows Semantic Versioning:
 
 ## [Unreleased]
 
+### Changed
+
+- Clean up README, roadmap, changelog, and active tool-surface documentation
+  ahead of the next planning cycle.
+
 ## [2.0.0] - 2026-08-06
 
 ### Added

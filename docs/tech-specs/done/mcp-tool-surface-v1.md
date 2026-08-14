@@ -1,4 +1,4 @@
-# MCP Tool Surface V1
+# MCP Tool Surface
 
 ## 1. Summary
 
@@ -29,14 +29,14 @@ The MCP TypeScript SDK supports registering tools with `registerTool`, Zod
 `inputSchema` validation, `structuredContent`, text `content`, and `isError` for
 error results. LOR should use those SDK surfaces directly.
 
-Existing feature specs define more catalog capabilities than the first
-implementation should expose. The first tool set should cover a complete basic
-workflow without adding external existence verification, dispatch, or standalone
-explanation tools.
+This document started as the v1 tool-surface plan and now records the current
+registered MCP surface. Historical v1 decisions remain in the decision log, but
+the active tool list reflects the 2.0.0 server.
 
 ## 3. Goals
 
-- Define the minimal usable routing workflow.
+- Define the active routing, catalog, diagnostics, task, and workspace-memory
+  workflow.
 - Keep tool names stable and predictable.
 - Define a stable structured response envelope.
 - Keep MCP handlers thin over session and catalog domain modules.
@@ -46,10 +46,9 @@ explanation tools.
 
 ## 4. Non-Goals
 
-- Add external skill or agent existence verification tools.
-- Dispatch work to another Codex agent.
-- Define the full matching algorithm.
-- Define the recommendation explanation contract.
+- Add remote or hosted agent execution infrastructure.
+- Define future HTTP authorization behavior.
+- Replace the detailed feature specs for each individual tool family.
 
 ## 5. Proposed Design
 
@@ -143,13 +142,13 @@ failures and should not set `isError: true`.
 
 ## 6. Alternatives Considered
 
-Excluding update and single-entry remove from v1 was considered. They were added
-after the first runnable slice because catalog maintenance needs precise
+Excluding update and single-entry remove from the first runnable slice was
+considered. They were added because catalog maintenance needs precise
 single-entry correction and removal, not only bulk workspace clearing.
 
-Including external existence verification and standalone explanation tools in v1
-was considered. It was not chosen because those tools depend on additional specs
-and would widen the first implementation too much.
+Including external existence verification and standalone explanation tools was
+considered. It was not chosen because those tools depend on additional specs and
+would widen the implementation too much.
 
 Text-only responses were considered. They were not chosen because Codex agents
 need stable structured output to make reliable routing decisions.
@@ -408,8 +407,8 @@ entries from the requested workspace.
 
 `import_catalog` output data should include the requested workspace, format
 version, conflict strategy, imported count, skipped count, failed count, and
-entry-level errors. V1 skips existing workspace entries by default and reports
-them as failures when `conflictStrategy` is `fail`.
+entry-level errors. Existing workspace entries are skipped by default and
+reported as failures when `conflictStrategy` is `fail`.
 
 `preview_workspace_catalog_sync` input:
 
@@ -447,7 +446,7 @@ values.
 
 `check_catalog_health` output data should include `checkedAt`, requested
 workspace, filters, summary counts, and per-entry health rows derived from
-stored verification metadata. V1 must not probe external evidence sources or
+stored verification metadata. It must not probe external evidence sources or
 mutate stored verification metadata.
 
 `get_workspace_diagnostics` input:
