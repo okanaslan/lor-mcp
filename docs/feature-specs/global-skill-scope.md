@@ -30,9 +30,9 @@ workspace-scoped only.
 
 - Skill-facing tools must expose skill scope as `scope: "workspace" | "global"`.
 - The internal global storage representation must be hidden from callers.
-- `introduce_skill` must allow direct global skill creation with
-  `scope: "global"`.
-- `introduce_skill` must default to workspace scope when `scope` is omitted.
+- `introduce_skill` must default omitted `scope` to global skill creation.
+- `introduce_skill` must allow explicit workspace-local skill creation with
+  `scope: "workspace"`.
 - The server must expose `promote_skill_to_global`.
 - `promote_skill_to_global` must copy a workspace skill's metadata and
   `skillContext` into a new global skill without removing the workspace skill.
@@ -100,8 +100,8 @@ workspace skill identifiers in caller-facing results.
 
 ## 9. V1 Decisions
 
-- Direct global skill creation requires explicit `scope: "global"` and no extra
-  confirmation flag.
+- Direct global skill creation is the default when `scope` is omitted and does
+  not require an extra confirmation flag.
 - `promote_skill_to_global` fails duplicate global skill names with the standard
   `duplicate_entry` error.
 - List and match return scope on entries/candidates instead of visually grouping
@@ -118,6 +118,8 @@ workspace skill identifiers in caller-facing results.
 - 2026-08-04: Allow both direct global skill creation and promotion from a
   workspace skill.
 - 2026-08-04: Include global skills in list and match by default.
+- 2026-08-15: Default `introduce_skill` to global scope; callers use
+  `scope: "workspace"` for workspace-local skill records.
 - 2026-08-04: Keep workspace exports workspace-local and exclude global skills.
 - 2026-08-04: Implement global skill scope in v1 with duplicate promotion
   failure and scope-aware exact skill operations.

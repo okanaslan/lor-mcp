@@ -2,16 +2,17 @@
 
 ## 1. Summary
 
-Implemented for v1, including workspace scope by default and direct global skill
-creation with `scope: "global"`. This feature lets a user introduce an existing
-Codex skill to the Local Orchestration Router (LOR) MCP Server by recording its
-skill name and routing metadata in durable storage.
+Implemented, including global scope by default and explicit workspace-local
+skill creation with `scope: "workspace"`. This feature lets a user introduce an
+existing Codex skill to the Local Orchestration Router (LOR) MCP Server by
+recording its skill name and routing metadata in durable storage.
 
 ## 2. Goals
 
 - Allow users to introduce an existing Codex skill by skill name.
-- Store introduced skills in durable storage scoped to the workspace by default.
-- Support direct global skill creation when `scope: "global"` is supplied.
+- Store introduced skills in durable storage scoped globally by default.
+- Support explicit workspace-local skill creation when `scope: "workspace"` is
+  supplied.
 - Capture enough metadata to support later skill routing and catalog lookup.
 
 ## 3. Non-Goals
@@ -32,7 +33,7 @@ skill name and routing metadata in durable storage.
 - The request must include one primary specialty.
 - The request must include specialty tags.
 - The request may include `scope: "workspace" | "global"`.
-- The server must default omitted scope to `workspace`.
+- The server must default omitted scope to `global`.
 - The server must reject requests missing any required field.
 - The server must associate the introduced skill with the client-supplied
   workspace when scope is `workspace`.
@@ -40,7 +41,7 @@ skill name and routing metadata in durable storage.
   when scope is `global`.
 - The server must reject a duplicate skill name within the same workspace.
 - The server may allow the same skill name to be introduced in different
-  workspaces.
+  workspaces when those entries explicitly use workspace scope.
 - The server may allow a workspace skill and global skill to share the same
   skill name.
 - The server must persist accepted skill records in durable storage.
@@ -117,4 +118,6 @@ persistence implementation.
 - 2026-07-13: Implement `introduce_skill` as non-blocking registration with
   `mcp_introduction` verification metadata.
 - 2026-08-04: Implement `scope: "global"` support so users can directly create
-  shared global skills while keeping workspace scope as the default.
+  shared global skills.
+- 2026-08-15: Change omitted `scope` for `introduce_skill` to default to
+  `global`; callers use `scope: "workspace"` for workspace-local skills.

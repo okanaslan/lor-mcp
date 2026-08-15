@@ -35,6 +35,9 @@ The project follows Semantic Versioning:
   and recommended actions.
 - Extend `get_workspace_diagnostics` with local `AGENTS.md` status and local
   Codex skill/LOR skill alignment reporting.
+- Default new `introduce_skill` and `introduce_subagent` registrations to global
+  scope when `scope` is omitted; callers use `scope: "workspace"` for
+  workspace-local entries. Workspace notes remain workspace-scoped.
 
 ## [2.0.0] - 2026-08-06
 

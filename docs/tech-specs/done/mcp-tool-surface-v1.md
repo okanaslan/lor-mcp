@@ -188,7 +188,7 @@ It may return validation, session/setup, duplicate, or storage errors.
 `introduce_subagent` input:
 
 - `workspace`
-- optional `scope`, defaulting to `workspace`
+- optional `scope`, defaulting to `global`
 - `name`
 - `projectName`
 - `displayName`

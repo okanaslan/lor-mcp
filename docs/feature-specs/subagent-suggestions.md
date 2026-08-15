@@ -12,6 +12,8 @@ ready-to-use prompts for suggested or detailed subagent entries.
 
 - Let users manually introduce reusable subagent profiles.
 - Support workspace and global subagent scopes.
+- Default new subagent profiles to global scope unless workspace scope is
+  explicitly requested.
 - Include global subagents in list and match results by default.
 - Include subagents in `find_matching_subagent`.
 - Return rendered prompts for subagent matches, details, and introduction
@@ -42,7 +44,7 @@ ready-to-use prompts for suggested or detailed subagent entries.
   - `primarySpecialty`
   - `specialtyTags`
 - `introduce_subagent` may accept:
-  - `scope`, defaulting to `workspace`
+  - `scope`, defaulting to `global`
   - `agentReferences`
   - `skillReferences`
   - `promptTemplate`
@@ -126,6 +128,8 @@ Unresolved references must be preserved and returned as metadata or warnings.
 
 - Subagents are a third catalog entry type.
 - Subagents support `scope: "workspace" | "global"`.
+- Omitted `scope` on `introduce_subagent` defaults to `global`; callers use
+  `scope: "workspace"` for workspace-local subagent profiles.
 - Global subagents are included by default in list and match.
 - `find_matching_subagent` returns subagents; no separate `suggest_subagents`
   tool is planned for v1.
@@ -148,3 +152,5 @@ Unresolved references must be preserved and returned as metadata or warnings.
 - 2026-08-04: Allow unresolved agent and skill references as metadata only.
 - 2026-08-04: Implement `introduce_subagent`, subagent list/detail/match,
   workspace export/import/sync, global subagent visibility, and remove support.
+- 2026-08-15: Change omitted `scope` for `introduce_subagent` to default to
+  `global`; callers use `scope: "workspace"` for workspace-local profiles.

@@ -181,7 +181,9 @@ Use `list_skills` and `list_subagents` when browsing by entry family.
    managed section.
 
 Use `promote_skill_to_global` when a workspace skill should become available to
-other workspaces. Global skills are included in list and match by default.
+other workspaces. New skill registrations default to global scope unless
+`scope: "workspace"` is supplied. Global skills are included in list and match
+by default.
 
 ### Remember Workspace Context
 
@@ -287,10 +289,12 @@ flowchart RL
 - Matching: deterministic local fuzzy scoring with structured explanations,
   conflict reporting, and registered skill context signals.
 - Global skills: shared skills can be introduced or promoted with
-  `scope: "global"` and are included in list/match by default.
+  `scope: "global"` and are included in list/match by default. New skill
+  registrations default to global scope unless `scope: "workspace"` is supplied.
 - Subagents: reusable prompt profiles for small, scoped delegation, with
   workspace/global scope and ready-to-use prompts returned from introduction,
-  matching, and detail flows.
+  matching, and detail flows. New subagent registrations default to global scope
+  unless `scope: "workspace"` is supplied.
 
 ### Prompt Support
 
@@ -302,7 +306,8 @@ flowchart RL
 - Skill improvement: approval-gated stored skill context updates, with optional
   approval-gated sync into a LOR-managed `SKILL.md` section.
 - Workspace memory: LOR stores small workspace-scoped notes for durable
-  coordination context outside the routing catalog.
+  coordination context outside the routing catalog. Notes are always
+  workspace-scoped and do not accept global scope.
 
 ### Operational Support
 

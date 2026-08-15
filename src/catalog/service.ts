@@ -179,7 +179,7 @@ export class CatalogService {
     return await this.#repository.createSkill(workspace, {
       ...validated,
       workspace,
-      scope: validated.scope ?? "workspace",
+      scope: validated.scope ?? "global",
       verification: introductionVerification(now),
       now,
     });
@@ -194,7 +194,7 @@ export class CatalogService {
     return await this.#repository.createSubagent(workspace, {
       ...validated,
       workspace,
-      scope: validated.scope ?? "workspace",
+      scope: validated.scope ?? "global",
       verification: introductionVerification(now),
       now,
     });

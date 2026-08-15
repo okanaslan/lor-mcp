@@ -402,7 +402,7 @@ Deno.test("CatalogService returns status until a delegated task result is record
   }
 });
 
-Deno.test("CatalogService introduces skills without skill root pre-registration", async () => {
+Deno.test("CatalogService introduces skills globally by default without skill root pre-registration", async () => {
   const { repo, service } = await createCatalogService();
   try {
     const created = await service.introduceSkill({
@@ -414,10 +414,16 @@ Deno.test("CatalogService introduces skills without skill root pre-registration"
       specialtyTags: ["api"],
     });
 
-    const entries = await service.listEntries({ workspace: "LOR-MCP" });
+    const entries = await service.listEntries({ workspace: "Other-Workspace" });
     assertEquals(created.verificationStatus, "verified");
     assertEquals(created.verificationSource, "mcp_introduction");
+    if (created.entryType === "skill") {
+      assertEquals(created.scope, "global");
+    }
     assertEquals(entries.map((entry) => entry.entryKey), ["missing-skill"]);
+    if (entries[0]?.entryType === "skill") {
+      assertEquals(entries[0].scope, "global");
+    }
   } finally {
     repo.close();
   }
@@ -465,6 +471,7 @@ Deno.test("CatalogService allows workspace and global skills with the same name"
   try {
     await service.introduceSkill({
       workspace: "LOR-MCP",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Workspace Backend",
       displayName: "Workspace Backend Skill",
@@ -518,7 +525,7 @@ Deno.test("CatalogService allows workspace and global skills with the same name"
   }
 });
 
-Deno.test("CatalogService introduces subagents with rendered prompts and metadata references", async () => {
+Deno.test("CatalogService introduces subagents globally by default with rendered prompts and metadata references", async () => {
   const { repo, service } = await createCatalogService();
   try {
     const created = await service.introduceSubagent({
@@ -547,14 +554,14 @@ Deno.test("CatalogService introduces subagents with rendered prompts and metadat
       expectedOutput: "A concise test summary.",
     });
     const detail = await service.getEntryDetail({
-      workspace: "LOR-MCP",
+      workspace: "Other-Workspace",
       entryType: "subagent",
       entryKey: "api-test-subagent",
     });
 
     assertEquals(created.entryType, "subagent");
     if (created.entryType === "subagent") {
-      assertEquals(created.scope, "workspace");
+      assertEquals(created.scope, "global");
       assertEquals(created.prompt.includes("API Test Subagent"), true);
       assertEquals(created.prompt.includes("{missing}"), false);
       assertEquals(created.agentReferences[0]?.entryKey, "missing-agent");
@@ -577,6 +584,7 @@ Deno.test("CatalogService lists global subagents and requires scope for ambiguou
   try {
     await service.introduceSubagent({
       workspace: "LOR-MCP",
+      scope: "workspace",
       name: "review-subagent",
       projectName: "Workspace Project",
       displayName: "Workspace Review Subagent",
@@ -636,6 +644,7 @@ Deno.test("CatalogService promotes workspace skills to global without removing s
   try {
     await service.introduceSkill({
       workspace: "LOR-MCP",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -673,6 +682,7 @@ Deno.test("CatalogService keeps export sync and clear workspace-local for global
   try {
     await service.introduceSkill({
       workspace: "Source",
+      scope: "workspace",
       skillName: "workspace-skill",
       projectName: "Source Project",
       displayName: "Workspace Skill",
@@ -734,6 +744,7 @@ Deno.test("CatalogService includes subagents in match export import sync remove 
   try {
     await service.introduceSkill({
       workspace: "Source",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Source Project",
       displayName: "Backend Skill",
@@ -742,6 +753,7 @@ Deno.test("CatalogService includes subagents in match export import sync remove 
     });
     await service.introduceSubagent({
       workspace: "Source",
+      scope: "workspace",
       name: "api-test-subagent",
       projectName: "Source Project",
       displayName: "API Test Subagent",
@@ -1032,6 +1044,7 @@ Deno.test("CatalogService resolves aliases for clear and handoff operations", as
     });
     await service.introduceSkill({
       workspace,
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -1091,6 +1104,7 @@ Deno.test("CatalogService clears entries from list detail and match results", as
     });
     await service.introduceSkill({
       workspace: "LOR-MCP",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -1344,6 +1358,7 @@ Deno.test("CatalogService skill update proposals do not cross workspaces", async
   try {
     await service.introduceSkill({
       workspace: "workspace-a",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -1352,6 +1367,7 @@ Deno.test("CatalogService skill update proposals do not cross workspaces", async
     });
     await service.introduceSkill({
       workspace: "workspace-b",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Other Backend Skill",
@@ -1714,7 +1730,7 @@ Deno.test("CatalogService removes catalog entries from detail and match results"
 
     assertEquals(result, {
       workspace: "LOR-MCP",
-      scope: "workspace",
+      scope: "global",
       entryType: "skill",
       entryKey: "backend-skill",
       removed: true,
@@ -1869,6 +1885,7 @@ Deno.test("CatalogService import skips or fails duplicate entries", async () => 
   try {
     await service.introduceSkill({
       workspace: "LOR-MCP",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -1912,6 +1929,7 @@ Deno.test("CatalogService previews workspace catalog sync without mutation", asy
     });
     await service.introduceSkill({
       workspace: "source-workspace",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -1923,6 +1941,7 @@ Deno.test("CatalogService previews workspace catalog sync without mutation", asy
     });
     await service.introduceSkill({
       workspace: "source-workspace",
+      scope: "workspace",
       skillName: "qa-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "QA Skill",
@@ -1931,6 +1950,7 @@ Deno.test("CatalogService previews workspace catalog sync without mutation", asy
     });
     await service.introduceSkill({
       workspace: "target-workspace",
+      scope: "workspace",
       skillName: "qa-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Existing QA Skill",
@@ -1996,6 +2016,7 @@ Deno.test("CatalogService applies workspace catalog sync with confirmation", asy
     });
     await service.introduceSkill({
       workspace: "source-workspace",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -2007,6 +2028,7 @@ Deno.test("CatalogService applies workspace catalog sync with confirmation", asy
     });
     await service.introduceSkill({
       workspace: "source-workspace",
+      scope: "workspace",
       skillName: "qa-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "QA Skill",
@@ -2015,6 +2037,7 @@ Deno.test("CatalogService applies workspace catalog sync with confirmation", asy
     });
     await service.introduceSkill({
       workspace: "target-workspace",
+      scope: "workspace",
       skillName: "qa-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Existing QA Skill",
@@ -2467,6 +2490,7 @@ Deno.test("CatalogService filters catalog health by type project and entry key",
     });
     await service.introduceSkill({
       workspace: "LOR-MCP",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -2475,6 +2499,7 @@ Deno.test("CatalogService filters catalog health by type project and entry key",
     });
     await service.introduceSkill({
       workspace: "other-workspace",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Other Workspace Skill",

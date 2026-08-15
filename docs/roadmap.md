@@ -56,13 +56,14 @@ Implemented in the runnable local 2.0.0 server:
 - Skill and subagent introduction acts as registration. The server no longer
   requires server-local pre-verification evidence before accepting new skill
   entries.
-- Global skills can be introduced directly with `scope: "global"` or promoted
-  from workspace skills with `promote_skill_to_global`. Global skills are
-  included in `list_skills` and `find_matching_skill` by default; agents remain
-  workspace-scoped.
+- Skill registrations default to global scope unless `scope: "workspace"` is
+  supplied. Workspace-local skills can also be promoted with
+  `promote_skill_to_global`. Global skills are included in `list_skills` and
+  `find_matching_skill` by default; agents remain workspace-scoped.
 - Subagent suggestions are implemented for reusable prompt profiles with
-  workspace/global scope. Workspace and global subagents are included in
-  `list_subagents` and `find_matching_subagent` by default.
+  workspace/global scope. Subagent registrations default to global scope unless
+  `scope: "workspace"` is supplied. Workspace and global subagents are included
+  in `list_subagents` and `find_matching_subagent` by default.
 - `check_catalog_health` includes skill/subagent coverage metrics, project and
   specialty coverage, coverage status, and recommended actions for improving
   task-initialization readiness.
@@ -78,7 +79,7 @@ Implemented in the runnable local 2.0.0 server:
 - HTTP discovery probe logging cleanup is implemented so expected auth discovery
   `404` responses log below warning severity without adding fake auth endpoints.
 - Workspace memory is implemented as durable workspace-scoped notes outside the
-  routing catalog.
+  routing catalog. Notes do not support global scope.
 
 Current `LOR-MCP` catalog snapshot as of 2026-07-20:
 

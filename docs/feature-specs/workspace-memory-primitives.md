@@ -11,6 +11,8 @@ that is not a catalog entry.
 - Let agents store concise workspace notes.
 - Let agents list, match, and retrieve notes later.
 - Keep notes scoped to a resolved workspace.
+- Keep note scope independent from catalog skill/subagent scope defaults; notes
+  are always workspace-scoped.
 - Avoid mixing general memory with catalog routing metadata.
 
 ## 3. Non-Goals
@@ -32,6 +34,7 @@ that is not a catalog entry.
 - Notes may include tags such as `branch-plan`, `review-summary`, or
   `reapply-note`.
 - Notes must be scoped to the requested workspace.
+- Notes must not support global scope.
 - Notes must be durable.
 - Notes must not be returned by catalog matching.
 - Note matching must be deterministic and local, ranking title and tags above
@@ -84,3 +87,5 @@ Conceptual `WorkspaceNote` fields:
   entries and delegated task messages.
 - 2026-08-15: Add `find_matching_workspace_note` for note-specific deterministic
   matching without mixing notes into catalog skill/subagent matching.
+- 2026-08-15: Confirm workspace notes remain workspace-scoped even though new
+  skill and subagent registrations default to global scope.

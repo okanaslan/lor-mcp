@@ -42,13 +42,15 @@ canonical workspace paths before reading or writing catalog records.
 The main user flows are:
 
 - Register skills and subagent profiles with routing metadata.
-- Share selected skills globally across workspaces with `scope: "global"` or
-  `promote_skill_to_global`.
+- Register skills and subagent profiles globally by default, or use
+  `scope: "workspace"` for workspace-local entries.
+- Promote workspace-local skills globally with `promote_skill_to_global`.
 - Find matching skills and subagent prompt profiles for a task through
   type-specific matching tools.
 - Generate deterministic ready-to-paste prompts for fresh Codex chats.
 - Use diagnostics and workspace memory tools, including note-specific matching
-  for prior coordination context.
+  for prior coordination context. Workspace notes are always scoped to the
+  resolved workspace and are not global catalog entries.
 - Use diagnostics to compare local Codex skill files and `AGENTS.md` presence
   with LOR-registered skill metadata.
 - Improve stored skill context through approval-gated proposals.

@@ -301,7 +301,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         workspace,
         entryType: "skill",
         entryKey: input.skillName,
-        scope: input.scope ?? "workspace",
+        scope: input.scope ?? "global",
       });
       return created as SkillCatalogEntry;
     } catch (error) {
@@ -317,7 +317,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
     },
   ): Promise<SubagentCatalogEntry> {
     const db = this.requireDb();
-    const scope = input.scope ?? "workspace";
+    const scope = input.scope ?? "global";
     const storageWorkspace = subagentStorageWorkspace(workspace, scope);
     const promptFields = normalizeSubagentPromptFields(input);
     const insert = db.transaction(() => {
@@ -416,11 +416,23 @@ export class SqliteCatalogRepository implements CatalogRepository {
     proposalId: string,
     scope?: CatalogScope,
   ): Promise<SkillUpdateProposal | undefined> {
-    const storageWorkspace = skillStorageWorkspace(workspace, scope);
-    const row = this.requireDb().prepare<SkillUpdateProposalRow>(
+    const statement = this.requireDb().prepare<SkillUpdateProposalRow>(
       `SELECT * FROM skill_update_proposals
        WHERE workspace = ? AND proposalId = ?`,
-    ).get(storageWorkspace, proposalId);
+    );
+    if (scope) {
+      const row = statement.get(
+        skillStorageWorkspace(workspace, scope),
+        proposalId,
+      );
+      return Promise.resolve(row ? mapSkillUpdateProposalRow(row) : undefined);
+    }
+
+    const row = statement.get(
+      skillStorageWorkspace(workspace, "workspace"),
+      proposalId,
+    ) ??
+      statement.get(skillStorageWorkspace(workspace, "global"), proposalId);
     return Promise.resolve(row ? mapSkillUpdateProposalRow(row) : undefined);
   }
 

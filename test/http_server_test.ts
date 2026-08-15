@@ -371,7 +371,7 @@ Deno.test("HTTP MCP handler calls remove_skill", async () => {
     assertEquals(body.result.structuredContent.status, "ok");
     assertEquals(body.result.structuredContent.data, {
       workspace: "LOR-MCP",
-      scope: "workspace",
+      scope: "global",
       entryType: "skill",
       entryKey: "backend-skill",
       removed: true,
@@ -387,6 +387,7 @@ Deno.test("HTTP MCP handler calls export_catalog and import_catalog", async () =
   try {
     await service.introduceSkill({
       workspace: "LOR-MCP",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -453,6 +454,7 @@ Deno.test("HTTP MCP handler calls workspace catalog sync tools", async () => {
     const logger = new CapturingLogger();
     await service.introduceSkill({
       workspace: "source-workspace",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
@@ -536,6 +538,7 @@ Deno.test("HTTP MCP handler calls check_catalog_health", async () => {
   try {
     await service.introduceSkill({
       workspace: "LOR-MCP",
+      scope: "workspace",
       skillName: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       displayName: "Backend Skill",
