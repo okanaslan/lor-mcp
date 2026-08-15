@@ -2,15 +2,17 @@
 
 ## 1. Summary
 
-Implemented. This feature defines how Local Orchestration Router (LOR)
-distinguishes registered catalog agents from agents that are known to be
-reachable through Codex-native dispatch. It creates the model needed before LOR
-can safely own delegated task sending, status tracking, follow-up context, and
-result collection.
+Implemented internally in 2.0.0, then removed from the normal public V2 MCP
+surface. This feature defines how Local Orchestration Router (LOR) distinguishes
+registered catalog agents from agents that are known to be reachable through
+Codex-native dispatch.
 
 Registered agents remain useful catalog entries even when reachability is
 unknown or unavailable. Reachability is separate metadata, not a routing score
 replacement.
+
+The public V2 direction does not make LOR responsible for Codex dispatch, status
+tracking, follow-up context, or result collection.
 
 ## 2. Goals
 
@@ -21,7 +23,7 @@ replacement.
 - Keep agent matching useful even when an agent is unreachable or unknown.
 - Prevent handoff preparation from implying that unreachable agents can receive
   work.
-- Establish the model for later delegated task lifecycle tools.
+- Preserve the historical/internal model for delegated task lifecycle tools.
 
 ## 3. Non-Goals
 
@@ -52,8 +54,8 @@ replacement.
 - `prepare_agent_handoff` may continue for `unknown` agents because manual
   delivery remains possible.
 - `prepare_agent_handoff` must not claim dispatch happened.
-- Future dispatch tools must require a reachable dispatch target before sending
-  work.
+- Internal compatibility dispatch tools must require a reachable dispatch target
+  before sending work.
 
 ## 5. User Stories / Use Cases
 
@@ -79,8 +81,8 @@ Agent dispatch target:
 
 - `prepare_agent_handoff` must return an error when the target agent has
   `reachabilityStatus: "unreachable"`.
-- Future dispatch tools must return a reachability error when the target agent
-  is unreachable or unsupported.
+- Internal compatibility dispatch tools must return a reachability error when
+  the target agent is unreachable or unsupported.
 - Reachability errors must not expose hidden Codex task internals, stack traces,
   host paths, or unrelated workspace data.
 - Unknown reachability is not an error for matching, listing, detail lookup, or
@@ -114,3 +116,5 @@ Agent dispatch target:
 - 2026-08-06: Make `prepare_agent_handoff` fail for known unreachable agents.
 - 2026-08-06: Use `codexSessionId` as the dispatch target identifier.
 - 2026-08-06: Do not automatically expire reachability metadata.
+- 2026-08-15: Remove reachability-dependent registered-agent workflows from the
+  normal public V2 surface.

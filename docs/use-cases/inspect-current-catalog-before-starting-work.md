@@ -11,15 +11,15 @@ Codex user or Codex agent.
 
 ## 3. Scenario
 
-Before starting work, the actor wants to understand which agents and skills have
-already been introduced for the requested workspace.
+Before starting work, the actor wants to understand which skills and subagent
+profiles are visible to the requested workspace.
 
 ## 4. Flow
 
 1. The Codex user opens a workspace where LOR MCP is configured.
-2. The user or current agent asks LOR MCP to list catalog entries.
-3. Local Orchestration Router (LOR) returns introduced agents and skills for the
-   requested workspace workspace.
+2. The user or current agent calls `list_skills` and `list_subagents`.
+3. Local Orchestration Router (LOR) returns workspace-local and global skills
+   and subagents visible to the requested workspace.
 4. The actor reviews display names, projects, specialties, and tags.
 5. The actor decides whether to use a listed entry, ask for a match, or
    introduce another entry.
@@ -37,5 +37,5 @@ approach for the task.
 
 ## 7. Open Questions
 
-- Should catalog lists be grouped by project, type, or specialty?
-- Should empty catalogs include guidance for introducing agents or skills?
+- Should catalog lists be grouped by project, type, scope, or specialty?
+- Should empty catalogs include guidance for registering skills and subagents?

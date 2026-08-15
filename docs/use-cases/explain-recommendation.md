@@ -3,7 +3,7 @@
 ## 1. Summary
 
 A Codex agent explains why Local Orchestration Router (LOR) recommended a
-specific agent or skill for a task.
+specific skill or subagent for a task.
 
 ## 2. Actor
 
@@ -17,9 +17,9 @@ recommended entry.
 
 ## 4. Flow
 
-1. The current Codex agent asks LOR MCP to find a matching catalog entry for a
-   task.
-2. Local Orchestration Router (LOR) returns a recommended agent or skill.
+1. The current Codex agent calls `find_matching_skill` or
+   `find_matching_subagent` for a task.
+2. Local Orchestration Router (LOR) returns recommended skills or subagents.
 3. Local Orchestration Router (LOR) includes an inline recommendation
    explanation on each returned candidate.
 4. The current agent reviews the matched project, primary specialty, tags, and
@@ -29,8 +29,8 @@ recommended entry.
 
 ## 5. Expected Outcome
 
-The user understands why the agent or skill was recommended and can trust,
-reject, or refine the routing decision.
+The user understands why the skill or subagent was recommended and can trust,
+reject, combine, or refine the routing decision.
 
 ## 6. Related Feature Specs
 

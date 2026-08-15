@@ -2,15 +2,15 @@
 
 ## 1. Summary
 
-Implemented. This tech spec defines the backend model for `send_agent_task`,
-`get_agent_task_status`, and `list_active_tasks`.
+Implemented internally in 2.0.0, then removed from the normal public V2 MCP
+surface. This tech spec defines the backend compatibility model for
+`send_agent_task`, `get_agent_task_status`, and `list_active_tasks`.
 
 ## 2. Context
 
-LOR currently prepares handoff prompts but does not dispatch them. The
-reachability model will distinguish catalog agents from known reachable dispatch
-targets. Delegated task lifecycle builds on that model by adding durable task
-records and status transitions.
+LOR no longer exposes public dispatch tools in V2. This historical/internal
+model remains documented so existing storage and compatibility code are
+understandable, but Codex-native task behavior owns dispatch and tracking.
 
 ## 3. Proposed Design
 
@@ -61,3 +61,4 @@ that native dispatch happened.
 - 2026-08-06: Keep Codex-native dispatch behind an adapter boundary.
 - 2026-08-06: Queue tasks with manual delivery instructions when no dispatcher
   is configured.
+- 2026-08-15: Remove delegated-task tools from the normal public V2 surface.

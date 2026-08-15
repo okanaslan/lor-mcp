@@ -2,14 +2,16 @@
 
 ## 1. Summary
 
-Implemented. This tech spec defines message and result storage for delegated
-agent tasks after `send_agent_task` exists.
+Implemented internally in 2.0.0, then removed from the normal public V2 MCP
+surface. This tech spec defines message and result storage for delegated agent
+tasks after `send_agent_task` exists.
 
 ## 2. Context
 
-Delegated tasks need more than initial dispatch. Callers must be able to append
-instructions, inspect task state, and collect final results without losing the
-history of what was sent.
+Delegated tasks needed more than initial dispatch in the internal compatibility
+model. In the public V2 direction, callers append instructions, inspect task
+state, and collect final results through Codex-native task workflows instead of
+LOR.
 
 ## 3. Proposed Design
 
@@ -48,3 +50,5 @@ status until a result is recorded, then returns summary/result metadata.
 - 2026-08-06: Plan follow-up and result collection as task-scoped message/result
   records.
 - 2026-08-06: Implement task-scoped follow-up messages and result retrieval.
+- 2026-08-15: Remove follow-up and result tools from the normal public V2
+  surface.

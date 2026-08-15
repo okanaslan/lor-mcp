@@ -7,14 +7,15 @@ contract for Local Orchestration Router (LOR).
 
 Recommendation explanations are deterministic inline objects attached to
 returned match candidates from typed matching tools. They expose why a returned
-agent or skill matched without using model-generated prose or exposing hidden
-catalog entries.
+skill or subagent matched without using model-generated prose or exposing hidden
+catalog entries. Historical/internal registered-agent explanations follow the
+same deterministic pattern outside the normal public V2 surface.
 
 ## 2. Context
 
-Catalog matching v1 returns separate ranked `agents` and `skills` lists.
+Public V2 catalog matching returns typed skill and subagent candidate lists.
 Matching already produces deterministic score, matched fields, and matched
-tokens or signals. The MCP tool surface v1 returns structured response envelopes
+tokens or signals. The MCP tool surface returns structured response envelopes
 through `structuredContent`.
 
 The recommendation explanation contract defines how matching evidence is exposed
@@ -37,13 +38,13 @@ returned candidates.
 - Explain rejected candidates.
 - Store explanation history or analytics.
 - Add a separate recommendation explanation MCP tool in v1.
-- Prepare agent handoff prompts; that belongs to `prepare_agent_handoff`.
+- Prepare agent handoff prompts.
 - Define the full matching algorithm.
 
 ## 5. Proposed Design
 
-Each returned agent or skill candidate from typed matching tools should include
-an `explanation` object.
+Each returned skill or subagent candidate from typed matching tools should
+include an `explanation` object.
 
 The explanation object should include:
 
@@ -74,12 +75,11 @@ only visible candidate data and matched signals. Summary text must not mention:
 - Internal DB paths or configuration values.
 
 `no_match` responses should not include candidate explanations because there are
-no returned candidates. Ambiguous top agents should each include their own
-explanation, and the match result should mark the agent list as ambiguous. The
-conflict object should add deterministic differentiating fields/signals, a
-suggested clarification question, and a recommended next action. Multiple
-returned skills should each include their own explanation and should not create
-conflicts in v1.
+no returned candidates. Multiple returned skills and subagents should each
+include their own explanation and should not create conflicts in the public V2
+surface. Historical/internal registered-agent conflict objects may add
+deterministic differentiating fields/signals, a suggested clarification
+question, and a recommended next action.
 
 ## 6. Alternatives Considered
 
@@ -142,8 +142,8 @@ returned.
 
 When this tech spec is implemented as code, verification should include:
 
-- Returned agents include explanation objects.
 - Returned skills include explanation objects.
+- Returned subagents include explanation objects.
 - No-match responses include no candidate explanations.
 - Low-score candidates are filtered out.
 - Explanation summaries are deterministic for the same inputs.
@@ -151,8 +151,9 @@ When this tech spec is implemented as code, verification should include:
   candidates.
 - Cross-workspace entries never appear in summaries, fields, signals, or
   candidate explanation metadata.
-- Ambiguous agent conflicts expose explanations only for returned ambiguous
-  candidates plus deterministic differentiating fields and signals.
+- Historical/internal ambiguous agent conflicts expose explanations only for
+  returned ambiguous candidates plus deterministic differentiating fields and
+  signals.
 
 For this documentation change, verification is limited to reading back the spec,
 checking the docs tree, running `git diff --check`, and checking git status.
@@ -183,3 +184,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   and matched signals.
 - 2026-07-26: Include candidate explanations in agents-only conflict results and
   add deterministic conflict-level clarification metadata.
+- 2026-08-15: Keep public V2 explanations focused on skill and subagent
+  matching; registered-agent explanations are internal compatibility behavior.

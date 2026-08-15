@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-A Codex user registers an existing Codex skill for the current project so Local
-Orchestration Router (LOR) can recommend it for future tasks in the requested
-workspace.
+A Codex user registers an existing Codex skill so Local Orchestration Router
+(LOR) can recommend it for future tasks. New skill registrations default to
+global scope unless the caller explicitly supplies `scope: "workspace"`.
 
 ## 2. Actor
 
@@ -23,15 +23,17 @@ Router (LOR) with project, display, and specialty metadata.
 3. The user provides the skill name and project-focused metadata.
 4. The current Codex agent calls LOR MCP to introduce the skill.
 5. Local Orchestration Router (LOR) validates the required metadata.
-6. Local Orchestration Router (LOR) stores the skill in the requested workspace.
+6. Local Orchestration Router (LOR) stores the skill in global scope by default,
+   or in the requested workspace when `scope: "workspace"` is supplied.
 7. The current Codex agent reports that the skill is available for future
    recommendations.
 
 ## 5. Expected Outcome
 
-The existing Codex skill is available in the workspace catalog and can be
-matched, inspected, or recommended by later Local Orchestration Router (LOR)
-workflows.
+The existing Codex skill is available to workspaces through global scope by
+default, or only to the requested workspace when registered as workspace-local.
+It can be matched, inspected, updated, synced, or removed by later Local
+Orchestration Router (LOR) workflows.
 
 ## 6. Related Feature Specs
 

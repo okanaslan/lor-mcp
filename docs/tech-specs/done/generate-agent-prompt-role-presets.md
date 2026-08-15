@@ -6,25 +6,25 @@ Implemented for v1. This tech spec defines the technical design for
 `generate_agent_prompt`, a stateless MCP tool that renders deterministic starter
 prompts for empty Codex chats from built-in role presets.
 
-The tool returns ready-to-paste prompt text, suggested `introduce_agent`
-metadata for later registration, and manual delivery instructions. It does not
-create Codex chats, message agents, register agents, or write to SQLite.
+The tool returns ready-to-paste prompt text, suggested role metadata, and manual
+delivery instructions. It does not create Codex chats, message agents, register
+agents, or write to SQLite.
 
 ## 2. Context
 
-`generate_agent_prompt` supports bootstrapping a new empty Codex chat before a
-real Codex session ID exists. This is separate from `prepare_agent_handoff`,
-which prepares a task handoff prompt for an agent that has already been
-introduced into the workspace catalog.
+`generate_agent_prompt` supports bootstrapping a new empty Codex chat. In the
+public V2 surface, this is the preferred prompt helper for short-lived
+task-oriented agents.
 
-The active v1 tool surface covers catalog registration, listing, detail lookup,
-clearing, matching, prepared handoff prompts, and empty-chat starter prompt
-generation.
+The active public V2 tool surface covers skill/subagent registration, listing,
+detail lookup, clearing, matching, workspace diagnostics, workspace memory,
+local skill sync, and empty-chat starter prompt generation.
 
 ## 3. Goals
 
 - Render deterministic starter prompts from built-in role presets.
-- Return suggested metadata compatible with later `introduce_agent` calls.
+- Return suggested role metadata for human review and possible future
+  compatibility workflows.
 - Keep prompt generation workspace-aware and stateless.
 - Preserve the manual-delivery boundary for empty Codex chats.
 - Avoid LLM generation, storage writes, and hidden Codex integrations.
@@ -32,10 +32,10 @@ generation.
 ## 4. Non-Goals
 
 - Create, send to, steer, or verify a Codex chat.
-- Register an agent before a Codex session ID exists.
+- Register an agent.
 - Persist generated prompts or custom role presets.
 - Query catalog entries or include hidden workspace data.
-- Replace `prepare_agent_handoff` for already introduced agents.
+- Replace hidden registered-agent handoff or regeneration compatibility flows.
 
 ## 5. Proposed Design
 
@@ -75,8 +75,7 @@ The tool output data should include:
 - `suggestedAgentMetadata`
 - `delivery`: `{ mode: "manual", instruction: string }`
 
-`suggestedAgentMetadata` should match the stable parts of `introduce_agent`
-input:
+`suggestedAgentMetadata` should describe stable role metadata:
 
 - `projectName`
 - `displayName`
@@ -84,8 +83,8 @@ input:
 - `specialtyTags`
 - optional `handoff`
 
-It must not include `codexSessionId`, because that value exists only after the
-user creates the new Codex chat.
+It must not include `codexSessionId` and must not imply that public V2 workflows
+require registering generated chats.
 
 Each role preset should define:
 
@@ -146,9 +145,9 @@ MCP surface while preserving the manual delivery boundary.
   prompts.
 - Generic role wording can drift from user expectations if presets are not kept
   small and reviewable.
-- Returning suggested handoff metadata before the agent exists may imply future
-  registration, so responses must state that registration still requires a real
-  Codex session ID.
+- Returning suggested metadata may imply future registration, so responses must
+  state that public V2 workflows use manual prompts and do not require LOR agent
+  registration.
 - Keeping the tool stateless avoids persistence complexity but means users must
   save or paste generated prompts themselves.
 
@@ -182,6 +181,7 @@ docs and running `git diff --check`.
   storage.
 - 2026-07-16: Use deterministic built-in role presets instead of LLM-generated
   prompt text.
-- 2026-07-16: Return suggested `introduce_agent` metadata without
-  `codexSessionId`.
+- 2026-07-16: Return suggested role metadata without `codexSessionId`.
 - 2026-07-16: Add `generate_agent_prompt` to the active MCP tool surface.
+- 2026-08-15: Treat generated prompts as the public V2 path for short-lived
+  task-oriented agents rather than a pre-registration step.

@@ -5,15 +5,15 @@
 Implemented for v1. This feature lets a caller generate a ready-to-paste starter
 prompt for an empty Codex chat from a built-in agent role preset.
 
-The tool helps users bootstrap specialized Codex agents, but it does not create
-or message Codex chats and does not register an agent before a real Codex
-session ID exists.
+The tool helps users bootstrap specialized short-lived Codex agents, but it does
+not create, message, track, or register Codex chats.
 
 ## 2. Goals
 
 - Generate ready-to-paste starter prompts for empty Codex chats.
 - Support a broad initial set of deterministic built-in role presets.
-- Return suggested `introduce_agent` metadata for later catalog registration.
+- Return suggested role metadata for human review and possible future
+  compatibility workflows.
 - Keep prompt generation workspace-aware without persisting generated prompts.
 - Make manual delivery explicit so callers do not assume Local Orchestration
   Router (LOR) created or contacted another agent.
@@ -22,10 +22,10 @@ session ID exists.
 
 - Create a Codex thread.
 - Send a prompt to another agent.
-- Register an agent before a Codex session ID exists.
+- Register an agent.
 - Generate prompts with an LLM.
 - Persist custom prompt templates in v1.
-- Replace `prepare_agent_handoff` for already introduced agents.
+- Replace hidden registered-agent handoff or regeneration compatibility flows.
 
 ## 4. Functional Requirements
 
@@ -57,8 +57,8 @@ session ID exists.
   preserve user work, and report exact verification.
 - The response must include the selected role.
 - The response must include a suggested display name.
-- The response must include suggested agent metadata for a later
-  `introduce_agent` call after a Codex session ID exists.
+- The response may include suggested agent metadata for human review, but must
+  not present registration as a required next step in the public V2 flow.
 - The response must include manual delivery instructions.
 - The tool must not create, message, steer, or verify a Codex agent.
 
@@ -86,8 +86,8 @@ Conceptual output fields:
 - `role`: selected role preset.
 - `prompt`: ready-to-paste starter prompt for the empty Codex chat.
 - `displayName`: suggested agent display name.
-- `suggestedAgentMetadata`: suggested metadata for later `introduce_agent`
-  registration.
+- `suggestedAgentMetadata`: suggested role metadata for human review or future
+  compatibility workflows.
 - `delivery`: manual delivery instructions that state Local Orchestration Router
   (LOR) does not create or message Codex chats.
 
@@ -137,3 +137,6 @@ Suggested agent metadata should include:
   an agent before a Codex session ID exists.
 - 2026-07-15: Use deterministic built-in role presets for v1.
 - 2026-07-15: Keep delivery manual and out of Local Orchestration Router (LOR).
+- 2026-08-15: Treat generated prompts as the public V2 path for short-lived
+  task-oriented agents; do not instruct users to register generated chats as a
+  normal next step.

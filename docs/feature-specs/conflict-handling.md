@@ -2,17 +2,15 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature defines how Local Orchestration Router (LOR)
-handles cases where multiple introduced agents match a request with near-equal
-strength and the caller cannot safely choose one handoff target.
+Implemented internally for registered-agent matching in v1, but not part of the
+normal public V2 tool surface. Public V2 skill and subagent matching returns
+ranked candidates instead of conflict results.
 
 ## 2. Goals
 
-- Avoid silently choosing between near-equal agent matches.
-- Return clear conflict results for ambiguous recommendations.
-- Provide enough candidate metadata for the caller to choose or refine.
-- Keep skills ranked without treating multiple skill matches as conflicts.
-- Keep subagents ranked without treating multiple subagent matches as conflicts.
+- Preserve the historical conflict model for older registered-agent matching.
+- Keep public V2 skill and subagent matching ranked without treating multiple
+  useful candidates as conflicts.
 
 ## 3. Non-Goals
 
@@ -24,9 +22,9 @@ strength and the caller cannot safely choose one handoff target.
 
 ## 4. Functional Requirements
 
-- The server must detect when multiple top agents have near-equivalent match
-  strength.
-- V1 conflict detection must only consider agent candidates.
+- Historical registered-agent matching must detect when multiple top agents have
+  near-equivalent match strength.
+- Conflict detection must only consider agent candidates.
 - Near-equal top agent scores are scores within 10 percent of the top agent
   score.
 - Conflict detection must only consider entries in the requested workspace.
@@ -40,17 +38,18 @@ strength and the caller cannot safely choose one handoff target.
   meaningful stronger signal, such as exact project-name match or stronger
   primary-specialty strength.
 - Multiple matching skills must remain a ranked list and must not force
-  `status: "conflict"` in v1.
+  `status: "conflict"` in the public V2 surface.
 - Multiple matching subagents must remain a ranked list and must not force
-  `status: "conflict"` in v1.
+  `status: "conflict"` in the public V2 surface.
 - The caller may resolve the conflict by making a more specific request or by
   choosing one candidate.
 
 ## 5. User Stories / Use Cases
 
-Optional for later expansion. The initial use case is that two backend-focused
-agents match a task with near-equal strength and Local Orchestration Router
-(LOR) asks the caller to disambiguate instead of guessing.
+Historical use case: two backend-focused registered agents match a task with
+near-equal strength and Local Orchestration Router (LOR) asks the caller to
+disambiguate instead of guessing. Public V2 matching should usually combine or
+rank skill/subagent results.
 
 ## 6. Data Model
 
@@ -95,3 +94,5 @@ Conceptual `CatalogConflictResult` fields:
   project-name or stronger primary-specialty evidence.
 - 2026-08-04: Plan subagent recommendations to behave like skills for conflict
   handling: ranked results, not ambiguity conflicts.
+- 2026-08-15: Keep conflict handling out of the normal public V2 surface because
+  registered-agent matching is no longer public.

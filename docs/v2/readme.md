@@ -13,8 +13,8 @@ right skills, subagents, prompts, next steps, and failure behavior.
   agents.
 - Stop expanding LOR-owned delegated task management.
 - Stop expanding direct agent-to-agent communication tools.
-- Keep prompt generation and handoff prompt helpers because users can still
-  perform manual coordination.
+- Keep prompt generation helpers because users can still perform manual
+  coordination with fresh Codex chats.
 - Improve skill and subagent registration, discovery, quality, and coverage.
 - Make tool results more operational: tell the caller what to do next and what
   to do if a step fails.

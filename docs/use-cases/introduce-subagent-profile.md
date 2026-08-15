@@ -21,7 +21,8 @@ optional references to agents or skills that may help the subagent work.
 1. The user identifies a focused subagent role worth reusing.
 2. The user asks the current Codex agent to introduce the subagent through LOR.
 3. The current agent supplies required metadata and optional references.
-4. LOR stores the subagent in workspace or global scope.
+4. LOR stores the subagent in global scope by default, or in workspace scope
+   when `scope: "workspace"` is supplied.
 5. LOR returns the stored profile, rendered prompt, and unresolved reference
    metadata when references cannot be resolved.
 

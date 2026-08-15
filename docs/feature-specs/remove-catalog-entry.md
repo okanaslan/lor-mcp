@@ -2,12 +2,12 @@
 
 ## 1. Summary
 
-Implemented for v1 agents, skills, and subagent profiles, including explicitly
-targeted shared global skills and global subagents.
+Implemented for the public V2 surface through skill and subagent removal,
+including explicitly targeted shared global skills and global subagents.
 
-Current public MCP tools are `remove_agent`, `remove_skill`, and
-`remove_subagent`; the generic `remove_catalog_entry` tool name is no longer
-registered.
+Current public MCP tools are `remove_skill` and `remove_subagent`;
+registered-agent removal and the generic `remove_catalog_entry` tool name are no
+longer registered in the normal public V2 surface.
 
 ## 2. Goals
 
@@ -21,7 +21,6 @@ registered.
 
 ## 3. Non-Goals
 
-- Delete the underlying Codex agent session.
 - Delete the underlying Codex skill from disk.
 - Delete any Codex-native subagent task or chat.
 - Remove entries from other workspaces.
@@ -36,8 +35,7 @@ registered.
 - The server must remove only entries scoped to the requested workspace.
 - The server must support removing global skills when global scope is explicitly
   targeted.
-- The server must support removing introduced agents, introduced skills, and
-  subagent profiles.
+- The server must support removing introduced skills and subagent profiles.
 - The server must allow removing workspace-local subagents and explicitly
   targeted global subagents.
 - The server must return a success result when an entry is removed.
@@ -46,8 +44,8 @@ registered.
 - Removing a global skill must remove it from results in every workspace.
 - Removing a global subagent must remove it from results in every workspace.
 - Removed entries must no longer appear in list, detail, or matching results.
-- Removing a catalog entry must not affect the underlying external Codex agent
-  or skill.
+- Removing a catalog entry must not affect the underlying local skill file or
+  Codex task.
 
 ## 5. User Stories / Use Cases
 
@@ -58,7 +56,7 @@ agent or skill by mistake and wants to remove it from future recommendations.
 
 Conceptual `CatalogEntryRemoval` fields:
 
-- `entryType`: identifies `agent`, `skill`, or `subagent`.
+- `entryType`: identifies `skill` or `subagent`.
 - `entryKey`: identifies the entry to remove.
 - `scope`: optionally identifies `workspace` or `global` for skill and subagent
   removal.

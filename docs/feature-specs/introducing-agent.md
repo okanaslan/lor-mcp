@@ -2,9 +2,14 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets a user introduce an existing Codex agent
-to the Local Orchestration Router (LOR) MCP Server by recording its Codex
-session ID and routing metadata in durable storage scoped to the workspace.
+Implemented internally for v1, then removed from the normal public V2 MCP
+surface. This feature lets a user introduce an existing Codex agent to the Local
+Orchestration Router (LOR) MCP Server by recording its Codex session ID and
+routing metadata in durable storage scoped to the workspace.
+
+The public V2 direction favors short-lived task-oriented Codex chats initialized
+with `generate_agent_prompt`, skills, and subagent profiles instead of
+long-lived registered-agent catalogs.
 
 ## 2. Goals
 

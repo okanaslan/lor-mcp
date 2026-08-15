@@ -22,7 +22,7 @@ The project follows Semantic Versioning:
 
 - Clean up README, roadmap, changelog, and active tool-surface documentation
   ahead of the next planning cycle.
-- Add V2 planning docs for task-oriented agents, tool-surface simplification,
+- Align V2 direction docs for task-oriented agents, tool-surface simplification,
   skill/subagent coverage, and local skill/AGENTS.md integration.
 - Hide delegated task lifecycle tools from the normal public MCP surface while
   keeping manual prompt helpers available.

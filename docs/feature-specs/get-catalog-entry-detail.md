@@ -2,20 +2,20 @@
 
 ## 1. Summary
 
-Implemented for v1 agents, skills, and subagent profiles, including explicit
-shared global skill and subagent lookup. Subagent detail returns full metadata
-and a rendered starter prompt for one reusable subagent profile.
+Implemented for the public V2 surface through skill and subagent detail lookup,
+including explicit shared global skill and subagent lookup. Subagent detail
+returns full metadata and a rendered starter prompt for one reusable subagent
+profile.
 
-Current public MCP tools are `get_agent_detail`, `get_skill_detail`, and
-`get_subagent_detail`; the generic `get_catalog_entry_detail` tool name is no
-longer registered.
+Current public MCP tools are `get_skill_detail` and `get_subagent_detail`;
+registered-agent detail lookup and the generic `get_catalog_entry_detail` tool
+name are no longer registered in the normal public V2 surface.
 
 ## 2. Goals
 
 - Retrieve one catalog entry by type and identifier.
 - Return all stored metadata for the entry.
 - Return rendered prompt text for subagent detail lookups.
-- Return full reachability metadata for agent detail lookups.
 - Keep detail lookup separate from listing and matching.
 
 ## 3. Non-Goals
@@ -24,7 +24,7 @@ longer registered.
 - Update catalog entry metadata.
 - Return workspace-local entries from other workspaces.
 - Verify whether an external agent or skill still exists.
-- Actively probe agent reachability during detail lookup.
+- Inspect registered-agent entries.
 
 ## 4. Functional Requirements
 
@@ -36,12 +36,10 @@ longer registered.
 - The server must return the full stored metadata for the matching entry.
 - The server must return a not-found result when the entry does not exist in the
   requested workspace.
-- The server must support introduced agents, introduced skills, and subagent
-  profiles.
+- The server must support introduced skills and subagent profiles.
 - The server must allow detail lookup for workspace-local and global subagents.
 - Subagent detail must include the rendered prompt, stored references, and
   unresolved reference metadata.
-- Agent detail must include full reachability metadata.
 - The server must not return entries from another workspace.
 - The server may return global skill entries because they are intentionally
   shared.
@@ -56,13 +54,12 @@ metadata.
 
 Conceptual `CatalogEntryDetail` fields:
 
-- `entryType`: identifies `agent`, `skill`, or `subagent`.
+- `entryType`: identifies `skill` or `subagent`.
 - `entryKey`: identifies the entry within the workspace.
 - `scope`: identifies `workspace` or `global` for skill and subagent entries.
 - `metadata`: contains the stored fields for the entry type.
 - `renderedPrompt`: contains ready-to-use prompt text for subagent detail
   results.
-- `reachability`: full reachability metadata for agent entries.
 - `createdAt`: records when the entry was introduced.
 - `updatedAt`: records when the entry was last changed, if updates exist.
 
@@ -99,3 +96,5 @@ Conceptual `CatalogEntryDetail` fields:
   reference metadata.
 - 2026-08-06: Implement agent detail lookup to expose reachability metadata
   without actively checking liveness.
+- 2026-08-15: Remove registered-agent detail lookup from the normal public V2
+  surface.

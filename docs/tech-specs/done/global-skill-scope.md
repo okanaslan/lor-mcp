@@ -44,7 +44,8 @@ global skill entries expose `scope: "global"`.
 
 Tool behavior:
 
-- `introduce_skill` accepts optional `scope`; omitted scope means `workspace`.
+- `introduce_skill` accepts optional `scope`; omitted scope means `global`.
+- Callers use `scope: "workspace"` for workspace-local skill records.
 - `promote_skill_to_global` copies one workspace skill into global scope.
 - `list_skills` includes workspace-local entries and global skills by default.
 - `find_matching_skill` scores workspace skills and global skills by default.
@@ -128,3 +129,5 @@ Duplicate behavior:
 - 2026-08-04: Keep workspace exports workspace-local.
 - 2026-08-04: Implement with a reserved internal storage workspace for global
   skills and public `scope` fields on returned entries/candidates.
+- 2026-08-15: Default omitted `scope` on `introduce_skill` to `global`; callers
+  opt into workspace-local records with `scope: "workspace"`.

@@ -3,9 +3,9 @@
 ## 1. Summary
 
 A Codex user starts work in a new workspace where LOR MCP is reachable, but the
-workspace catalog has no registered agents or skills yet. The user wants to copy
-useful skills from an existing workspace, then bootstrap new workspace-specific
-agents with generated starter prompts.
+workspace catalog has no registered skills or subagents yet. The user wants to
+copy useful skills and subagents from an existing workspace, then bootstrap new
+short-lived task agents with generated starter prompts.
 
 ## 2. Actor
 
@@ -25,22 +25,21 @@ copying registered agents.
    useful skills in a source workspace.
 2. The agent calls `preview_workspace_catalog_sync` for the source and target
    workspaces.
-3. LOR returns the skills that would be copied, duplicate skills that would be
-   skipped, missing requested skills, and any generated starter prompt metadata.
+3. LOR returns the skills and subagents that would be copied, duplicate entries
+   that would be skipped, missing requested entries, and any generated starter
+   prompt metadata.
 4. The user reviews the preview.
 5. After approval, the agent calls `apply_workspace_catalog_sync` with
    `confirm: true`.
-6. LOR copies selected skill catalog entries into the target workspace.
+6. LOR copies selected workspace-local skill and subagent catalog entries into
+   the target workspace.
 7. The agent uses `generate_agent_prompt` for requested agent roles.
 8. The user starts new Codex chats with those prompts.
-9. After each new Codex chat has a real session ID, the user registers it with
-   `introduce_agent`.
 
 ## 5. Expected Outcome
 
-The new workspace has useful registered skills immediately, while agents are
-created fresh for the new workspace and registered only after real Codex session
-IDs exist.
+The new workspace has useful registered skills and subagents immediately, while
+agents are created fresh as short-lived Codex chats outside LOR.
 
 ## 6. Related Feature Specs
 
@@ -48,8 +47,8 @@ IDs exist.
 - [Catalog Export](../feature-specs/catalog-export.md)
 - [Catalog Import](../feature-specs/catalog-import.md)
 - [Generate Agent Prompt](../feature-specs/generate-agent-prompt.md)
-- [Introducing Agent](../feature-specs/introducing-agent.md)
 - [Introducing Skill](../feature-specs/introducing-skill.md)
+- [Subagent Suggestions](../feature-specs/subagent-suggestions.md)
 
 ## 7. Open Questions
 

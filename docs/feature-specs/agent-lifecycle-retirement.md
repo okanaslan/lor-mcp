@@ -2,10 +2,11 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets callers retire a registered Codex agent
-without changing its stable `codexSessionId`. Retired agents remain inspectable
-in the workspace catalog, but routing and handoff flows should use active
-replacement agents.
+Implemented internally for v1, then removed from the normal public V2 MCP
+surface. This feature lets callers retire a registered Codex agent without
+changing its stable `codexSessionId`. Retired agents remain inspectable in older
+workspace catalog data, but public V2 routing no longer exposes registered-agent
+matching or handoff flows.
 
 ## 2. Goals
 
@@ -26,7 +27,8 @@ replacement agents.
 
 ## 4. Functional Requirements
 
-- The server must expose `retire_agent`.
+- The internal compatibility implementation exposes `retire_agent` only outside
+  the normal public V2 surface.
 - The request must include:
   - `workspace`
   - `agentEntryKey`
@@ -43,20 +45,21 @@ replacement agents.
   - optional `retirementReason`
   - optional `replacedByAgentEntryKey`
 - Newly introduced agents must default to `agentStatus: "active"`.
-- `introduce_agent` may accept optional `replacesAgentEntryKey` metadata for a
-  new replacement agent.
-- `find_matching_agent` must exclude retired agents by default.
-- `prepare_agent_handoff` must reject retired target agents.
-- `list_agents`, `get_agent_detail`, `check_catalog_health`, and
-  `export_catalog` must keep retired agents visible.
+- Historical/internal `introduce_agent` may accept optional
+  `replacesAgentEntryKey` metadata for a new replacement agent.
+- Historical/internal `find_matching_agent` must exclude retired agents by
+  default.
+- Historical/internal `prepare_agent_handoff` must reject retired target agents.
+- `check_catalog_health` and `export_catalog` may keep retired compatibility
+  agent data visible when it already exists.
 
 ## 5. User Stories / Use Cases
 
-- A user regenerates a context-heavy agent in a new Codex chat, registers the
-  new session ID with `introduce_agent`, then retires the old entry with
-  `retire_agent`.
-- A user inspects an old retired agent later to understand which active agent
-  replaced it.
+- Historical/internal compatibility flow: a user regenerates a context-heavy
+  agent in a new Codex chat, registers the new session ID, then retires the old
+  entry.
+- Public V2 flow: a user generates a fresh short-lived task prompt and does not
+  rely on long-lived registered-agent lifecycle.
 
 ## 6. Data Model
 
@@ -94,3 +97,4 @@ Agent entries include lifecycle fields:
   explicit retirement plus new active agent registration.
 - 2026-07-26: Exclude retired agents from matching and handoff while keeping
   them visible through catalog inspection and export.
+- 2026-08-15: Remove agent lifecycle tools from the normal public V2 surface.

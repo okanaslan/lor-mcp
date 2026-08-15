@@ -144,8 +144,10 @@ Unresolved references must be preserved and returned as metadata or warnings.
 ## 10. Decision Log
 
 - 2026-08-04: Add subagents as a third catalog type, not Codex sessions.
-- 2026-08-04: Include subagents in `find_matching_catalog_entry` instead of
-  adding a separate suggestion tool.
+- 2026-08-04: Initially plan subagents for the generic matcher instead of adding
+  a separate suggestion tool.
+- 2026-08-15: Use `find_matching_subagent` as the public V2 subagent matching
+  tool.
 - 2026-08-04: Support workspace and global subagent scopes.
 - 2026-08-04: Return ready-to-use prompts for subagent introduction, detail, and
   match results.

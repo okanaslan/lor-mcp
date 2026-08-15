@@ -2,29 +2,28 @@
 
 ## 1. Summary
 
-Draft. This tech spec defines the v1 catalog matching algorithm as a lightweight
-deterministic fuzzy scorer.
+Implemented. This tech spec defines the catalog matching algorithm as a
+lightweight deterministic fuzzy scorer.
 
-V1 matching returns separate ranked agent and skill recommendations instead of
-forcing a single mixed catalog winner. The algorithm is local, predictable, and
-testable without LLMs, embeddings, or a fuzzy-search dependency.
+The public V2 surface returns separate ranked skill and subagent recommendations
+instead of forcing a single mixed catalog winner. Historical/internal
+registered-agent matching still uses the same deterministic scorer, but
+registered-agent matching is no longer part of the normal public V2 surface.
 
 ## 2. Context
 
-The MCP tool surface exposes typed matching tools: `find_matching_agent`,
-`find_matching_skill`, and `find_matching_subagent`. Durable storage uses
-separate agent, skill, and subagent tables, and all matching must remain scoped
-to the requested workspace.
+The public MCP tool surface exposes typed matching tools: `find_matching_skill`
+and `find_matching_subagent`. Durable storage uses separate agent, skill, and
+subagent tables, and all matching must remain scoped to the requested workspace
+or intentionally shared global scope.
 
-The current Find Matching Catalog Entry feature spec describes returning a
-single best catalog entry. The intended v1 behavior is broader: return ranked
-agent recommendations and ranked skill recommendations in one response. The
-feature spec should be aligned in a later pass.
+The historical matcher supported agent, skill, and subagent candidates. The
+current public V2 contract exposes skill and subagent matching only.
 
 ## 3. Goals
 
 - Provide predictable local matching without external AI services.
-- Support routing to agents and skill discovery in one request.
+- Support skill discovery and subagent prompt-profile discovery.
 - Return enough matching signals for future recommendation explanation.
 - Keep matching scoped to the requested workspace.
 - Keep the algorithm deterministic and easy to unit test.
@@ -34,14 +33,14 @@ feature spec should be aligned in a later pass.
 - Add embedding search.
 - Add LLM-based ranking.
 - Add learning from usage history.
-- Match across workspaces.
+- Match workspace-local entries from unrelated workspaces.
 - Define the final recommendation explanation contract.
 - Add a fuzzy-search dependency.
 
 ## 5. Proposed Design
 
-V1 matching should use a lightweight in-house fuzzy text scorer. The scorer
-normalizes query text and catalog metadata, scores agents and skills
+Matching should use a lightweight in-house fuzzy text scorer. The scorer
+normalizes query text and catalog metadata, scores visible skills and subagents
 independently, and returns separate ranked lists.
 
 All compared text should be normalized by:
@@ -58,7 +57,7 @@ The matching query is built from:
 - `projectName`: optional project filter.
 - `preferredType`: optional entry type filter.
 
-Each agent and skill should be scored independently with these shared field
+Each skill and subagent should be scored independently with these shared field
 priorities:
 
 - `primarySpecialty`: strongest signal.
@@ -97,24 +96,24 @@ before scoring. When `preferredType` is supplied, only the requested entry type
 is scored. When `specialtyHints` are supplied, they are treated as additional
 high-weight query tokens.
 
-The match result should return:
+The public V2 match result should return:
 
-- `agents`: ranked matching agents.
 - `skills`: ranked matching skills.
+- `subagents`: ranked matching subagent prompt profiles.
 - `status`: `ok` when at least one list has results.
 - `status`: `no_match` when both lists are empty.
 - Per-candidate match metadata including score, matched fields, and matched
   tokens or signals.
 
-The default skill result limit is up to five skills. Agent results are ranked
-separately so the caller can choose or inspect candidates without hidden
-agent-versus-skill precedence.
+The default skill result limit is up to five skills. The default subagent result
+limit is up to three subagents.
 
-Conflict behavior should not force a single mixed winner:
+Historical/internal agent conflict behavior should not affect the public V2
+skill/subagent surface:
 
-- If multiple top agents are within 10 percent of the highest agent score,
-  include them in ranked order and mark the agent list as ambiguous unless
-  deterministic auto-selection has stronger evidence.
+- If historical/internal multiple top agents are within 10 percent of the
+  highest agent score, include them in ranked order and mark the agent list as
+  ambiguous unless deterministic auto-selection has stronger evidence.
 - Deterministic auto-selection is allowed when the top agent has a meaningful
   stronger signal than other near-equal agents. V1 supports exact project-name
   match from task text and strictly stronger `primarySpecialty` score.
@@ -122,10 +121,8 @@ Conflict behavior should not force a single mixed winner:
   explanation, matched signals across candidates, differentiating fields,
   differentiating signals, a suggested clarification question, and a recommended
   next action.
-- If multiple skills match, return the ranked skill list instead of treating
-  multiple skills as a conflict.
-- Do not prefer agents over skills or skills over agents through hidden
-  tie-breaking.
+- If multiple skills or subagents match, return ranked lists instead of treating
+  multiple candidates as a conflict.
 
 ## 6. Alternatives Considered
 
@@ -171,7 +168,7 @@ type-specific matching tool names.
   vocabulary.
 - Substring matching can produce weak false positives if thresholds are too low.
 - Separate ranked lists avoid hidden type precedence but require callers to
-  interpret both agent and skill recommendations.
+  interpret both skill and subagent recommendations.
 - Without edit-distance tolerance, typos may reduce match quality.
 
 ## 9. Verification Plan
@@ -180,11 +177,13 @@ When this tech spec is implemented as code, verification should include:
 
 - Exact specialty and tag matches rank above display-name-only matches.
 - `projectName` filters out entries from other projects.
-- `preferredType` filters to only agents or only skills.
+- Typed public tools filter to only skills or only subagents.
 - `specialtyHints` affect ranking.
 - No matching entries returns `status: no_match`.
 - Multiple matching skills are returned as a ranked list.
-- Near-equal top agents are marked ambiguous instead of silently picking one.
+- Multiple matching subagents are returned as a ranked list.
+- Historical/internal near-equal top agents are marked ambiguous instead of
+  silently picking one.
 - Exact project-name and stronger primary-specialty evidence allow deterministic
   auto-selection.
 - Conflict payloads include differentiating fields/signals, a clarification
@@ -200,8 +199,6 @@ checking the docs tree, running `git diff --check`, and checking git status.
 
 ## 10. Open Questions
 
-- Should the Find Matching Catalog Entry feature spec be updated in the same
-  later pass to replace "single best entry" with ranked agent and skill results?
 - Should future versions add edit-distance typo tolerance?
 - Should the skill result limit be caller-configurable?
 
@@ -221,3 +218,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
 - 2026-07-26: Treat top agent scores within 10 percent as conflict candidates
   unless exact project-name or stronger primary-specialty evidence allows safe
   deterministic selection.
+- 2026-08-15: Remove registered-agent matching from the normal public V2
+  surface; keep public matching focused on skills and subagents.

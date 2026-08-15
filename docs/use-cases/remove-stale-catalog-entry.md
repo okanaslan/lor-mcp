@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-A Codex user removes an introduced agent or skill that should no longer be
+A Codex user removes an introduced skill or subagent that should no longer be
 recommended.
 
 ## 2. Actor
@@ -11,15 +11,16 @@ Codex user.
 
 ## 3. Scenario
 
-The user notices that an introduced agent or skill is stale, unavailable, or no
-longer appropriate for the current project. The user asks the current Codex
+The user notices that an introduced skill or subagent is stale, unavailable, or
+no longer appropriate for the current project. The user asks the current Codex
 agent to remove it from Local Orchestration Router (LOR).
 
 ## 4. Flow
 
 1. The Codex user identifies a stale catalog entry.
 2. The user asks the current Codex agent to remove the entry.
-3. The current agent calls LOR MCP with the entry type and identifier.
+3. The current agent calls `remove_skill` or `remove_subagent` with the stable
+   identifier and scope when needed.
 4. Local Orchestration Router (LOR) removes the entry from the requested
    workspace.
 5. The removed entry no longer appears in list, detail, or matching results.
@@ -27,8 +28,8 @@ agent to remove it from Local Orchestration Router (LOR).
 
 ## 5. Expected Outcome
 
-The stale entry is removed from the workspace catalog without deleting the
-underlying Codex agent or skill.
+The stale entry is removed from the catalog without deleting any local skill
+file or Codex task.
 
 ## 6. Related Feature Specs
 
@@ -38,5 +39,5 @@ underlying Codex agent or skill.
 
 ## 7. Open Questions
 
-- Should removal be soft-delete or permanent for the requested workspace?
+- Should removal be soft-delete or permanent for the requested scope?
 - Should users be able to undo removal?

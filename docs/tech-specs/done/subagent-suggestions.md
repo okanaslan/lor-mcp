@@ -7,9 +7,9 @@ prompt profiles as a third catalog entry type alongside agents and skills.
 
 ## 2. Context
 
-LOR registers agents, skills, and subagent prompt profiles; supports global
-skills and global subagents; and returns ranked matching agents, skills, and
-subagents. Some work needs short-lived or focused delegation rather than a
+LOR registers skills and subagent prompt profiles in the public V2 surface;
+supports global skills and global subagents; and returns ranked matching skills
+and subagents. Some work needs short-lived or focused delegation rather than a
 registered Codex session. Subagent profiles fill that gap by storing reusable
 prompt guidance that Codex-native subagent/task tooling can use.
 
@@ -44,11 +44,7 @@ Store subagents in durable catalog storage with a scope-aware unique constraint
 on `name`. Workspace and global subagents may share the same `name`, but
 duplicates within the same workspace scope or within global scope are rejected.
 
-`find_matching_subagent` should return:
-
-- `agents`
-- `skills`
-- `subagents`
+`find_matching_subagent` should return ranked subagent candidates.
 
 Subagent matching should use:
 
@@ -115,7 +111,7 @@ Reference behavior:
 Add `introduce_subagent`:
 
 - required `workspace`
-- optional `scope`, default `workspace`
+- optional `scope`, default `global`
 - required `name`
 - required `displayName`
 - required `projectName`
@@ -129,8 +125,8 @@ Add `introduce_subagent`:
 - optional `constraints`
 - optional `expectedOutput`
 
-Do not add `suggest_subagents` in v1. Combined matching should own subagent
-suggestions until there is evidence that a separate tool is needed.
+Do not add `suggest_subagents` in v1. `find_matching_subagent` owns subagent
+suggestions until there is evidence that another tool is needed.
 
 ## 9. Import Export And Sync
 
@@ -180,3 +176,7 @@ suggestions until there is evidence that a separate tool is needed.
 - 2026-08-04: Implement subagent storage, `introduce_subagent`,
   list/detail/match integration, workspace export/import/sync, global scope, and
   removal support.
+- 2026-08-15: Default omitted `scope` on `introduce_subagent` to `global`;
+  callers opt into workspace-local profiles with `scope: "workspace"`.
+- 2026-08-15: Use `find_matching_subagent` as the public subagent suggestion
+  tool in the V2 surface.

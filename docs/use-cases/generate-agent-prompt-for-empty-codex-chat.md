@@ -4,8 +4,7 @@
 
 A Codex user wants to start a new empty Codex chat as a specialized agent
 without writing the role prompt manually. Local Orchestration Router (LOR)
-generates a ready-to-paste starter prompt and suggested catalog metadata for
-later registration.
+generates a ready-to-paste starter prompt and suggested role metadata.
 
 ## 2. Actor
 
@@ -28,24 +27,21 @@ Local Orchestration Router (LOR).
    Local Orchestration Router (LOR).
 3. The user provides a desired role, such as `backend` or `figma_design`.
 4. Local Orchestration Router (LOR) returns a ready-to-paste prompt and
-   suggested catalog metadata for that role.
+   suggested role metadata for that role.
 5. The user pastes the prompt into the empty Codex chat.
 6. The new chat starts operating according to the generated agent role.
-7. After the new chat has a Codex session ID, the user may register it with
-   `introduce_agent` using the suggested metadata.
 
 ## 5. Expected Outcome
 
 The user can reliably bootstrap a specialized Codex agent without manually
 writing the role prompt from scratch. The generated prompt is ready for manual
-delivery, and the suggested metadata gives the user a clean path to later
-register the new agent in Local Orchestration Router (LOR).
+delivery, and the suggested metadata helps the user understand the intended role
+without requiring catalog registration.
 
 ## 6. Related Feature Specs
 
 - [Generate Agent Prompt](../feature-specs/generate-agent-prompt.md)
-- [Introducing Agent](../feature-specs/introducing-agent.md)
-- [Prepare Agent Handoff](../feature-specs/prepare-agent-handoff.md)
+- [V2 Agent Initialization Context](../feature-specs/v2-agent-initialization-context.md)
 
 ## 7. Open Questions
 

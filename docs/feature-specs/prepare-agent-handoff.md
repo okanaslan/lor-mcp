@@ -2,12 +2,16 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets a caller render a ready-to-send prompt for
-an introduced Codex agent in the requested workspace, except when the agent is
+Implemented internally for v1, then removed from the normal public V2 MCP
+surface. This feature lets a caller render a ready-to-send prompt for an
+introduced Codex agent in the requested workspace, except when the agent is
 known unreachable through passive reachability metadata.
 
 The tool prepares handoff content only. It does not spawn, steer, message, or
 verify another Codex agent.
+
+For V2 public workflows, use `generate_agent_prompt` with relevant
+`find_matching_skill` and `find_matching_subagent` context instead.
 
 ## 2. Goals
 
@@ -29,7 +33,8 @@ verify another Codex agent.
 
 ## 4. Functional Requirements
 
-- The tool name is `prepare_agent_handoff`.
+- The internal compatibility tool name is `prepare_agent_handoff`; it is not
+  registered in the normal public V2 surface.
 - The request must include `workspace`, `agentEntryKey`, and `task`.
 - The request may include a single `context` text block.
 - The target must be an introduced agent in the requested workspace.
@@ -98,3 +103,5 @@ Output data:
 - 2026-07-15: Keep `context` as one optional text block for v1.
 - 2026-08-06: Implement handoff preparation to fail for known unreachable agents
   while continuing to support manual prompts for unknown agents.
+- 2026-08-15: Remove registered-agent handoff preparation from the normal public
+  V2 surface; use `generate_agent_prompt` for manual fresh-chat prompts.

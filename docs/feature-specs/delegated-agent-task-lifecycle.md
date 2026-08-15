@@ -2,10 +2,12 @@
 
 ## 1. Summary
 
-Implemented. This feature defines how LOR creates and tracks delegated work sent
-to a reachable registered Codex agent. It builds on the planned Agent
-Reachability And Dispatch Model and turns routing plus handoff preparation into
-a durable task lifecycle.
+Implemented internally in 2.0.0, then removed from the normal public V2 MCP
+surface. This feature defines how LOR creates and tracks delegated work sent to
+a reachable registered Codex agent.
+
+The public V2 direction no longer makes LOR responsible for delegated task
+dispatch, status tracking, follow-up, or result collection.
 
 ## 2. Goals
 
@@ -26,9 +28,10 @@ a durable task lifecycle.
 
 ## 4. Functional Requirements
 
-- The server must expose `send_agent_task`.
-- `send_agent_task` must require `workspace`, `agentEntryKey`, and `task`.
-- `send_agent_task` may accept `context`.
+- The internal compatibility implementation exposed `send_agent_task` outside
+  the normal public V2 surface.
+- `send_agent_task` required `workspace`, `agentEntryKey`, and `task`.
+- `send_agent_task` accepted optional `context`.
 - The target must be a registered active agent in the requested workspace.
 - The target must not be known unreachable.
 - The server must create a durable delegated task record before or during
@@ -39,8 +42,8 @@ a durable task lifecycle.
   must create a queued task and return manual delivery instructions without
   claiming dispatch happened.
 - The server must update agent reachability metadata from dispatch outcomes.
-- The server must expose `get_agent_task_status`.
-- The server must expose `list_active_tasks`.
+- The internal compatibility implementation exposed `get_agent_task_status` and
+  `list_active_tasks` outside the normal public V2 surface.
 - Delegated task records must never cross workspace boundaries.
 
 ## 5. User Stories / Use Cases
@@ -95,3 +98,5 @@ Conceptual `DelegatedAgentTask` fields:
 - 2026-08-06: Keep Codex-native delivery behind an adapter boundary; the local
   runtime queues tasks with manual delivery instructions when no dispatcher is
   configured.
+- 2026-08-15: Remove delegated-task tools from the normal public V2 surface;
+  Codex-native task behavior owns dispatch and tracking.

@@ -3,7 +3,7 @@
 ## 1. Summary
 
 A Codex user corrects inaccurate display or routing metadata for an introduced
-agent or skill.
+skill or subagent.
 
 ## 2. Actor
 
@@ -11,19 +11,19 @@ Codex user.
 
 ## 3. Scenario
 
-The user notices that a catalog entry has the wrong project name, display name,
-primary specialty, or specialty tags. The user asks the current Codex agent to
-update the entry through LOR MCP.
+The user notices that a skill or subagent entry has the wrong project name,
+display name, primary specialty, or specialty tags. The user asks the current
+Codex agent to update the entry through LOR MCP.
 
 ## 4. Flow
 
-1. The Codex user identifies an introduced agent or skill with incorrect
+1. The Codex user identifies an introduced skill or subagent with incorrect
    metadata.
 2. The user provides the corrected metadata.
-3. The current Codex agent calls LOR MCP to update the catalog entry.
+3. The current Codex agent calls `update_skill` or `update_subagent`.
 4. Local Orchestration Router (LOR) validates the update.
 5. Local Orchestration Router (LOR) updates only editable metadata in the
-   requested workspace workspace.
+   requested workspace or global scope.
 6. The current Codex agent reports the updated catalog entry to the user.
 
 ## 5. Expected Outcome

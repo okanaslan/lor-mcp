@@ -2,26 +2,27 @@
 
 ## 1. Summary
 
-Implemented. This tech spec defines the storage and tool-boundary model for
+Implemented internally in 2.0.0, then removed from the normal public V2 MCP
+surface. This tech spec defines the storage and tool-boundary model for
 distinguishing registered LOR catalog agents from Codex agents that are known to
 be reachable through Codex-native dispatch outcomes.
 
 ## 2. Context
 
-LOR currently stores `codexSessionId`, matching metadata, handoff metadata, and
-agent lifecycle state. It prepares handoff prompts but does not dispatch them.
-Real usage feedback shows that callers need a clear distinction between a
-catalog entry and a live dispatch target before LOR adds delegated task tools.
+LOR stores historical/internal `codexSessionId`, matching metadata, handoff
+metadata, and agent lifecycle state. Real usage feedback later moved the public
+V2 direction away from LOR-owned delegated task tools.
 
 ## 3. Goals
 
 - Add passive reachability metadata to introduced agent records.
 - Keep `codexSessionId` as the dispatch target identifier.
-- Expose reachability in list, detail, matching, and handoff behavior.
+- Preserve reachability behavior in internal compatibility list, detail,
+  matching, and handoff flows.
 - Record reachability only from Codex-native dispatch outcomes.
 - Avoid active liveness probes and automatic expiry.
-- Prepare storage and domain boundaries for later delegated task lifecycle
-  tools.
+- Preserve storage and domain boundaries for internal delegated task lifecycle
+  compatibility code.
 
 ## 4. Non-Goals
 
@@ -145,3 +146,5 @@ Future dispatch tools:
 - 2026-08-06: Keep unknown and unreachable agents visible in matching.
 - 2026-08-06: Fail handoff preparation for known unreachable agents.
 - 2026-08-06: Do not automatically expire reachability metadata.
+- 2026-08-15: Remove reachability-dependent registered-agent workflows from the
+  normal public V2 surface.

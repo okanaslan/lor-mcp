@@ -2,13 +2,12 @@
 
 ## 1. Summary
 
-Implemented for v1, including explicitly targeted shared global skills. This
-feature lets a user update editable metadata for an introduced agent or skill in
-the requested workspace, or for a shared global skill.
+Implemented for the public V2 surface through skill and subagent updates,
+including explicitly targeted shared global skills and subagents.
 
-Current public MCP tools are `update_agent`, `update_skill`, and
-`update_subagent`; the generic `update_catalog_entry` tool name is no longer
-registered.
+Current public MCP tools are `update_skill` and `update_subagent`;
+registered-agent update and the generic `update_catalog_entry` tool name are no
+longer registered in the normal public V2 surface.
 
 ## 2. Goals
 
@@ -19,19 +18,19 @@ registered.
 
 ## 3. Non-Goals
 
-- Change the underlying Codex session ID for an agent.
 - Change the underlying skill name for a skill.
 - Move entries between initialized MCP sessions.
 - Move workspace entries into global scope; promotion is handled by Global Skill
   Scope.
-- Verify external agent or skill existence.
+- Verify external skill existence.
 
 ## 4. Functional Requirements
 
 - The server must accept the typed entry identifier for the selected tool.
 - The server must update only entries scoped to the requested workspace or
   explicitly selected global scope.
-- The server must support updates for explicitly targeted global skills.
+- The server must support updates for explicitly targeted global skills and
+  subagents.
 - The server must allow updating project name, display name, primary specialty,
   and specialty tags.
 - The server must not allow changing the stable entry reference.
@@ -46,15 +45,17 @@ registered.
 ## 5. User Stories / Use Cases
 
 Optional for later expansion. The initial use case is that a user introduces an
-agent or skill and later corrects its project, display name, or specialty tags.
+skill or subagent and later corrects its project, display name, or specialty
+tags.
 
 ## 6. Data Model
 
 Conceptual `CatalogEntryUpdate` fields:
 
-- `entryType`: identifies `agent` or `skill`.
+- `entryType`: identifies `skill` or `subagent`.
 - `entryKey`: identifies the entry to update.
-- `scope`: optionally identifies `workspace` or `global` for skill updates.
+- `scope`: optionally identifies `workspace` or `global` for skill and subagent
+  updates.
 - `projectName`: optional replacement project name.
 - `displayName`: optional replacement display name.
 - `primarySpecialty`: optional replacement primary specialty.
@@ -91,3 +92,4 @@ Conceptual `CatalogEntryUpdate` fields:
 - 2026-07-17: V1 supports partial field patching and rejects empty update
   patches.
 - 2026-08-04: Implement update support for explicitly targeted global skills.
+- 2026-08-15: Remove registered-agent updates from the normal public V2 surface.

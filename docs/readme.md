@@ -24,7 +24,7 @@ responses remain warnings.
 - `../VERSION`: current project version.
 - `versioning.md`: versioning and changelog rules.
 - `roadmap.md`: high-level feature roadmap and current implementation status.
-- `v2/`: next-direction planning notes from feedback about task-oriented agents,
+- `v2/`: direction notes from feedback about task-oriented agents,
   skill/subagent support, local skills, and local `AGENTS.md`.
 - `feature-specs/`: product behavior specs for implemented and planned features.
 - `use-cases/`: workflow and scenario documents linked from feature specs.
@@ -79,5 +79,5 @@ preview first, then apply with `confirm: true`.
   public MCP tool surface changes.
 - Keep planned-tool language explicit so future docs do not imply unimplemented
   MCP tools are available.
-- Keep V2 planning docs separate from current implementation docs until scope is
-  accepted for implementation.
+- Keep V2 direction notes aligned with the current public tool surface whenever
+  implementation scope changes.

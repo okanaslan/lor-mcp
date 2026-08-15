@@ -81,14 +81,19 @@ Implemented in the runnable local 2.0.0 server:
 - Workspace memory is implemented as durable workspace-scoped notes outside the
   routing catalog. Notes do not support global scope.
 
-Current `LOR-MCP` catalog snapshot as of 2026-07-20:
+Current `LOR-MCP` catalog snapshot as of 2026-08-15:
 
 - Resolved workspace: `/Users/ablo/Developer/GitHub/okanaslan/Agentic-Router`.
+- Total entries: 24.
 - Registered agents: 2.
 - Registered skills: 22.
+- Registered subagents: 0.
 - Current registered agents:
   - `LOR MCP Coordinator Agent`
   - `LOR MCP Backend Implementation Agent`
+- Runtime note: after tool-surface changes, restart or reload the local LOR MCP
+  process so Codex sees the current public V2 tool list rather than any older
+  compatibility surface.
 
 Latest implementation verification:
 

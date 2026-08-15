@@ -2,18 +2,23 @@
 
 ## 1. Summary
 
-Implemented for v1. This feature lets a caller prepare a ready-to-paste prompt
-for replacing a registered Codex agent whose current chat has become too
+Implemented internally for v1, then removed from the normal public V2 MCP
+surface. This feature lets a caller prepare a ready-to-paste prompt for
+replacing a registered Codex agent whose current chat has become too
 context-heavy. The tool uses stored agent metadata and optional caller-provided
 carry-forward context, but it does not create, message, register, update, or
 remove Codex agents.
+
+For V2 public workflows, initialize fresh short-lived task agents with
+`generate_agent_prompt` and relevant skill/subagent context.
 
 ## 2. Goals
 
 - Help users regenerate useful agents with clean Codex chat context.
 - Preserve the source agent's role, project focus, specialty metadata, tags, and
   handoff guidance.
-- Return suggested replacement metadata for a later `introduce_agent` call.
+- Return suggested replacement metadata for historical/internal compatibility
+  workflows.
 - Keep delivery and catalog replacement manual and explicit.
 - Avoid relying on hidden Codex internals or automatic old-agent messaging.
 
@@ -24,11 +29,12 @@ remove Codex agents.
 - Register the replacement agent before a new Codex session ID exists.
 - Automatically retire, update, or remove the old catalog entry.
 - Generate prompts with an LLM.
-- Replace task handoff through `prepare_agent_handoff`.
+- Replace public `generate_agent_prompt` flows for short-lived task agents.
 
 ## 4. Functional Requirements
 
-- The server must expose `prepare_agent_regeneration`.
+- The internal compatibility implementation exposes `prepare_agent_regeneration`
+  only outside the normal public V2 surface.
 - The request must include:
   - `workspace`
   - `agentEntryKey`
@@ -53,10 +59,10 @@ remove Codex agents.
   - `catalogAction`
   - `delivery`
 - `suggestedReplacementMetadata` must not include `codexSessionId`.
-- `replacementInstructions` must explain that the new Codex chat receives a new
-  session ID that must be registered later with `introduce_agent`.
-- `catalogAction` must advise the caller to introduce the replacement agent and
-  retire the old entry only after the replacement is confirmed.
+- `replacementInstructions` must explain that public V2 workflows can use the
+  generated prompt manually without registering the new chat.
+- `catalogAction` must be framed as historical/internal compatibility guidance,
+  not a normal public V2 next step.
 - The tool must not mutate catalog records.
 
 ## 5. User Stories / Use Cases
@@ -81,13 +87,12 @@ Conceptual output fields:
 - `workspace`: resolved workspace.
 - `sourceAgent`: compact metadata for the old registered agent.
 - `prompt`: ready-to-paste prompt for the replacement Codex chat.
-- `suggestedReplacementMetadata`: stable metadata for a later `introduce_agent`
-  request. It may include `replacesAgentEntryKey` to link the new active agent
-  to the source agent.
-- `replacementInstructions`: manual steps for creating and registering the new
-  agent.
-- `catalogAction`: guidance for registering the replacement agent and retiring
-  the old agent.
+- `suggestedReplacementMetadata`: stable metadata for historical/internal
+  compatibility workflows. It may include `replacesAgentEntryKey` to link a new
+  active agent to the source agent.
+- `replacementInstructions`: manual steps for creating the new Codex chat.
+- `catalogAction`: historical/internal compatibility guidance for registering a
+  replacement agent and retiring the old agent.
 - `delivery`: manual delivery instructions.
 
 ## 7. Error Handling
@@ -123,3 +128,5 @@ Conceptual output fields:
   with deterministic local prompt rendering and no catalog mutation.
 - 2026-07-26: Use `retire_agent` as the explicit follow-up catalog action for
   confirmed replacements.
+- 2026-08-15: Remove this tool from the normal public V2 surface and prefer
+  `generate_agent_prompt` for short-lived task agents.

@@ -2,8 +2,12 @@
 
 ## 1. Summary
 
-Implemented. This feature defines how callers add context to an already
-delegated agent task and collect its final or intermediate result.
+Implemented internally in 2.0.0, then removed from the normal public V2 MCP
+surface. This feature defines how callers add context to an already delegated
+agent task and collect its final or intermediate result.
+
+The public V2 direction keeps follow-up and result collection in Codex-native
+task workflows outside LOR.
 
 ## 2. Goals
 
@@ -22,17 +26,18 @@ delegated agent task and collect its final or intermediate result.
 
 ## 4. Functional Requirements
 
-- The server must expose `append_agent_context`.
-- `append_agent_context` must require `workspace`, `taskId`, and `message`.
+- The internal compatibility implementation exposed `append_agent_context`
+  outside the normal public V2 surface.
+- `append_agent_context` required `workspace`, `taskId`, and `message`.
 - The server must reject follow-up for completed, failed, cancelled, or missing
   tasks.
 - The server must send follow-up context through the Codex-native task channel
   when supported.
 - The server must store every accepted follow-up message.
-- The server must expose `get_agent_task_result`.
-- `get_agent_task_result` must return result metadata when the task is
-  completed.
-- `get_agent_task_result` must return current status when no result is available
+- The internal compatibility implementation exposed `get_agent_task_result`
+  outside the normal public V2 surface.
+- `get_agent_task_result` returned result metadata when the task is completed.
+- `get_agent_task_result` returned current status when no result was available
   yet.
 
 ## 5. User Stories / Use Cases
@@ -84,3 +89,5 @@ Conceptual result fields:
   so the lifecycle model stays clear.
 - 2026-08-06: Implement durable follow-up messages and result retrieval, with
   status-only responses while no result is recorded.
+- 2026-08-15: Remove follow-up and result tools from the normal public V2
+  surface; Codex-native task workflows own follow-up and result collection.

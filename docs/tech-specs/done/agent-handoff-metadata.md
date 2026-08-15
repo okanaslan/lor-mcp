@@ -2,13 +2,14 @@
 
 ## 1. Summary
 
-Implemented for v1 metadata storage. This tech spec defines optional stored
-metadata for introduced Codex agents so a current Codex agent can prepare a
-safe, task-specific handoff prompt after matching or inspecting an agent.
+Implemented internally for v1 metadata storage, then removed from the normal
+public V2 surface. This tech spec defines optional stored metadata for
+introduced Codex agents so a current Codex agent can prepare a safe,
+task-specific handoff prompt after matching or inspecting an agent.
 
 Local Orchestration Router (LOR) stores handoff guidance in the catalog and can
-render a ready-to-send prompt through `prepare_agent_handoff`, but it does not
-send work to another agent.
+render a ready-to-send prompt through internal compatibility flows, but it does
+not send work to another agent.
 
 ## 2. Context
 
@@ -17,10 +18,9 @@ Orchestration Router (LOR) recommends an introduced Codex agent. Current agent
 specs store a Codex session ID and routing metadata, but they do not define what
 guidance a caller should use to prepare a handoff.
 
-The v1 MCP tool surface includes a prompt-preparation handoff tool. Existing
-catalog flows carry this metadata: `introduce_agent` may accept it,
-`get_agent_detail` returns it for agent entries, `prepare_agent_handoff` renders
-it for a task, and future update tools may edit it.
+The historical v1 MCP tool surface included a prompt-preparation handoff tool.
+Existing internal compatibility catalog flows can carry this metadata, but the
+normal public V2 surface does not expose registered-agent handoff tools.
 
 ## 3. Goals
 
@@ -69,9 +69,8 @@ using whatever Codex workflow is available to send or present the rendered
 prompt.
 
 Matching results should not include full handoff metadata. A caller may fetch
-agent detail for inspection, or pass the matched agent entry key to
-`prepare_agent_handoff` to render a prompt. This keeps match responses focused
-on routing and recommendation signals.
+agent detail for inspection through internal compatibility flows. This keeps
+public match responses focused on skill and subagent recommendation signals.
 
 Handoff metadata must not be treated as proof that the target Codex session is
 reachable or still active.
@@ -104,16 +103,17 @@ For v1 storage, handoff metadata can be stored as structured JSON on the agent
 record. The storage design should keep it scoped by the same workspace as the
 rest of the agent record.
 
-`introduce_agent` may accept an optional `handoff` object. Missing handoff
-metadata must not prevent agent introduction.
+Historical/internal `introduce_agent` may accept an optional `handoff` object.
+Missing handoff metadata must not prevent agent introduction.
 
-`get_agent_detail` should include `handoff` metadata only for agent entries that
-have it. Skill detail responses should not include handoff metadata.
+Historical/internal agent detail may include `handoff` metadata for agent
+entries that have it. Skill detail responses should not include handoff
+metadata.
 
-`prepare_agent_handoff` should render stored `handoffPromptTemplate` text with
-supported task and agent placeholders. If no handoff metadata is stored, it
-should return a generic prompt based on the agent metadata, task, and optional
-context.
+Internal compatibility prompt rendering should render stored
+`handoffPromptTemplate` text with supported task and agent placeholders. If no
+handoff metadata is stored, it should return a generic prompt based on the agent
+metadata, task, and optional context.
 
 Future update tools should allow editing handoff metadata without changing the
 stable Codex session ID. Future remove behavior should remove handoff metadata
@@ -167,3 +167,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
 - 2026-07-12: Support basic placeholders in `handoffPromptTemplate`.
 - 2026-07-15: Add `prepare_agent_handoff` as a prompt-preparation tool without
   dispatching to Codex.
+- 2026-08-15: Remove registered-agent handoff metadata flows from the normal
+  public V2 surface.

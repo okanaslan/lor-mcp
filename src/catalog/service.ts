@@ -595,7 +595,7 @@ export class CatalogService {
         dispatch: {
           mode: "manual",
           instruction:
-            "Send the returned prompt through Codex-native thread tools, then check this LOR task later by taskId.",
+            "Send the returned prompt through Codex-native thread tools. This is an internal compatibility task record; public V2 workflows should track progress through Codex-native task behavior.",
         },
       };
     }
