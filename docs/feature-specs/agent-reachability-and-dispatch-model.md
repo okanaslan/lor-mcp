@@ -3,9 +3,10 @@
 ## 1. Summary
 
 Implemented internally in 2.0.0, then removed from the normal public V2 MCP
-surface. This feature defines how Local Orchestration Router (LOR) distinguishes
-registered catalog agents from agents that are known to be reachable through
-Codex-native dispatch.
+surface. Only passive reachability metadata remains for historical registered
+agent records. This feature defined how Local Orchestration Router (LOR)
+distinguished registered catalog agents from agents known to be reachable
+through Codex-native dispatch.
 
 Registered agents remain useful catalog entries even when reachability is
 unknown or unavailable. Reachability is separate metadata, not a routing score
@@ -18,12 +19,9 @@ tracking, follow-up context, or result collection.
 
 - Clearly distinguish catalog-only agents from dispatch-capable agents.
 - Store passive reachability metadata based on Codex-native dispatch outcomes.
-- Expose reachability metadata in agent list, detail, matching, and handoff
-  flows.
+- Preserve reachability metadata on historical agent records.
 - Keep agent matching useful even when an agent is unreachable or unknown.
-- Prevent handoff preparation from implying that unreachable agents can receive
-  work.
-- Preserve the historical/internal model for delegated task lifecycle tools.
+- Avoid implying that LOR owns Codex dispatch.
 
 ## 3. Non-Goals
 
@@ -44,18 +42,10 @@ tracking, follow-up context, or result collection.
   or fails.
 - LOR must not actively check reachability through background probes, polling,
   or session inspection in this feature.
-- `codexSessionId` must remain the dispatch target identifier for Codex agents.
+- `codexSessionId` remains historical agent metadata.
 - Reachability must not expire automatically.
-- Matching must continue to include unreachable and unknown agents by default.
-- Agent match candidates must include compact reachability metadata.
-- Agent detail responses must include full reachability metadata.
-- Agent list responses must include compact reachability metadata.
-- `prepare_agent_handoff` must fail when the target agent is known unreachable.
-- `prepare_agent_handoff` may continue for `unknown` agents because manual
-  delivery remains possible.
-- `prepare_agent_handoff` must not claim dispatch happened.
-- Internal compatibility dispatch tools must require a reachable dispatch target
-  before sending work.
+- LOR must not expose reachability-dependent handoff or dispatch tools in the
+  normal public V2 surface.
 
 ## 5. User Stories / Use Cases
 
@@ -79,14 +69,9 @@ Agent dispatch target:
 
 ## 7. Error Handling
 
-- `prepare_agent_handoff` must return an error when the target agent has
-  `reachabilityStatus: "unreachable"`.
-- Internal compatibility dispatch tools must return a reachability error when
-  the target agent is unreachable or unsupported.
 - Reachability errors must not expose hidden Codex task internals, stack traces,
   host paths, or unrelated workspace data.
-- Unknown reachability is not an error for matching, listing, detail lookup, or
-  manual handoff preparation.
+- Unknown reachability is not an error for stored historical metadata.
 
 ## 8. Security and Permissions
 
@@ -118,3 +103,5 @@ Agent dispatch target:
 - 2026-08-06: Do not automatically expire reachability metadata.
 - 2026-08-15: Remove reachability-dependent registered-agent workflows from the
   normal public V2 surface.
+- 2026-08-15: Delete registered-agent handoff and delegated-task code paths;
+  keep only passive reachability metadata for historical agent records.

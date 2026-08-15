@@ -1,9 +1,5 @@
 import {
   type AgentCatalogEntry,
-  type AgentTaskDispatcher,
-  type AgentTaskResult,
-  type AppendAgentContextInput,
-  type AppendAgentContextResult,
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type ApplyWorkspaceCatalogSyncInput,
@@ -27,19 +23,14 @@ import {
   type CatalogScope,
   type ClearWorkspaceCatalogInput,
   type ClearWorkspaceCatalogResult,
-  type DelegatedAgentTask,
   type EntryLookup,
   type EntryType,
   type FindMatchingWorkspaceNoteInput,
   type FindMatchingWorkspaceNoteResult,
-  type GetAgentTaskResultInput,
-  type GetAgentTaskStatusInput,
   type GetWorkspaceNoteInput,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type IntroduceSubagentInput,
-  type ListActiveTasksInput,
-  type ListActiveTasksResult,
   type ListEntriesFilter,
   type ListWorkspaceNotesInput,
   type ListWorkspaceNotesResult,
@@ -47,18 +38,13 @@ import {
   type MatchCandidate,
   type MatchRequest,
   type MatchResult,
-  type PrepareAgentHandoffInput,
-  type PrepareAgentHandoffResult,
   type PrepareAgentInitializationInput,
   type PrepareAgentInitializationResult,
-  type PrepareAgentRegenerationInput,
-  type PrepareAgentRegenerationResult,
   type PromoteSkillToGlobalInput,
   type PromoteSkillToGlobalResult,
   type ProposeSkillUpdateInput,
   type RecordAgentDispatchFailureInput,
   type RecordAgentDispatchSuccessInput,
-  type RecordAgentTaskResultInput,
   type RegisterWorkspaceAliasInput,
   type RegisterWorkspaceAliasResult,
   type RememberWorkspaceNoteInput,
@@ -67,8 +53,6 @@ import {
   type RemoveWorkspaceNoteResult,
   type RetireAgentInput,
   type RetireAgentResult,
-  type SendAgentTaskInput,
-  type SendAgentTaskResult,
   type SkillCatalogEntry,
   type SkillContext,
   type SkillFileSyncApplyResult,
@@ -90,7 +74,6 @@ import {
   type WorkspaceNoteSummary,
 } from "@src/catalog/types.ts";
 import {
-  validateAppendAgentContext,
   validateApplySkillFileSync,
   validateApplySkillUpdate,
   validateApplyWorkspaceCatalogSync,
@@ -100,25 +83,18 @@ import {
   validateCatalogImportInput,
   validateEntryLookup,
   validateFindMatchingWorkspaceNote,
-  validateGetAgentTaskResult,
-  validateGetAgentTaskStatus,
   validateGetWorkspaceNote,
   validateIntroduceAgent,
   validateIntroduceSkill,
   validateIntroduceSubagent,
-  validateListActiveTasks,
   validateListWorkspaceNotes,
-  validatePrepareAgentHandoff,
   validatePrepareAgentInitialization,
-  validatePrepareAgentRegeneration,
   validatePromoteSkillToGlobal,
   validateProposeSkillUpdate,
-  validateRecordAgentTaskResult,
   validateRegisterWorkspaceAlias,
   validateRememberWorkspaceNote,
   validateRemoveWorkspaceNote,
   validateRetireAgent,
-  validateSendAgentTask,
   validateSkillFileSyncInput,
   validateWorkspace,
   validateWorkspaceCatalogSyncInput,
@@ -134,7 +110,6 @@ interface CatalogServiceOptions {
   repository: CatalogRepository;
   skillRoots?: readonly string[];
   now?: () => string;
-  dispatchAgentTask?: AgentTaskDispatcher;
 }
 
 interface WorkspaceCatalogSyncPlan {
@@ -145,7 +120,6 @@ export class CatalogService {
   readonly #repository: CatalogRepository;
   readonly #localSkillSync: LocalSkillSync;
   readonly #now: () => string;
-  readonly #dispatchAgentTask: AgentTaskDispatcher | undefined;
 
   constructor(options: CatalogServiceOptions) {
     this.#repository = options.repository;
@@ -153,7 +127,6 @@ export class CatalogService {
       skillRoots: options.skillRoots ?? [],
     });
     this.#now = options.now ?? (() => new Date().toISOString());
-    this.#dispatchAgentTask = options.dispatchAgentTask;
   }
 
   async introduceAgent(
@@ -551,265 +524,6 @@ export class CatalogService {
       );
     }
     return agent;
-  }
-
-  async sendAgentTask(
-    input: SendAgentTaskInput,
-  ): Promise<SendAgentTaskResult> {
-    const validated = validateSendAgentTask(input);
-    const workspace = await this.resolveWorkspace(validated.workspace);
-    const entry = await this.#repository.getEntry(workspace, {
-      workspace,
-      entryType: "agent",
-      entryKey: validated.agentEntryKey,
-    });
-    if (!entry || entry.entryType !== "agent") {
-      throw new LorError(
-        "not_found",
-        "Target agent was not found.",
-        { entryType: "agent" },
-      );
-    }
-    assertDispatchableAgent(entry);
-
-    const now = this.#now();
-    const prompt = entry.handoff
-      ? renderHandoffTemplate(entry, validated)
-      : renderGenericHandoffPrompt(entry, validated);
-    const created = await this.#repository.createDelegatedAgentTask({
-      taskId: crypto.randomUUID(),
-      workspace,
-      agentEntryKey: entry.entryKey,
-      codexSessionId: entry.codexSessionId,
-      status: "queued",
-      task: validated.task,
-      context: validated.context,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    if (!this.#dispatchAgentTask) {
-      return {
-        workspace,
-        targetAgent: toHandoffTargetAgent(entry),
-        task: created,
-        prompt,
-        dispatch: {
-          mode: "manual",
-          instruction:
-            "Send the returned prompt through Codex-native thread tools. This is an internal compatibility task record; public V2 workflows should track progress through Codex-native task behavior.",
-        },
-      };
-    }
-
-    try {
-      const outcome = await this.#dispatchAgentTask({
-        workspace,
-        taskId: created.taskId,
-        agentEntryKey: entry.entryKey,
-        codexSessionId: entry.codexSessionId,
-        prompt,
-      });
-
-      if (outcome.status === "failed") {
-        const failedAt = outcome.failedAt ?? this.#now();
-        const failureMessage = sanitizeReachabilityError(
-          outcome.failureMessage,
-        );
-        const failed = await this.#repository.updateDelegatedAgentTask(
-          workspace,
-          created.taskId,
-          {
-            status: "failed",
-            updatedAt: failedAt,
-            completedAt: failedAt,
-            failureMessage,
-          },
-        );
-        await this.recordAgentDispatchFailure({
-          workspace,
-          agentEntryKey: entry.entryKey,
-          error: failureMessage,
-          checkedAt: failedAt,
-        });
-        return {
-          workspace,
-          targetAgent: toHandoffTargetAgent(entry),
-          task: failed ?? created,
-          prompt,
-          dispatch: {
-            mode: "failed",
-            failureMessage,
-          },
-        };
-      }
-
-      const sentAt = outcome.sentAt ?? this.#now();
-      const sent = await this.#repository.updateDelegatedAgentTask(
-        workspace,
-        created.taskId,
-        {
-          status: outcome.status,
-          updatedAt: sentAt,
-          sentAt,
-          externalTaskId: outcome.externalTaskId,
-        },
-      );
-      await this.recordAgentDispatchSuccess({
-        workspace,
-        agentEntryKey: entry.entryKey,
-        dispatchedAt: sentAt,
-      });
-      return {
-        workspace,
-        targetAgent: toHandoffTargetAgent(entry),
-        task: sent ?? created,
-        prompt,
-        dispatch: {
-          mode: "codex_native",
-          externalTaskId: outcome.externalTaskId,
-        },
-      };
-    } catch (error) {
-      const failedAt = this.#now();
-      const failureMessage = sanitizeReachabilityError(
-        error instanceof Error ? error.message : "Dispatch failed.",
-      );
-      const failed = await this.#repository.updateDelegatedAgentTask(
-        workspace,
-        created.taskId,
-        {
-          status: "failed",
-          updatedAt: failedAt,
-          completedAt: failedAt,
-          failureMessage,
-        },
-      );
-      await this.recordAgentDispatchFailure({
-        workspace,
-        agentEntryKey: entry.entryKey,
-        error: failureMessage,
-        checkedAt: failedAt,
-      });
-      return {
-        workspace,
-        targetAgent: toHandoffTargetAgent(entry),
-        task: failed ?? created,
-        prompt,
-        dispatch: {
-          mode: "failed",
-          failureMessage,
-        },
-      };
-    }
-  }
-
-  async getAgentTaskStatus(
-    input: GetAgentTaskStatusInput,
-  ): Promise<DelegatedAgentTask | undefined> {
-    const validated = validateGetAgentTaskStatus(input);
-    const workspace = await this.resolveWorkspace(validated.workspace);
-    return await this.#repository.getDelegatedAgentTask(
-      workspace,
-      validated.taskId,
-    );
-  }
-
-  async listActiveTasks(
-    input: ListActiveTasksInput,
-  ): Promise<ListActiveTasksResult> {
-    const validated = validateListActiveTasks(input);
-    const workspace = await this.resolveWorkspace(validated.workspace);
-    const tasks = await this.#repository.listActiveDelegatedAgentTasks(
-      workspace,
-      { agentEntryKey: validated.agentEntryKey },
-    );
-    return { workspace, tasks };
-  }
-
-  async appendAgentContext(
-    input: AppendAgentContextInput,
-  ): Promise<AppendAgentContextResult> {
-    const validated = validateAppendAgentContext(input);
-    const workspace = await this.resolveWorkspace(validated.workspace);
-    const task = await this.#repository.getDelegatedAgentTask(
-      workspace,
-      validated.taskId,
-    );
-    if (!task) {
-      throw new LorError(
-        "not_found",
-        "Delegated agent task was not found.",
-      );
-    }
-    if (isClosedTaskStatus(task.status)) {
-      throw new LorError(
-        "validation_error",
-        "Delegated agent task is closed.",
-        { taskId: task.taskId, status: task.status },
-      );
-    }
-
-    const message = await this.#repository.createDelegatedTaskMessage({
-      messageId: crypto.randomUUID(),
-      taskId: task.taskId,
-      workspace,
-      direction: "caller_to_agent",
-      message: validated.message,
-      createdAt: this.#now(),
-    });
-
-    return {
-      workspace,
-      task,
-      message,
-      delivery: {
-        mode: "manual",
-        instruction:
-          "Forward this follow-up through Codex-native thread tools when available.",
-      },
-    };
-  }
-
-  async getAgentTaskResult(
-    input: GetAgentTaskResultInput,
-  ): Promise<AgentTaskResult> {
-    const validated = validateGetAgentTaskResult(input);
-    const workspace = await this.resolveWorkspace(validated.workspace);
-    const result = await this.#repository.getDelegatedAgentTaskResult(
-      workspace,
-      validated.taskId,
-    );
-    if (!result) {
-      throw new LorError(
-        "not_found",
-        "Delegated agent task was not found.",
-      );
-    }
-    return result;
-  }
-
-  async recordAgentTaskResult(
-    input: RecordAgentTaskResultInput,
-  ): Promise<AgentTaskResult> {
-    const validated = validateRecordAgentTaskResult(input);
-    const workspace = await this.resolveWorkspace(validated.workspace);
-    const result = await this.#repository.recordDelegatedAgentTaskResult(
-      workspace,
-      {
-        taskId: validated.taskId,
-        summary: validated.summary,
-        result: validated.result,
-        completedAt: validated.completedAt,
-      },
-    );
-    if (!result) {
-      throw new LorError(
-        "not_found",
-        "Delegated agent task was not found.",
-      );
-    }
-    return result;
   }
 
   async proposeSkillUpdate(
@@ -1445,132 +1159,6 @@ export class CatalogService {
     };
   }
 
-  // Registered-agent prompt helpers are compatibility internals in V2. Public
-  // workflows use skill/subagent matching and generateAgentPrompt.
-  async prepareAgentHandoff(
-    input: PrepareAgentHandoffInput,
-  ): Promise<PrepareAgentHandoffResult> {
-    const validated = validatePrepareAgentHandoff(input);
-    const workspace = await this.resolveWorkspace(validated.workspace);
-    const entry = await this.#repository.getEntry(workspace, {
-      workspace,
-      entryType: "agent",
-      entryKey: validated.agentEntryKey,
-    });
-    if (!entry) {
-      throw new LorError(
-        "not_found",
-        "Target agent was not found.",
-        { entryType: "agent" },
-      );
-    }
-    if (entry.entryType !== "agent") {
-      throw new LorError(
-        "not_found",
-        "Target agent was not found.",
-        { entryType: "agent" },
-      );
-    }
-    if (entry.agentStatus === "retired") {
-      throw new LorError(
-        "validation_error",
-        "Target agent is retired.",
-        { entryType: "agent", entryKey: entry.entryKey },
-      );
-    }
-    if (entry.reachability.reachabilityStatus === "unreachable") {
-      throw new LorError(
-        "validation_error",
-        "Target agent is known unreachable.",
-        { entryType: "agent", entryKey: entry.entryKey },
-      );
-    }
-
-    const prompt = entry.handoff
-      ? renderHandoffTemplate(entry, validated)
-      : renderGenericHandoffPrompt(entry, validated);
-
-    return {
-      workspace,
-      targetAgent: {
-        entryKey: entry.entryKey,
-        codexSessionId: entry.codexSessionId,
-        displayName: entry.displayName,
-        projectName: entry.projectName,
-        primarySpecialty: entry.primarySpecialty,
-        specialtyTags: entry.specialtyTags,
-        reachability: entry.reachability,
-      },
-      prompt,
-      usedStoredHandoff: Boolean(entry.handoff),
-      handoff: entry.handoff,
-      missingContext: entry.handoff ? [...entry.handoff.requiredContext] : [],
-      delivery: {
-        mode: "manual",
-        instruction:
-          "Send this prompt through the available Codex workflow; Local Orchestration Router (LOR) does not dispatch it.",
-      },
-    };
-  }
-
-  async prepareAgentRegeneration(
-    input: PrepareAgentRegenerationInput,
-  ): Promise<PrepareAgentRegenerationResult> {
-    const validated = validatePrepareAgentRegeneration(input);
-    const workspace = await this.resolveWorkspace(validated.workspace);
-    const entry = await this.#repository.getEntry(workspace, {
-      workspace,
-      entryType: "agent",
-      entryKey: validated.agentEntryKey,
-    });
-    if (!entry || entry.entryType !== "agent") {
-      throw new LorError(
-        "not_found",
-        "Source agent was not found.",
-        { entryType: "agent" },
-      );
-    }
-
-    const suggestedReplacementMetadata = {
-      projectName: entry.projectName,
-      displayName: entry.displayName,
-      primarySpecialty: entry.primarySpecialty,
-      specialtyTags: entry.specialtyTags,
-      replacesAgentEntryKey: entry.entryKey,
-      handoff: entry.handoff,
-    };
-
-    return {
-      workspace,
-      sourceAgent: {
-        entryKey: entry.entryKey,
-        codexSessionId: entry.codexSessionId,
-        displayName: entry.displayName,
-        projectName: entry.projectName,
-        primarySpecialty: entry.primarySpecialty,
-        specialtyTags: entry.specialtyTags,
-        reachability: entry.reachability,
-        handoff: entry.handoff,
-      },
-      prompt: renderAgentRegenerationPrompt(entry, validated),
-      suggestedReplacementMetadata,
-      replacementInstructions: replacementInstructions(
-        entry,
-        validated.includeRegistrationInstructions,
-      ),
-      catalogAction: {
-        mode: "manual",
-        instruction:
-          `After confirming the replacement works, handle old catalog entry ${entry.entryKey} outside the public MCP tool surface; LOR will not mutate the catalog from this preparation step.`,
-      },
-      delivery: {
-        mode: "manual",
-        instruction:
-          "Paste this prompt into a new empty Codex chat. Local Orchestration Router (LOR) does not create, message, or steer Codex chats.",
-      },
-    };
-  }
-
   async findMatchingEntries(
     request: MatchRequest,
   ): Promise<MatchResult> {
@@ -2079,31 +1667,6 @@ function toHandoffTargetAgent(entry: AgentCatalogEntry) {
     specialtyTags: entry.specialtyTags,
     reachability: entry.reachability,
   };
-}
-
-function assertDispatchableAgent(entry: AgentCatalogEntry): void {
-  if (entry.agentStatus === "retired") {
-    throw new LorError(
-      "validation_error",
-      "Target agent is retired.",
-      { entryType: "agent", entryKey: entry.entryKey },
-    );
-  }
-  if (
-    entry.reachability.reachabilityStatus === "unreachable" ||
-    entry.reachability.reachabilityStatus === "unsupported"
-  ) {
-    throw new LorError(
-      "validation_error",
-      "Target agent is not reachable for dispatch.",
-      { entryType: "agent", entryKey: entry.entryKey },
-    );
-  }
-}
-
-function isClosedTaskStatus(status: DelegatedAgentTask["status"]): boolean {
-  return status === "completed" || status === "failed" ||
-    status === "cancelled";
 }
 
 function sanitizeReachabilityError(error: string): string {
@@ -2755,146 +2318,4 @@ function renderAgentInitializationPrompt(input: {
   );
 
   return sections.join("\n");
-}
-
-function renderHandoffTemplate(
-  entry: AgentCatalogEntry,
-  input: PrepareAgentHandoffInput,
-): string {
-  const replacements: Record<string, string> = {
-    task: input.task,
-    context: input.context ?? "",
-    projectName: entry.projectName,
-    agentDisplayName: entry.displayName,
-    primarySpecialty: entry.primarySpecialty,
-    specialtyTags: entry.specialtyTags.join(", "),
-  };
-  let prompt = entry.handoff?.handoffPromptTemplate ?? "";
-  for (const [key, value] of Object.entries(replacements)) {
-    prompt = prompt.replaceAll(`{${key}}`, value);
-  }
-  return prompt;
-}
-
-function renderGenericHandoffPrompt(
-  entry: AgentCatalogEntry,
-  input: PrepareAgentHandoffInput,
-): string {
-  const sections = [
-    `You are ${entry.displayName}, a Codex agent for ${entry.projectName}.`,
-    `Primary specialty: ${entry.primarySpecialty}.`,
-    `Specialty tags: ${entry.specialtyTags.join(", ")}.`,
-    "",
-    "Task:",
-    input.task,
-  ];
-
-  if (input.context) {
-    sections.push("", "Context:", input.context);
-  }
-
-  sections.push(
-    "",
-    "Expected output:",
-    "Return a concise result that the requesting agent can use to continue the original task.",
-  );
-
-  return sections.join("\n");
-}
-
-function renderAgentRegenerationPrompt(
-  entry: AgentCatalogEntry,
-  input:
-    & Required<
-      Pick<
-        PrepareAgentRegenerationInput,
-        "workspace" | "agentEntryKey" | "includeRegistrationInstructions"
-      >
-    >
-    & Omit<
-      PrepareAgentRegenerationInput,
-      "workspace" | "agentEntryKey" | "includeRegistrationInstructions"
-    >,
-): string {
-  const sections = [
-    `You are ${entry.displayName}, a regenerated Codex agent for ${entry.projectName}.`,
-    "",
-    "Source agent being replaced:",
-    `- Catalog entry key: ${entry.entryKey}`,
-    `- Previous Codex session ID: ${entry.codexSessionId}`,
-    "",
-    "Role metadata to preserve:",
-    `- Project: ${entry.projectName}`,
-    `- Display name: ${entry.displayName}`,
-    `- Primary specialty: ${entry.primarySpecialty}`,
-    `- Specialty tags: ${entry.specialtyTags.join(", ")}`,
-  ];
-
-  if (entry.handoff) {
-    sections.push(
-      "",
-      "Stored handoff guidance to preserve:",
-      `- When to use: ${entry.handoff.whenToUse}`,
-      `- Expected output: ${entry.handoff.expectedOutput}`,
-      `- Required context: ${entry.handoff.requiredContext.join(", ")}`,
-      `- Constraints: ${entry.handoff.constraints.join(", ")}`,
-      "Stored handoff prompt template:",
-      entry.handoff.handoffPromptTemplate,
-    );
-  }
-
-  if (input.reason) {
-    sections.push("", "Regeneration reason:", input.reason);
-  }
-  if (input.carryForwardContext) {
-    sections.push("", "Carry-forward context:", input.carryForwardContext);
-  }
-  if (input.replacementTask) {
-    sections.push("", "First replacement task:", input.replacementTask);
-  }
-
-  sections.push(
-    "",
-    "Operating instructions:",
-    "- Read the repository instructions and current files before changing code.",
-    "- Preserve user work and never revert unrelated changes.",
-    "- Keep changes scoped to the requested task and existing project patterns.",
-    "- Report exact files changed and exact verification commands/results.",
-    "- Ask only questions that materially affect the plan or implementation.",
-  );
-
-  if (input.includeRegistrationInstructions) {
-    sections.push(
-      "",
-      "Registration instructions:",
-      "- This is a new Codex chat and will have a new Codex session ID.",
-      "- Do not reuse the previous Codex session ID.",
-      "- After this chat exists, continue through the current manual Codex workflow; public LOR agent registration tools are not available.",
-    );
-  }
-
-  return sections.join("\n");
-}
-
-function replacementInstructions(
-  entry: AgentCatalogEntry,
-  includeRegistrationInstructions: boolean,
-): string[] {
-  const instructions = [
-    "Create a new empty Codex chat and paste the generated prompt.",
-  ];
-  if (includeRegistrationInstructions) {
-    instructions.push(
-      "After the new chat exists, continue through the current manual Codex workflow; public LOR agent registration tools are not available.",
-      `Do not reuse the old codexSessionId ${entry.codexSessionId}.`,
-    );
-  } else {
-    instructions.push(
-      "Registration instructions were omitted from the generated prompt by request.",
-    );
-  }
-  instructions.push(
-    `Handle old catalog entry ${entry.entryKey} outside the public MCP tool surface after confirming the replacement is usable.`,
-  );
-  return instructions;
 }

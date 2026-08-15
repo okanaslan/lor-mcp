@@ -2,10 +2,9 @@
 
 ## 1. Summary
 
-Implemented internally for v1, then removed from the normal public V2 MCP
-surface. This feature lets a caller render a ready-to-send prompt for an
-introduced Codex agent in the requested workspace, except when the agent is
-known unreachable through passive reachability metadata.
+Implemented internally for v1, then removed from the codebase and the normal
+public V2 MCP surface. This historical feature let a caller render a
+ready-to-send prompt for an introduced Codex agent in the requested workspace.
 
 The tool prepares handoff content only. It does not spawn, steer, message, or
 verify another Codex agent.
@@ -33,23 +32,11 @@ For V2 public workflows, use `generate_agent_prompt` with relevant
 
 ## 4. Functional Requirements
 
-- The internal compatibility tool name is `prepare_agent_handoff`; it is not
-  registered in the normal public V2 surface.
-- The request must include `workspace`, `agentEntryKey`, and `task`.
-- The request may include a single `context` text block.
-- The target must be an introduced agent in the requested workspace.
-- If the agent has stored `handoff` metadata, the server must render its
-  `handoffPromptTemplate`.
-- If the agent has no stored `handoff` metadata, the server must render a
-  generic prompt from agent metadata, task, and optional context.
-- Supported template placeholders are `{task}`, `{context}`, `{projectName}`,
-  `{agentDisplayName}`, `{primarySpecialty}`, and `{specialtyTags}`.
-- Unknown template placeholders must be left unchanged.
-- The response must state that delivery is manual.
-- Reachability behavior must fail handoff preparation when the target agent has
-  `reachabilityStatus: "unreachable"`.
-- Reachability behavior may still prepare manual handoff prompts when the target
-  agent has `reachabilityStatus: "unknown"`.
+- `prepare_agent_handoff` is no longer implemented or registered.
+- LOR must not prepare handoffs for registered-agent entries in normal V2
+  workflows.
+- Task-oriented prompt setup should use `generate_agent_prompt`,
+  `find_matching_skill`, and `find_matching_subagent`.
 
 ## 5. Data Model
 
@@ -105,3 +92,4 @@ Output data:
   while continuing to support manual prompts for unknown agents.
 - 2026-08-15: Remove registered-agent handoff preparation from the normal public
   V2 surface; use `generate_agent_prompt` for manual fresh-chat prompts.
+- 2026-08-15: Delete registered-agent handoff service, schema, and test code.

@@ -1,6 +1,5 @@
 import { assertEquals } from "@std/assert";
 import {
-  appendAgentContextInputSchema,
   applySkillFileSyncInputSchema,
   applySkillUpdateInputSchema,
   applyWorkspaceCatalogSyncInputSchema,
@@ -12,8 +11,6 @@ import {
   findMatchingSubagentInputSchema,
   findMatchingWorkspaceNoteInputSchema,
   generateAgentPromptInputSchema,
-  getAgentTaskResultInputSchema,
-  getAgentTaskStatusInputSchema,
   getSkillDetailInputSchema,
   getSubagentDetailInputSchema,
   getWorkspaceDiagnosticsInputSchema,
@@ -21,7 +18,6 @@ import {
   importCatalogInputSchema,
   introduceSkillInputSchema,
   introduceSubagentInputSchema,
-  listActiveTasksInputSchema,
   listSkillsInputSchema,
   listSubagentsInputSchema,
   listWorkspaceNotesInputSchema,
@@ -34,7 +30,6 @@ import {
   removeSkillInputSchema,
   removeSubagentInputSchema,
   removeWorkspaceNoteInputSchema,
-  sendAgentTaskInputSchema,
   updateSkillInputSchema,
   updateSubagentInputSchema,
 } from "@src/tools/schemas.ts";
@@ -133,66 +128,6 @@ Deno.test("registerWorkspaceAliasInputSchema requires workspace and alias", () =
       confirm: false,
     }).success,
     false,
-  );
-});
-
-Deno.test("internal compatibility delegated agent task schemas require scoped task identifiers", () => {
-  assertEquals(
-    sendAgentTaskInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-      task: "Implement backend route",
-      context: "Use existing patterns.",
-    }).success,
-    true,
-  );
-  assertEquals(
-    sendAgentTaskInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-      task: " ",
-    }).success,
-    false,
-  );
-  assertEquals(
-    getAgentTaskStatusInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      taskId: "task-1",
-    }).success,
-    true,
-  );
-  assertEquals(
-    listActiveTasksInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      agentEntryKey: "agent-1",
-    }).success,
-    true,
-  );
-});
-
-Deno.test("internal compatibility agent task follow-up schemas require task and message inputs", () => {
-  assertEquals(
-    appendAgentContextInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      taskId: "task-1",
-      message: "Add migration tests.",
-    }).success,
-    true,
-  );
-  assertEquals(
-    appendAgentContextInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      taskId: "task-1",
-      message: " ",
-    }).success,
-    false,
-  );
-  assertEquals(
-    getAgentTaskResultInputSchema.safeParse({
-      workspace: "LOR-MCP",
-      taskId: "task-1",
-    }).success,
-    true,
   );
 });
 

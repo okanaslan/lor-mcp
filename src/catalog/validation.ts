@@ -1,6 +1,5 @@
 import {
   type AgentStatus,
-  type AppendAgentContextInput,
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
   type ApplyWorkspaceCatalogSyncInput,
@@ -13,26 +12,19 @@ import {
   type CatalogScope,
   type EntryLookup,
   type FindMatchingWorkspaceNoteInput,
-  type GetAgentTaskResultInput,
-  type GetAgentTaskStatusInput,
   type GetWorkspaceNoteInput,
   type HandoffMetadata,
   type IntroduceAgentInput,
   type IntroduceSkillInput,
   type IntroduceSubagentInput,
-  type ListActiveTasksInput,
   type ListWorkspaceNotesInput,
-  type PrepareAgentHandoffInput,
   type PrepareAgentInitializationInput,
-  type PrepareAgentRegenerationInput,
   type PromoteSkillToGlobalInput,
   type ProposeSkillUpdateInput,
-  type RecordAgentTaskResultInput,
   type RegisterWorkspaceAliasInput,
   type RememberWorkspaceNoteInput,
   type RemoveWorkspaceNoteInput,
   type RetireAgentInput,
-  type SendAgentTaskInput,
   type SkillContext,
   type SkillFileSyncInput,
   type SkillMetadataUpdate,
@@ -381,18 +373,6 @@ export function validateApplyWorkspaceCatalogSync(
   };
 }
 
-export function validatePrepareAgentHandoff(
-  input: PrepareAgentHandoffInput,
-): PrepareAgentHandoffInput {
-  const context = input.context?.trim();
-  return {
-    workspace: requireWorkspace(input.workspace),
-    agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
-    task: requireString(input.task, "task"),
-    context: context || undefined,
-  };
-}
-
 export function validatePrepareAgentInitialization(
   input: PrepareAgentInitializationInput,
 ): PrepareAgentInitializationInput {
@@ -403,30 +383,6 @@ export function validatePrepareAgentInitialization(
     specialtyHints: input.specialtyHints === undefined
       ? undefined
       : requireStringList(input.specialtyHints, "specialtyHints"),
-  };
-}
-
-export function validatePrepareAgentRegeneration(
-  input: PrepareAgentRegenerationInput,
-):
-  & Required<
-    Pick<
-      PrepareAgentRegenerationInput,
-      "workspace" | "agentEntryKey" | "includeRegistrationInstructions"
-    >
-  >
-  & Omit<
-    PrepareAgentRegenerationInput,
-    "workspace" | "agentEntryKey" | "includeRegistrationInstructions"
-  > {
-  return {
-    workspace: requireWorkspace(input.workspace),
-    agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
-    reason: input.reason?.trim() || undefined,
-    carryForwardContext: input.carryForwardContext?.trim() || undefined,
-    replacementTask: input.replacementTask?.trim() || undefined,
-    includeRegistrationInstructions: input.includeRegistrationInstructions ??
-      true,
   };
 }
 
@@ -529,66 +485,6 @@ export function validateRegisterWorkspaceAlias(
     workspace: requireWorkspace(input.workspace),
     alias: requireWorkspace(input.alias, "alias"),
     confirm: input.confirm,
-  };
-}
-
-export function validateSendAgentTask(
-  input: SendAgentTaskInput,
-): SendAgentTaskInput {
-  return {
-    workspace: requireWorkspace(input.workspace),
-    agentEntryKey: requireString(input.agentEntryKey, "agentEntryKey"),
-    task: requireString(input.task, "task"),
-    context: input.context?.trim() || undefined,
-  };
-}
-
-export function validateGetAgentTaskStatus(
-  input: GetAgentTaskStatusInput,
-): GetAgentTaskStatusInput {
-  return {
-    workspace: requireWorkspace(input.workspace),
-    taskId: requireString(input.taskId, "taskId"),
-  };
-}
-
-export function validateListActiveTasks(
-  input: ListActiveTasksInput,
-): ListActiveTasksInput {
-  return {
-    workspace: requireWorkspace(input.workspace),
-    agentEntryKey: input.agentEntryKey?.trim() || undefined,
-  };
-}
-
-export function validateAppendAgentContext(
-  input: AppendAgentContextInput,
-): AppendAgentContextInput {
-  return {
-    workspace: requireWorkspace(input.workspace),
-    taskId: requireString(input.taskId, "taskId"),
-    message: requireString(input.message, "message"),
-  };
-}
-
-export function validateGetAgentTaskResult(
-  input: GetAgentTaskResultInput,
-): GetAgentTaskResultInput {
-  return {
-    workspace: requireWorkspace(input.workspace),
-    taskId: requireString(input.taskId, "taskId"),
-  };
-}
-
-export function validateRecordAgentTaskResult(
-  input: RecordAgentTaskResultInput,
-): RecordAgentTaskResultInput {
-  return {
-    workspace: requireWorkspace(input.workspace),
-    taskId: requireString(input.taskId, "taskId"),
-    summary: requireString(input.summary, "summary"),
-    result: requireString(input.result, "result"),
-    completedAt: requireString(input.completedAt, "completedAt"),
   };
 }
 

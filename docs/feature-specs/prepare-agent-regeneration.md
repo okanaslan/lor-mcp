@@ -2,12 +2,10 @@
 
 ## 1. Summary
 
-Implemented internally for v1, then removed from the normal public V2 MCP
-surface. This feature lets a caller prepare a ready-to-paste prompt for
-replacing a registered Codex agent whose current chat has become too
-context-heavy. The tool uses stored agent metadata and optional caller-provided
-carry-forward context, but it does not create, message, register, update, or
-remove Codex agents.
+Implemented internally for v1, then removed from the codebase and the normal
+public V2 MCP surface. This historical feature let a caller prepare a
+ready-to-paste prompt for replacing a registered Codex agent whose current chat
+had become too context-heavy.
 
 For V2 public workflows, initialize fresh short-lived task agents with
 `generate_agent_prompt` and relevant skill/subagent context.
@@ -33,37 +31,12 @@ For V2 public workflows, initialize fresh short-lived task agents with
 
 ## 4. Functional Requirements
 
-- The internal compatibility implementation exposes `prepare_agent_regeneration`
-  only outside the normal public V2 surface.
-- The request must include:
-  - `workspace`
-  - `agentEntryKey`
-- The request may include:
-  - `reason`
-  - `carryForwardContext`
-  - `replacementTask`
-  - `includeRegistrationInstructions`, defaulting to `true`
-- The target must be a registered agent in the requested workspace.
-- The server must render a deterministic ready-to-paste prompt for a new empty
-  Codex chat.
-- The prompt must preserve the source agent's project name, display name,
-  primary specialty, specialty tags, and handoff guidance when present.
-- The prompt must include `reason`, `carryForwardContext`, and `replacementTask`
-  sections when supplied.
-- The output must include:
-  - `workspace`
-  - `sourceAgent`
-  - `prompt`
-  - `suggestedReplacementMetadata`
-  - `replacementInstructions`
-  - `catalogAction`
-  - `delivery`
-- `suggestedReplacementMetadata` must not include `codexSessionId`.
-- `replacementInstructions` must explain that public V2 workflows can use the
-  generated prompt manually without registering the new chat.
-- `catalogAction` must be framed as historical/internal compatibility guidance,
-  not a normal public V2 next step.
-- The tool must not mutate catalog records.
+- `prepare_agent_regeneration` is no longer implemented or registered.
+- LOR must not prepare regeneration prompts for registered-agent entries in
+  normal V2 workflows.
+- Task-oriented prompt setup should use `generate_agent_prompt`,
+  `find_matching_skill`, and `find_matching_subagent`.
+- LOR must not mutate catalog records for registered-agent regeneration.
 
 ## 5. User Stories / Use Cases
 
@@ -130,3 +103,5 @@ Conceptual output fields:
   confirmed replacements.
 - 2026-08-15: Remove this tool from the normal public V2 surface and prefer
   `generate_agent_prompt` for short-lived task agents.
+- 2026-08-15: Delete registered-agent regeneration service, schema, and test
+  code.

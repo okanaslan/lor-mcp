@@ -3,16 +3,12 @@ import type {
   AgentCatalogEntry,
   AgentReachability,
   AgentStatus,
-  AgentTaskResult,
   CatalogEntry,
   CatalogEntryUpdate,
   CatalogRepository,
   CatalogScope,
   ClearWorkspaceCatalogInput,
   ClearWorkspaceCatalogResult,
-  DelegatedAgentTask,
-  DelegatedAgentTaskStatus,
-  DelegatedTaskMessage,
   EntryLookup,
   IntroduceAgentInput,
   IntroduceSkillInput,
@@ -120,30 +116,6 @@ interface WorkspaceAliasRow {
   canonicalWorkspace: string;
   createdAt: string;
   updatedAt: string;
-}
-
-interface DelegatedAgentTaskRow {
-  taskId: string;
-  workspace: string;
-  agentEntryKey: string;
-  codexSessionId: string;
-  status: string;
-  task: string;
-  context: string | null;
-  createdAt: string;
-  sentAt: string | null;
-  updatedAt: string;
-  completedAt: string | null;
-  failureMessage: string | null;
-  externalTaskId: string | null;
-}
-
-interface DelegatedTaskResultRow {
-  taskId: string;
-  workspace: string;
-  summary: string;
-  result: string;
-  completedAt: string;
 }
 
 interface WorkspaceNoteRow {
@@ -527,179 +499,6 @@ export class SqliteCatalogRepository implements CatalogRepository {
     return Promise.resolve(this.getEntrySync(workspace, lookup));
   }
 
-  createDelegatedAgentTask(
-    input: DelegatedAgentTask,
-  ): Promise<DelegatedAgentTask> {
-    try {
-      this.requireDb().exec(
-        `INSERT INTO delegated_agent_tasks (
-          taskId, workspace, agentEntryKey, codexSessionId, status, task,
-          context, createdAt, sentAt, updatedAt, completedAt, failureMessage,
-          externalTaskId
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        input.taskId,
-        input.workspace,
-        input.agentEntryKey,
-        input.codexSessionId,
-        input.status,
-        input.task,
-        input.context ?? null,
-        input.createdAt,
-        input.sentAt ?? null,
-        input.updatedAt,
-        input.completedAt ?? null,
-        input.failureMessage ?? null,
-        input.externalTaskId ?? null,
-      );
-      return Promise.resolve(input);
-    } catch (error) {
-      throw mapStorageError(error);
-    }
-  }
-
-  updateDelegatedAgentTask(
-    workspace: string,
-    taskId: string,
-    input: {
-      status: DelegatedAgentTaskStatus;
-      updatedAt: string;
-      sentAt?: string;
-      completedAt?: string;
-      failureMessage?: string;
-      externalTaskId?: string;
-    },
-  ): Promise<DelegatedAgentTask | undefined> {
-    try {
-      const existing = this.getDelegatedAgentTaskSync(workspace, taskId);
-      if (!existing) {
-        return Promise.resolve(undefined);
-      }
-
-      this.requireDb().exec(
-        `UPDATE delegated_agent_tasks
-         SET status = ?, sentAt = ?, updatedAt = ?, completedAt = ?,
-           failureMessage = ?, externalTaskId = ?
-         WHERE workspace = ? AND taskId = ?`,
-        input.status,
-        input.sentAt ?? existing.sentAt ?? null,
-        input.updatedAt,
-        input.completedAt ?? existing.completedAt ?? null,
-        input.failureMessage ?? existing.failureMessage ?? null,
-        input.externalTaskId ?? existing.externalTaskId ?? null,
-        workspace,
-        taskId,
-      );
-
-      return Promise.resolve(this.getDelegatedAgentTaskSync(workspace, taskId));
-    } catch (error) {
-      throw mapStorageError(error);
-    }
-  }
-
-  getDelegatedAgentTask(
-    workspace: string,
-    taskId: string,
-  ): Promise<DelegatedAgentTask | undefined> {
-    return Promise.resolve(this.getDelegatedAgentTaskSync(workspace, taskId));
-  }
-
-  listActiveDelegatedAgentTasks(
-    workspace: string,
-    filter: { agentEntryKey?: string } = {},
-  ): Promise<DelegatedAgentTask[]> {
-    const activeStatuses = ["queued", "sent", "running", "needs_input"];
-    const statusPlaceholders = placeholders(activeStatuses);
-    const rows = filter.agentEntryKey
-      ? this.requireDb().prepare<DelegatedAgentTaskRow>(
-        `SELECT * FROM delegated_agent_tasks
-         WHERE workspace = ? AND agentEntryKey = ?
-           AND status IN (${statusPlaceholders})
-         ORDER BY updatedAt DESC, createdAt DESC`,
-      ).all(workspace, filter.agentEntryKey, ...activeStatuses)
-      : this.requireDb().prepare<DelegatedAgentTaskRow>(
-        `SELECT * FROM delegated_agent_tasks
-         WHERE workspace = ? AND status IN (${statusPlaceholders})
-         ORDER BY updatedAt DESC, createdAt DESC`,
-      ).all(workspace, ...activeStatuses);
-    return Promise.resolve(rows.map(mapDelegatedAgentTaskRow));
-  }
-
-  createDelegatedTaskMessage(
-    input: DelegatedTaskMessage,
-  ): Promise<DelegatedTaskMessage> {
-    try {
-      this.requireDb().exec(
-        `INSERT INTO delegated_agent_task_messages (
-          messageId, taskId, workspace, direction, message, createdAt
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
-        input.messageId,
-        input.taskId,
-        input.workspace,
-        input.direction,
-        input.message,
-        input.createdAt,
-      );
-      return Promise.resolve(input);
-    } catch (error) {
-      throw mapStorageError(error);
-    }
-  }
-
-  recordDelegatedAgentTaskResult(
-    workspace: string,
-    input: {
-      taskId: string;
-      summary: string;
-      result: string;
-      completedAt: string;
-    },
-  ): Promise<AgentTaskResult | undefined> {
-    try {
-      const existing = this.getDelegatedAgentTaskSync(workspace, input.taskId);
-      if (!existing) {
-        return Promise.resolve(undefined);
-      }
-
-      const write = this.requireDb().transaction(() => {
-        this.requireDb().exec(
-          `INSERT OR REPLACE INTO delegated_agent_task_results (
-            taskId, workspace, summary, result, completedAt
-          ) VALUES (?, ?, ?, ?, ?)`,
-          input.taskId,
-          workspace,
-          input.summary,
-          input.result,
-          input.completedAt,
-        );
-        this.requireDb().exec(
-          `UPDATE delegated_agent_tasks
-           SET status = ?, completedAt = ?, updatedAt = ?
-           WHERE workspace = ? AND taskId = ?`,
-          "completed",
-          input.completedAt,
-          input.completedAt,
-          workspace,
-          input.taskId,
-        );
-      });
-      write();
-      return Promise.resolve(
-        this.getDelegatedAgentTaskResultSync(workspace, input.taskId),
-      );
-    } catch (error) {
-      throw mapStorageError(error);
-    }
-  }
-
-  getDelegatedAgentTaskResult(
-    workspace: string,
-    taskId: string,
-  ): Promise<AgentTaskResult | undefined> {
-    return Promise.resolve(
-      this.getDelegatedAgentTaskResultSync(workspace, taskId),
-    );
-  }
-
   updateEntry(
     workspace: string,
     input: CatalogEntryUpdate & { now: string },
@@ -942,48 +741,6 @@ export class SqliteCatalogRepository implements CatalogRepository {
        WHERE workspace = ? AND name = ?`,
     ).get(subagentStorageWorkspace(workspace, lookup.scope), lookup.entryKey);
     return row ? mapSubagentRow(row) : undefined;
-  }
-
-  private getDelegatedAgentTaskSync(
-    workspace: string,
-    taskId: string,
-  ): DelegatedAgentTask | undefined {
-    const row = this.requireDb().prepare<DelegatedAgentTaskRow>(
-      `SELECT * FROM delegated_agent_tasks
-       WHERE workspace = ? AND taskId = ?`,
-    ).get(workspace, taskId);
-    return row ? mapDelegatedAgentTaskRow(row) : undefined;
-  }
-
-  private getDelegatedAgentTaskResultSync(
-    workspace: string,
-    taskId: string,
-  ): AgentTaskResult | undefined {
-    const task = this.getDelegatedAgentTaskSync(workspace, taskId);
-    if (!task) {
-      return undefined;
-    }
-    const row = this.requireDb().prepare<DelegatedTaskResultRow>(
-      `SELECT * FROM delegated_agent_task_results
-       WHERE workspace = ? AND taskId = ?`,
-    ).get(workspace, taskId);
-    if (!row) {
-      return {
-        workspace,
-        taskId,
-        status: task.status,
-        resultAvailable: false,
-      };
-    }
-    return {
-      workspace,
-      taskId,
-      status: "completed",
-      resultAvailable: true,
-      summary: row.summary,
-      result: row.result,
-      completedAt: row.completedAt,
-    };
   }
 
   private getSkillUpdateProposalSync(
@@ -1490,39 +1247,6 @@ function mapSkillUpdateProposalRow(
     createdAt: row.createdAt,
     appliedAt: row.appliedAt ?? undefined,
   };
-}
-
-function mapDelegatedAgentTaskRow(
-  row: DelegatedAgentTaskRow,
-): DelegatedAgentTask {
-  return {
-    taskId: row.taskId,
-    workspace: row.workspace,
-    agentEntryKey: row.agentEntryKey,
-    codexSessionId: row.codexSessionId,
-    status: parseDelegatedAgentTaskStatus(row.status),
-    task: row.task,
-    context: row.context ?? undefined,
-    createdAt: row.createdAt,
-    sentAt: row.sentAt ?? undefined,
-    updatedAt: row.updatedAt,
-    completedAt: row.completedAt ?? undefined,
-    failureMessage: row.failureMessage ?? undefined,
-    externalTaskId: row.externalTaskId ?? undefined,
-  };
-}
-
-function parseDelegatedAgentTaskStatus(
-  value: string,
-): DelegatedAgentTaskStatus {
-  if (
-    value === "queued" || value === "sent" || value === "running" ||
-    value === "needs_input" || value === "completed" || value === "failed" ||
-    value === "cancelled"
-  ) {
-    return value;
-  }
-  return "queued";
 }
 
 function mapWorkspaceNoteRow(row: WorkspaceNoteRow): WorkspaceNote {

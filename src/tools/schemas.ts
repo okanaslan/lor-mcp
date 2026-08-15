@@ -82,21 +82,6 @@ export const introduceSubagentInputSchema = z.object({
   expectedOutput: z.string().trim().min(1).optional(),
 });
 
-// Compatibility schemas retained for generic catalog service paths. These are
-// not registered as normal public V2 MCP tools.
-export const listCatalogEntriesInputSchema = z.object({
-  workspace: workspaceSchema,
-  entryType: entryTypeSchema.optional(),
-  projectName: z.string().trim().min(1).optional(),
-  scope: catalogScopeSchema.optional(),
-}).refine(
-  (input) => !(input.entryType === "agent" && input.scope === "global"),
-  {
-    message: "Agents only support workspace scope.",
-    path: ["scope"],
-  },
-);
-
 export const listSkillsInputSchema = z.object({
   workspace: workspaceSchema,
   projectName: z.string().trim().min(1).optional(),
@@ -107,12 +92,6 @@ export const listSubagentsInputSchema = z.object({
   workspace: workspaceSchema,
   projectName: z.string().trim().min(1).optional(),
   scope: catalogScopeSchema.optional(),
-});
-
-export const clearWorkspaceCatalogInputSchema = z.object({
-  workspace: workspaceSchema,
-  confirm: z.literal(true),
-  entryType: entryTypeSchema.optional(),
 });
 
 export const clearWorkspaceSkillsInputSchema = z.object({
@@ -131,19 +110,6 @@ export const registerWorkspaceAliasInputSchema = z.object({
   confirm: z.literal(true).optional(),
 });
 
-export const getCatalogEntryDetailInputSchema = z.object({
-  workspace: workspaceSchema,
-  entryType: entryTypeSchema,
-  entryKey: z.string().trim().min(1),
-  scope: catalogScopeSchema.optional(),
-}).refine(
-  (input) => !(input.entryType === "agent" && input.scope === "global"),
-  {
-    message: "Agents only support workspace scope.",
-    path: ["scope"],
-  },
-);
-
 export const getSkillDetailInputSchema = z.object({
   workspace: workspaceSchema,
   skillName: z.string().trim().min(1),
@@ -155,33 +121,6 @@ export const getSubagentDetailInputSchema = z.object({
   subagentName: z.string().trim().min(1),
   scope: catalogScopeSchema.optional(),
 });
-
-export const updateCatalogEntryInputSchema = z.object({
-  workspace: workspaceSchema,
-  entryType: entryTypeSchema,
-  entryKey: z.string().trim().min(1),
-  scope: catalogScopeSchema.optional(),
-  projectName: z.string().trim().min(1).optional(),
-  displayName: z.string().trim().min(1).optional(),
-  primarySpecialty: z.string().trim().min(1).optional(),
-  specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
-}).refine(
-  (input) => !(input.entryType === "agent" && input.scope === "global"),
-  {
-    message: "Agents only support workspace scope.",
-    path: ["scope"],
-  },
-).refine(
-  (input) =>
-    input.projectName !== undefined ||
-    input.displayName !== undefined ||
-    input.primarySpecialty !== undefined ||
-    input.specialtyTags !== undefined,
-  {
-    message: "At least one editable field is required.",
-    path: ["update"],
-  },
-);
 
 const commonMetadataUpdateFields = {
   projectName: z.string().trim().min(1).optional(),
@@ -296,19 +235,6 @@ export const applySkillFileSyncInputSchema = previewSkillFileSyncInputSchema
   .extend({
     confirm: z.literal(true),
   });
-
-export const removeCatalogEntryInputSchema = z.object({
-  workspace: workspaceSchema,
-  entryType: entryTypeSchema,
-  entryKey: z.string().trim().min(1),
-  scope: catalogScopeSchema.optional(),
-}).refine(
-  (input) => !(input.entryType === "agent" && input.scope === "global"),
-  {
-    message: "Agents only support workspace scope.",
-    path: ["scope"],
-  },
-);
 
 export const removeSkillInputSchema = z.object({
   workspace: workspaceSchema,
@@ -470,36 +396,6 @@ export const getWorkspaceNoteInputSchema = z.object({
 
 export const removeWorkspaceNoteInputSchema = getWorkspaceNoteInputSchema;
 
-// Compatibility schemas retained for internal delegated-task service paths.
-// These are not registered as normal public V2 MCP tools.
-export const sendAgentTaskInputSchema = z.object({
-  workspace: workspaceSchema,
-  agentEntryKey: z.string().trim().min(1),
-  task: z.string().trim().min(1),
-  context: z.string().trim().min(1).optional(),
-});
-
-export const getAgentTaskStatusInputSchema = z.object({
-  workspace: workspaceSchema,
-  taskId: z.string().trim().min(1),
-});
-
-export const listActiveTasksInputSchema = z.object({
-  workspace: workspaceSchema,
-  agentEntryKey: z.string().trim().min(1).optional(),
-});
-
-export const appendAgentContextInputSchema = z.object({
-  workspace: workspaceSchema,
-  taskId: z.string().trim().min(1),
-  message: z.string().trim().min(1),
-});
-
-export const getAgentTaskResultInputSchema = z.object({
-  workspace: workspaceSchema,
-  taskId: z.string().trim().min(1),
-});
-
 export const generateAgentPromptInputSchema = z.object({
   workspace: workspaceSchema,
   role: z.string().trim().min(1),
@@ -507,16 +403,6 @@ export const generateAgentPromptInputSchema = z.object({
   task: z.string().trim().min(1).optional(),
   context: z.string().trim().min(1).optional(),
   constraints: z.string().trim().min(1).optional(),
-});
-
-// Compatibility schema retained for the generic matcher service path. Public
-// V2 matching is exposed through find_matching_skill and find_matching_subagent.
-export const findMatchingCatalogEntryInputSchema = z.object({
-  workspace: workspaceSchema,
-  task: z.string().trim().min(1),
-  projectName: z.string().trim().min(1).optional(),
-  preferredType: entryTypeSchema.optional(),
-  specialtyHints: z.array(z.string().trim().min(1)).optional(),
 });
 
 export const findMatchingSkillInputSchema = z.object({
@@ -537,14 +423,8 @@ export type IntroduceSkillToolInput = z.infer<typeof introduceSkillInputSchema>;
 export type IntroduceSubagentToolInput = z.infer<
   typeof introduceSubagentInputSchema
 >;
-export type ListCatalogEntriesToolInput = z.infer<
-  typeof listCatalogEntriesInputSchema
->;
 export type ListSkillsToolInput = z.infer<typeof listSkillsInputSchema>;
 export type ListSubagentsToolInput = z.infer<typeof listSubagentsInputSchema>;
-export type ClearWorkspaceCatalogToolInput = z.infer<
-  typeof clearWorkspaceCatalogInputSchema
->;
 export type ClearWorkspaceSkillsToolInput = z.infer<
   typeof clearWorkspaceSkillsInputSchema
 >;
@@ -557,15 +437,9 @@ export type RegisterWorkspaceAliasToolInput = z.infer<
 export type PromoteSkillToGlobalToolInput = z.infer<
   typeof promoteSkillToGlobalInputSchema
 >;
-export type GetCatalogEntryDetailToolInput = z.infer<
-  typeof getCatalogEntryDetailInputSchema
->;
 export type GetSkillDetailToolInput = z.infer<typeof getSkillDetailInputSchema>;
 export type GetSubagentDetailToolInput = z.infer<
   typeof getSubagentDetailInputSchema
->;
-export type UpdateCatalogEntryToolInput = z.infer<
-  typeof updateCatalogEntryInputSchema
 >;
 export type UpdateSkillToolInput = z.infer<typeof updateSkillInputSchema>;
 export type UpdateSubagentToolInput = z.infer<typeof updateSubagentInputSchema>;
@@ -580,9 +454,6 @@ export type PreviewSkillFileSyncToolInput = z.infer<
 >;
 export type ApplySkillFileSyncToolInput = z.infer<
   typeof applySkillFileSyncInputSchema
->;
-export type RemoveCatalogEntryToolInput = z.infer<
-  typeof removeCatalogEntryInputSchema
 >;
 export type RemoveSkillToolInput = z.infer<typeof removeSkillInputSchema>;
 export type RemoveSubagentToolInput = z.infer<typeof removeSubagentInputSchema>;
@@ -615,24 +486,8 @@ export type GetWorkspaceNoteToolInput = z.infer<
 export type RemoveWorkspaceNoteToolInput = z.infer<
   typeof removeWorkspaceNoteInputSchema
 >;
-export type SendAgentTaskToolInput = z.infer<typeof sendAgentTaskInputSchema>;
-export type GetAgentTaskStatusToolInput = z.infer<
-  typeof getAgentTaskStatusInputSchema
->;
-export type ListActiveTasksToolInput = z.infer<
-  typeof listActiveTasksInputSchema
->;
-export type AppendAgentContextToolInput = z.infer<
-  typeof appendAgentContextInputSchema
->;
-export type GetAgentTaskResultToolInput = z.infer<
-  typeof getAgentTaskResultInputSchema
->;
 export type GenerateAgentPromptToolInput = z.infer<
   typeof generateAgentPromptInputSchema
->;
-export type FindMatchingCatalogEntryToolInput = z.infer<
-  typeof findMatchingCatalogEntryInputSchema
 >;
 export type FindMatchingSkillToolInput = z.infer<
   typeof findMatchingSkillInputSchema

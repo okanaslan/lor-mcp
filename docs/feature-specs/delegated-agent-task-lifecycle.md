@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Implemented internally in 2.0.0, then removed from the normal public V2 MCP
-surface. This feature defines how LOR creates and tracks delegated work sent to
-a reachable registered Codex agent.
+Implemented internally in 2.0.0, then removed from the codebase and the normal
+public V2 MCP surface. This historical feature defined how LOR created and
+tracked delegated work sent to a reachable registered Codex agent.
 
 The public V2 direction no longer makes LOR responsible for delegated task
 dispatch, status tracking, follow-up, or result collection.
@@ -28,23 +28,12 @@ dispatch, status tracking, follow-up, or result collection.
 
 ## 4. Functional Requirements
 
-- The internal compatibility implementation exposed `send_agent_task` outside
-  the normal public V2 surface.
-- `send_agent_task` required `workspace`, `agentEntryKey`, and `task`.
-- `send_agent_task` accepted optional `context`.
-- The target must be a registered active agent in the requested workspace.
-- The target must not be known unreachable.
-- The server must create a durable delegated task record before or during
-  dispatch.
-- The server must update the task status when Codex-native dispatch succeeds or
-  fails.
-- If no Codex-native dispatcher is configured in the host runtime, the server
-  must create a queued task and return manual delivery instructions without
-  claiming dispatch happened.
-- The server must update agent reachability metadata from dispatch outcomes.
-- The internal compatibility implementation exposed `get_agent_task_status` and
-  `list_active_tasks` outside the normal public V2 surface.
-- Delegated task records must never cross workspace boundaries.
+- `send_agent_task`, `get_agent_task_status`, and `list_active_tasks` are no
+  longer implemented or registered.
+- LOR must not create delegated task records or claim Codex-native dispatch
+  ownership.
+- Codex-native task behavior owns dispatch, status tracking, follow-up, and
+  result collection.
 
 ## 5. User Stories / Use Cases
 
@@ -100,3 +89,4 @@ Conceptual `DelegatedAgentTask` fields:
   configured.
 - 2026-08-15: Remove delegated-task tools from the normal public V2 surface;
   Codex-native task behavior owns dispatch and tracking.
+- 2026-08-15: Delete delegated-task service, repository, schema, and test code.

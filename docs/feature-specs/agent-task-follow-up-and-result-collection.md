@@ -2,9 +2,10 @@
 
 ## 1. Summary
 
-Implemented internally in 2.0.0, then removed from the normal public V2 MCP
-surface. This feature defines how callers add context to an already delegated
-agent task and collect its final or intermediate result.
+Implemented internally in 2.0.0, then removed from the codebase and the normal
+public V2 MCP surface. This historical feature defined how callers added context
+to an already delegated agent task and collected its final or intermediate
+result.
 
 The public V2 direction keeps follow-up and result collection in Codex-native
 task workflows outside LOR.
@@ -26,19 +27,11 @@ task workflows outside LOR.
 
 ## 4. Functional Requirements
 
-- The internal compatibility implementation exposed `append_agent_context`
-  outside the normal public V2 surface.
-- `append_agent_context` required `workspace`, `taskId`, and `message`.
-- The server must reject follow-up for completed, failed, cancelled, or missing
-  tasks.
-- The server must send follow-up context through the Codex-native task channel
-  when supported.
-- The server must store every accepted follow-up message.
-- The internal compatibility implementation exposed `get_agent_task_result`
-  outside the normal public V2 surface.
-- `get_agent_task_result` returned result metadata when the task is completed.
-- `get_agent_task_result` returned current status when no result was available
-  yet.
+- `append_agent_context` and `get_agent_task_result` are no longer implemented
+  or registered.
+- LOR must not store delegated task follow-up messages or delegated task
+  results.
+- Codex-native task workflows own follow-up and result collection.
 
 ## 5. User Stories / Use Cases
 
@@ -91,3 +84,5 @@ Conceptual result fields:
   status-only responses while no result is recorded.
 - 2026-08-15: Remove follow-up and result tools from the normal public V2
   surface; Codex-native task workflows own follow-up and result collection.
+- 2026-08-15: Delete follow-up/result service, repository, schema, and test
+  code.
