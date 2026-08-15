@@ -914,7 +914,7 @@ function matchToolResult(
     return statusResult(
       "conflict",
       result.data,
-      "Multiple agents matched with near-equal strength.",
+      "Multiple catalog entries matched with near-equal strength.",
     );
   }
   return okResult(result.data, `Found matching ${entryLabel}s.`);

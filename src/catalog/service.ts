@@ -497,6 +497,8 @@ export class CatalogService {
     };
   }
 
+  // Registered-agent dispatch paths are retained for service/storage
+  // compatibility. They are not registered in the normal public V2 MCP surface.
   async recordAgentDispatchSuccess(
     input: RecordAgentDispatchSuccessInput,
   ): Promise<AgentCatalogEntry> {
@@ -1443,6 +1445,8 @@ export class CatalogService {
     };
   }
 
+  // Registered-agent prompt helpers are compatibility internals in V2. Public
+  // workflows use skill/subagent matching and generateAgentPrompt.
   async prepareAgentHandoff(
     input: PrepareAgentHandoffInput,
   ): Promise<PrepareAgentHandoffResult> {

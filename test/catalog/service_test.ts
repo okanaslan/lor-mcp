@@ -71,7 +71,7 @@ Deno.test("CatalogService defaults introduced agents to unknown manual reachabil
   }
 });
 
-Deno.test("CatalogService records passive agent dispatch outcomes by workspace", async () => {
+Deno.test("CatalogService records internal compatibility agent dispatch outcomes by workspace", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -126,7 +126,7 @@ Deno.test("CatalogService records passive agent dispatch outcomes by workspace",
   }
 });
 
-Deno.test("CatalogService rejects handoff preparation for known unreachable agents", async () => {
+Deno.test("CatalogService rejects internal compatibility handoff preparation for known unreachable agents", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -174,7 +174,7 @@ Deno.test("CatalogService rejects handoff preparation for known unreachable agen
   }
 });
 
-Deno.test("CatalogService sends agent tasks through an injected dispatcher", async () => {
+Deno.test("CatalogService sends internal compatibility agent tasks through an injected dispatcher", async () => {
   const { repo, service } = await createCatalogService({
     dispatchAgentTask: (request) =>
       Promise.resolve({
@@ -227,7 +227,7 @@ Deno.test("CatalogService sends agent tasks through an injected dispatcher", asy
   }
 });
 
-Deno.test("CatalogService records failed agent task dispatch without crossing workspaces", async () => {
+Deno.test("CatalogService records failed internal compatibility agent task dispatch without crossing workspaces", async () => {
   const { repo, service } = await createCatalogService({
     dispatchAgentTask: () =>
       Promise.resolve({
@@ -265,7 +265,7 @@ Deno.test("CatalogService records failed agent task dispatch without crossing wo
   }
 });
 
-Deno.test("CatalogService queues agent tasks when no dispatcher is configured", async () => {
+Deno.test("CatalogService queues internal compatibility agent tasks when no dispatcher is configured", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -290,7 +290,7 @@ Deno.test("CatalogService queues agent tasks when no dispatcher is configured", 
   }
 });
 
-Deno.test("CatalogService appends context to open delegated tasks", async () => {
+Deno.test("CatalogService appends context to open internal compatibility delegated tasks", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -321,7 +321,7 @@ Deno.test("CatalogService appends context to open delegated tasks", async () => 
   }
 });
 
-Deno.test("CatalogService rejects follow-up for closed delegated tasks", async () => {
+Deno.test("CatalogService rejects follow-up for closed internal compatibility delegated tasks", async () => {
   const { repo, service } = await createCatalogService({
     dispatchAgentTask: () =>
       Promise.resolve({
@@ -359,7 +359,7 @@ Deno.test("CatalogService rejects follow-up for closed delegated tasks", async (
   }
 });
 
-Deno.test("CatalogService returns status until a delegated task result is recorded", async () => {
+Deno.test("CatalogService returns status until an internal compatibility delegated task result is recorded", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -2583,7 +2583,7 @@ Deno.test("CatalogService returns not_found for missing catalog remove target", 
   }
 });
 
-Deno.test("CatalogService prepares handoff from stored template", async () => {
+Deno.test("CatalogService prepares internal compatibility handoff from stored template", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -2635,7 +2635,7 @@ Deno.test("CatalogService prepares handoff from stored template", async () => {
   }
 });
 
-Deno.test("CatalogService prepares generic handoff without stored metadata", async () => {
+Deno.test("CatalogService prepares internal compatibility generic handoff without stored metadata", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -2679,7 +2679,7 @@ Deno.test("CatalogService prepares generic handoff without stored metadata", asy
   }
 });
 
-Deno.test("CatalogService prepares agent regeneration from stored metadata", async () => {
+Deno.test("CatalogService prepares internal compatibility agent regeneration from stored metadata", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -2816,7 +2816,7 @@ Deno.test("CatalogService retires an agent and excludes it from matching", async
   }
 });
 
-Deno.test("CatalogService rejects handoff to retired agents", async () => {
+Deno.test("CatalogService rejects internal compatibility handoff to retired agents", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -2897,7 +2897,7 @@ Deno.test("CatalogService validates agent retirement inputs", async () => {
   }
 });
 
-Deno.test("CatalogService can omit registration instructions from regeneration prompt", async () => {
+Deno.test("CatalogService can omit registration instructions from internal compatibility regeneration prompt", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -2927,7 +2927,7 @@ Deno.test("CatalogService can omit registration instructions from regeneration p
   }
 });
 
-Deno.test("CatalogService validates prepare handoff inputs", async () => {
+Deno.test("CatalogService validates internal compatibility prepare handoff inputs", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await assertRejects(
@@ -2955,7 +2955,7 @@ Deno.test("CatalogService validates prepare handoff inputs", async () => {
   }
 });
 
-Deno.test("CatalogService validates prepare regeneration inputs", async () => {
+Deno.test("CatalogService validates internal compatibility prepare regeneration inputs", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await assertRejects(
@@ -2981,7 +2981,7 @@ Deno.test("CatalogService validates prepare regeneration inputs", async () => {
   }
 });
 
-Deno.test("CatalogService returns not_found for missing handoff target", async () => {
+Deno.test("CatalogService returns not_found for missing internal compatibility handoff target", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await assertRejects(
@@ -2999,7 +2999,7 @@ Deno.test("CatalogService returns not_found for missing handoff target", async (
   }
 });
 
-Deno.test("CatalogService returns not_found for missing regeneration target", async () => {
+Deno.test("CatalogService returns not_found for missing internal compatibility regeneration target", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await assertRejects(
@@ -3124,7 +3124,7 @@ Deno.test("CatalogService validates prepare initialization inputs", async () => 
   }
 });
 
-Deno.test("CatalogService prepare handoff does not cross workspaces", async () => {
+Deno.test("CatalogService internal compatibility prepare handoff does not cross workspaces", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({
@@ -3151,7 +3151,7 @@ Deno.test("CatalogService prepare handoff does not cross workspaces", async () =
   }
 });
 
-Deno.test("CatalogService prepare regeneration does not cross workspaces", async () => {
+Deno.test("CatalogService internal compatibility prepare regeneration does not cross workspaces", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceAgent({

@@ -82,6 +82,8 @@ export const introduceSubagentInputSchema = z.object({
   expectedOutput: z.string().trim().min(1).optional(),
 });
 
+// Compatibility schemas retained for generic catalog service paths. These are
+// not registered as normal public V2 MCP tools.
 export const listCatalogEntriesInputSchema = z.object({
   workspace: workspaceSchema,
   entryType: entryTypeSchema.optional(),
@@ -468,6 +470,8 @@ export const getWorkspaceNoteInputSchema = z.object({
 
 export const removeWorkspaceNoteInputSchema = getWorkspaceNoteInputSchema;
 
+// Compatibility schemas retained for internal delegated-task service paths.
+// These are not registered as normal public V2 MCP tools.
 export const sendAgentTaskInputSchema = z.object({
   workspace: workspaceSchema,
   agentEntryKey: z.string().trim().min(1),
@@ -505,6 +509,8 @@ export const generateAgentPromptInputSchema = z.object({
   constraints: z.string().trim().min(1).optional(),
 });
 
+// Compatibility schema retained for the generic matcher service path. Public
+// V2 matching is exposed through find_matching_skill and find_matching_subagent.
 export const findMatchingCatalogEntryInputSchema = z.object({
   workspace: workspaceSchema,
   task: z.string().trim().min(1),

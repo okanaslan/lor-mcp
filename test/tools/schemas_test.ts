@@ -136,7 +136,7 @@ Deno.test("registerWorkspaceAliasInputSchema requires workspace and alias", () =
   );
 });
 
-Deno.test("delegated agent task schemas require scoped task identifiers", () => {
+Deno.test("internal compatibility delegated agent task schemas require scoped task identifiers", () => {
   assertEquals(
     sendAgentTaskInputSchema.safeParse({
       workspace: "LOR-MCP",
@@ -170,7 +170,7 @@ Deno.test("delegated agent task schemas require scoped task identifiers", () => 
   );
 });
 
-Deno.test("agent task follow-up schemas require task and message inputs", () => {
+Deno.test("internal compatibility agent task follow-up schemas require task and message inputs", () => {
   assertEquals(
     appendAgentContextInputSchema.safeParse({
       workspace: "LOR-MCP",
