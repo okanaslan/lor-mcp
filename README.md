@@ -190,11 +190,14 @@ Use workspace memory for small coordination notes that are not routing metadata:
 1. `remember_workspace_note` for branch plans, review summaries, migration
    notes, or reapply instructions.
 2. `list_workspace_notes` to scan note summaries, optionally by tag.
-3. `get_workspace_note` to retrieve the full note body.
-4. `remove_workspace_note` when the note is obsolete.
+3. `find_matching_workspace_note` to retrieve ranked note previews for the
+   current task or question.
+4. `get_workspace_note` to retrieve the full note body.
+5. `remove_workspace_note` when the note is obsolete.
 
-Workspace notes are not catalog entries and are not used by matching in the
-current version.
+Workspace notes are not catalog entries and are not used by skill/subagent
+matching. Use `find_matching_workspace_note` when you want note-specific memory
+retrieval.
 
 ### Maintain The Catalog
 
@@ -240,7 +243,8 @@ flowchart RL
   catalog --> workspaceDiagnostics["get_workspace_diagnostics"]
   catalog --> rememberWorkspaceNote["remember_workspace_note"]
   rememberWorkspaceNote --> listWorkspaceNotes["list_workspace_notes"]
-  listWorkspaceNotes --> getWorkspaceNote["get_workspace_note"]
+  listWorkspaceNotes --> findWorkspaceNote["find_matching_workspace_note"]
+  findWorkspaceNote --> getWorkspaceNote["get_workspace_note"]
   getWorkspaceNote --> removeWorkspaceNote["remove_workspace_note"]
   catalog --> exportCatalog["export_catalog"]
   exportCatalog --> importCatalog["import_catalog"]

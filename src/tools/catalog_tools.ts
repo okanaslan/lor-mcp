@@ -19,6 +19,8 @@ import {
   type FindMatchingSkillToolInput,
   findMatchingSubagentInputSchema,
   type FindMatchingSubagentToolInput,
+  findMatchingWorkspaceNoteInputSchema,
+  type FindMatchingWorkspaceNoteToolInput,
   generateAgentPromptInputSchema,
   type GenerateAgentPromptToolInput,
   getSkillDetailInputSchema,
@@ -740,6 +742,45 @@ export function registerCatalogTools(
           return okResult(
             result,
             `Listed ${result.notes.length} workspace notes.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "find_matching_workspace_note",
+    {
+      description:
+        "Find matching workspace note summaries by query, optionally filtered by tags.",
+      inputSchema: findMatchingWorkspaceNoteInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: FindMatchingWorkspaceNoteToolInput) =>
+      withLoggedRuntime(
+        "find_matching_workspace_note",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const result = await runtime.service.findMatchingWorkspaceNotes(
+            input,
+          );
+          if (result.status === "ok") {
+            return okResult(
+              result,
+              `Found ${result.notes.length} matching workspace notes.`,
+            );
+          }
+          return statusResult(
+            "no_match",
+            result,
+            "No matching workspace notes found.",
           );
         },
       ),

@@ -762,6 +762,31 @@ export interface ListWorkspaceNotesResult {
   notes: readonly WorkspaceNoteSummary[];
 }
 
+export interface FindMatchingWorkspaceNoteInput {
+  workspace: string;
+  query: string;
+  tags?: readonly string[];
+  limit?: number;
+}
+
+export interface WorkspaceNoteMatch extends WorkspaceNoteSummary {
+  score: number;
+  matchedFields: readonly string[];
+  matchedSignals: readonly string[];
+  preview: string;
+}
+
+export interface FindMatchingWorkspaceNoteResult {
+  status: Extract<MatchStatus, "ok" | "no_match">;
+  workspace: string;
+  query: string;
+  filters: {
+    tags?: readonly string[];
+    limit: number;
+  };
+  notes: readonly WorkspaceNoteMatch[];
+}
+
 export interface GetWorkspaceNoteInput {
   workspace: string;
   noteId: string;

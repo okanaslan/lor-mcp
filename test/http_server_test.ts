@@ -81,6 +81,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "get_workspace_diagnostics",
       "remember_workspace_note",
       "list_workspace_notes",
+      "find_matching_workspace_note",
       "get_workspace_note",
       "remove_workspace_note",
       "generate_agent_prompt",
@@ -689,9 +690,22 @@ Deno.test("HTTP MCP handler calls workspace note tools", async () => {
         },
       },
     });
-    const getResponse = await postMcp(handler, sessionId, {
+    const matchResponse = await postMcp(handler, sessionId, {
       jsonrpc: "2.0",
       id: 4,
+      method: "tools/call",
+      params: {
+        name: "find_matching_workspace_note",
+        arguments: {
+          workspace: "LOR-MCP",
+          query: "branch plan",
+          tags: ["branch-plan"],
+        },
+      },
+    });
+    const getResponse = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 5,
       method: "tools/call",
       params: {
         name: "get_workspace_note",
@@ -703,7 +717,7 @@ Deno.test("HTTP MCP handler calls workspace note tools", async () => {
     });
     const removeResponse = await postMcp(handler, sessionId, {
       jsonrpc: "2.0",
-      id: 5,
+      id: 6,
       method: "tools/call",
       params: {
         name: "remove_workspace_note",
@@ -714,12 +728,25 @@ Deno.test("HTTP MCP handler calls workspace note tools", async () => {
       },
     });
     const listBody = await listResponse.json();
+    const matchBody = await matchResponse.json();
     const getBody = await getResponse.json();
     const removeBody = await removeResponse.json();
 
     assertEquals(rememberResponse.status, 200);
     assertEquals(rememberBody.result.structuredContent.status, "ok");
     assertEquals(listBody.result.structuredContent.data.notes.length, 1);
+    assertEquals(matchBody.result.structuredContent.status, "ok");
+    assertEquals(matchBody.result.structuredContent.data.notes.length, 1);
+    assertEquals(
+      matchBody.result.structuredContent.data.notes[0].preview.includes(
+        "Do not log this note body.",
+      ),
+      true,
+    );
+    assertEquals(
+      "body" in matchBody.result.structuredContent.data.notes[0],
+      false,
+    );
     assertEquals(
       getBody.result.structuredContent.data.body,
       "Do not log this note body.",

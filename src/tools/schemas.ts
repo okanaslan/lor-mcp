@@ -454,6 +454,13 @@ export const listWorkspaceNotesInputSchema = z.object({
   tags: z.array(z.string().trim().min(1)).optional(),
 });
 
+export const findMatchingWorkspaceNoteInputSchema = z.object({
+  workspace: workspaceSchema,
+  query: z.string().trim().min(1),
+  tags: z.array(z.string().trim().min(1)).optional(),
+  limit: z.number().int().min(1).max(20).optional(),
+});
+
 export const getWorkspaceNoteInputSchema = z.object({
   workspace: workspaceSchema,
   noteId: z.string().trim().min(1),
@@ -592,6 +599,9 @@ export type RememberWorkspaceNoteToolInput = z.infer<
 >;
 export type ListWorkspaceNotesToolInput = z.infer<
   typeof listWorkspaceNotesInputSchema
+>;
+export type FindMatchingWorkspaceNoteToolInput = z.infer<
+  typeof findMatchingWorkspaceNoteInputSchema
 >;
 export type GetWorkspaceNoteToolInput = z.infer<
   typeof getWorkspaceNoteInputSchema

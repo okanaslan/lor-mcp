@@ -47,7 +47,8 @@ The main user flows are:
 - Find matching skills and subagent prompt profiles for a task through
   type-specific matching tools.
 - Generate deterministic ready-to-paste prompts for fresh Codex chats.
-- Use diagnostics and workspace memory tools.
+- Use diagnostics and workspace memory tools, including note-specific matching
+  for prior coordination context.
 - Use diagnostics to compare local Codex skill files and `AGENTS.md` presence
   with LOR-registered skill metadata.
 - Improve stored skill context through approval-gated proposals.

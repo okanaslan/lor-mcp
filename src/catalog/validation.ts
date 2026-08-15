@@ -12,6 +12,7 @@ import {
   type CatalogImportInput,
   type CatalogScope,
   type EntryLookup,
+  type FindMatchingWorkspaceNoteInput,
   type GetAgentTaskResultInput,
   type GetAgentTaskStatusInput,
   type GetWorkspaceNoteInput,
@@ -258,6 +259,17 @@ export function validateListWorkspaceNotes(
   return {
     workspace: requireWorkspace(input.workspace),
     tags: normalizeOptionalStringList(input.tags, "tags"),
+  };
+}
+
+export function validateFindMatchingWorkspaceNote(
+  input: FindMatchingWorkspaceNoteInput,
+): FindMatchingWorkspaceNoteInput {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    query: requireString(input.query, "query"),
+    tags: normalizeOptionalStringList(input.tags, "tags"),
+    limit: normalizeOptionalLimit(input.limit, "limit"),
   };
 }
 
@@ -1008,4 +1020,21 @@ function normalizeOptionalStringList(
   }
   const normalized = requireStringList(values, field);
   return normalized.length === 0 ? undefined : normalized;
+}
+
+function normalizeOptionalLimit(
+  value: number | undefined,
+  field: string,
+): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Number.isInteger(value) || value < 1 || value > 20) {
+    throw new LorError(
+      "validation_error",
+      `${field} must be an integer between 1 and 20.`,
+      { field },
+    );
+  }
+  return value;
 }

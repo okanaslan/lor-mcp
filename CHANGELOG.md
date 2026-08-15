@@ -13,6 +13,11 @@ The project follows Semantic Versioning:
 
 ## [Unreleased]
 
+### Added
+
+- Add `find_matching_workspace_note` for deterministic workspace-memory note
+  retrieval with ranked previews and optional tag filtering.
+
 ### Changed
 
 - Clean up README, roadmap, changelog, and active tool-surface documentation

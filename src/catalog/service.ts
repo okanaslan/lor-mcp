@@ -30,6 +30,8 @@ import {
   type DelegatedAgentTask,
   type EntryLookup,
   type EntryType,
+  type FindMatchingWorkspaceNoteInput,
+  type FindMatchingWorkspaceNoteResult,
   type GetAgentTaskResultInput,
   type GetAgentTaskStatusInput,
   type GetWorkspaceNoteInput,
@@ -84,6 +86,7 @@ import {
   type WorkspaceDiagnosticsLocalContext,
   type WorkspaceDiagnosticsReport,
   type WorkspaceNote,
+  type WorkspaceNoteMatch,
   type WorkspaceNoteSummary,
 } from "@src/catalog/types.ts";
 import {
@@ -96,6 +99,7 @@ import {
   validateCatalogHealthFilter,
   validateCatalogImportInput,
   validateEntryLookup,
+  validateFindMatchingWorkspaceNote,
   validateGetAgentTaskResult,
   validateGetAgentTaskStatus,
   validateGetWorkspaceNote,
@@ -1320,6 +1324,33 @@ export class CatalogService {
     };
   }
 
+  async findMatchingWorkspaceNotes(
+    input: FindMatchingWorkspaceNoteInput,
+  ): Promise<FindMatchingWorkspaceNoteResult> {
+    const validated = validateFindMatchingWorkspaceNote(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const limit = validated.limit ?? 5;
+    const notes = await this.#repository.listWorkspaceNotes(workspace, {
+      tags: validated.tags,
+    });
+    const matches = notes
+      .map((note) => scoreWorkspaceNote(note, validated.query))
+      .filter((match): match is WorkspaceNoteMatch => match !== undefined)
+      .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+      .slice(0, limit);
+
+    return {
+      status: matches.length > 0 ? "ok" : "no_match",
+      workspace,
+      query: validated.query,
+      filters: {
+        tags: validated.tags,
+        limit,
+      },
+      notes: matches,
+    };
+  }
+
   async getWorkspaceNote(
     input: GetWorkspaceNoteInput,
   ): Promise<WorkspaceNote> {
@@ -2462,6 +2493,104 @@ function toWorkspaceNoteSummary(note: WorkspaceNote): WorkspaceNoteSummary {
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
   };
+}
+
+type WorkspaceNoteMatchField = "title" | "tags" | "body";
+
+interface WorkspaceNoteFieldScore {
+  field: WorkspaceNoteMatchField;
+  score: number;
+  signals: string[];
+}
+
+function scoreWorkspaceNote(
+  note: WorkspaceNote,
+  query: string,
+): WorkspaceNoteMatch | undefined {
+  const queryTokens = tokenizeWorkspaceNoteText(query);
+  if (queryTokens.length === 0) {
+    return undefined;
+  }
+
+  const fieldScores = [
+    scoreWorkspaceNoteField("title", note.title, queryTokens, 8),
+    scoreWorkspaceNoteField("tags", note.tags.join(" "), queryTokens, 7),
+    scoreWorkspaceNoteField("body", note.body, queryTokens, 2),
+  ].filter((score): score is WorkspaceNoteFieldScore => score !== undefined);
+  const score = fieldScores.reduce((sum, field) => sum + field.score, 0);
+  if (score < 2) {
+    return undefined;
+  }
+
+  return {
+    ...toWorkspaceNoteSummary(note),
+    score,
+    matchedFields: [...new Set(fieldScores.map((field) => field.field))],
+    matchedSignals: [
+      ...new Set(fieldScores.flatMap((field) => field.signals)),
+    ],
+    preview: workspaceNotePreview(note.body),
+  };
+}
+
+function scoreWorkspaceNoteField(
+  field: WorkspaceNoteMatchField,
+  value: string,
+  queryTokens: readonly string[],
+  weight: number,
+): WorkspaceNoteFieldScore | undefined {
+  const fieldTokens = tokenizeWorkspaceNoteText(value);
+  let score = 0;
+  const signals: string[] = [];
+
+  for (const queryToken of queryTokens) {
+    for (const fieldToken of fieldTokens) {
+      const tokenScore = scoreWorkspaceNoteToken(
+        queryToken,
+        fieldToken,
+        weight,
+      );
+      if (tokenScore > 0) {
+        score += tokenScore;
+        signals.push(queryToken);
+        break;
+      }
+    }
+  }
+
+  return score > 0
+    ? { field, score, signals: [...new Set(signals)] }
+    : undefined;
+}
+
+function scoreWorkspaceNoteToken(
+  queryToken: string,
+  fieldToken: string,
+  weight: number,
+): number {
+  if (queryToken === fieldToken) {
+    return weight;
+  }
+  if (fieldToken.startsWith(queryToken) || queryToken.startsWith(fieldToken)) {
+    return Math.max(1, Math.floor(weight * 0.6));
+  }
+  if (fieldToken.includes(queryToken) || queryToken.includes(fieldToken)) {
+    return Math.max(1, Math.floor(weight * 0.4));
+  }
+  return 0;
+}
+
+function tokenizeWorkspaceNoteText(value: string): string[] {
+  return value.trim().toLowerCase().split(/[^a-z0-9]+/).filter((token) =>
+    token.length > 1
+  );
+}
+
+function workspaceNotePreview(body: string): string {
+  const normalized = body.trim().replace(/\s+/g, " ");
+  return normalized.length > 180
+    ? `${normalized.slice(0, 177)}...`
+    : normalized;
 }
 
 function verificationIssues(entry: CatalogEntry): CatalogHealthIssue[] {

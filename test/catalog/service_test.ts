@@ -2398,6 +2398,62 @@ Deno.test("CatalogService keeps workspace notes scoped and removable", async () 
   }
 });
 
+Deno.test("CatalogService finds matching workspace notes without returning full bodies", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const branchPlan = await service.rememberWorkspaceNote({
+      workspace: "LOR-MCP",
+      title: "Branch plan",
+      body:
+        "Secret implementation detail: keep diagnostics and memory matching changes in separate commits.",
+      tags: ["branch-plan", "coordination"],
+    });
+    await service.rememberWorkspaceNote({
+      workspace: "LOR-MCP",
+      title: "Release checklist",
+      body: "Run smoke tests before release.",
+      tags: ["release"],
+    });
+    await service.rememberWorkspaceNote({
+      workspace: "Other",
+      title: "Branch plan",
+      body: "Other workspace branch plan.",
+      tags: ["branch-plan"],
+    });
+
+    const result = await service.findMatchingWorkspaceNotes({
+      workspace: "LOR-MCP",
+      query: "branch coordination diagnostics",
+      tags: ["branch-plan"],
+      limit: 5,
+    });
+
+    assertEquals(result.status, "ok");
+    assertEquals(result.workspace, "LOR-MCP");
+    assertEquals(result.filters.tags, ["branch-plan"]);
+    assertEquals(result.notes.length, 1);
+    assertEquals(result.notes[0].noteId, branchPlan.noteId);
+    assertEquals(result.notes[0].title, "Branch plan");
+    assertEquals(result.notes[0].matchedFields.includes("title"), true);
+    assertEquals(result.notes[0].matchedFields.includes("tags"), true);
+    assertEquals(
+      result.notes[0].preview.includes("Secret implementation"),
+      true,
+    );
+    assertEquals("body" in result.notes[0], false);
+
+    const noMatch = await service.findMatchingWorkspaceNotes({
+      workspace: "LOR-MCP",
+      query: "android store screenshots",
+    });
+
+    assertEquals(noMatch.status, "no_match");
+    assertEquals(noMatch.notes, []);
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService filters catalog health by type project and entry key", async () => {
   const { repo, service } = await createCatalogService();
   try {

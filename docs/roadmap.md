@@ -47,6 +47,7 @@ Implemented in the runnable local 2.0.0 server:
   - `get_workspace_diagnostics`
   - `remember_workspace_note`
   - `list_workspace_notes`
+  - `find_matching_workspace_note`
   - `get_workspace_note`
   - `remove_workspace_note`
   - `generate_agent_prompt`
@@ -146,7 +147,8 @@ Latest implementation verification:
   [Agent Task Follow-Up And Result Collection](tech-specs/done/agent-task-follow-up-and-result-collection.md).
 - [Workspace Memory Primitives](feature-specs/workspace-memory-primitives.md):
   Implemented. Defines lightweight workspace notes for branch plans, review
-  summaries, and reapply notes. Technical planning is tracked in
+  summaries, reapply notes, and deterministic note-specific matching. Technical
+  planning is tracked in
   [Workspace Memory Primitives](tech-specs/done/workspace-memory-primitives.md).
 - [HTTP Discovery Probe Logging](feature-specs/http-discovery-probe-logging.md):
   Implemented. Defines lower-noise logging for expected OAuth/OIDC discovery

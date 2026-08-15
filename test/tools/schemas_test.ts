@@ -10,6 +10,7 @@ import {
   exportCatalogInputSchema,
   findMatchingSkillInputSchema,
   findMatchingSubagentInputSchema,
+  findMatchingWorkspaceNoteInputSchema,
   generateAgentPromptInputSchema,
   getAgentTaskResultInputSchema,
   getAgentTaskStatusInputSchema,
@@ -609,6 +610,30 @@ Deno.test("workspace note schemas require scoped note inputs", () => {
       tags: ["review-summary"],
     }).success,
     true,
+  );
+  assertEquals(
+    findMatchingWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      query: "branch plan",
+      tags: ["branch-plan"],
+      limit: 3,
+    }).success,
+    true,
+  );
+  assertEquals(
+    findMatchingWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      query: "branch plan",
+      limit: 0,
+    }).success,
+    false,
+  );
+  assertEquals(
+    findMatchingWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      query: " ",
+    }).success,
+    false,
   );
   assertEquals(
     getWorkspaceNoteInputSchema.safeParse({

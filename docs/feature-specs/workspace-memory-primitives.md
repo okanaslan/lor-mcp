@@ -9,7 +9,7 @@ that is not a catalog entry.
 ## 2. Goals
 
 - Let agents store concise workspace notes.
-- Let agents list and retrieve notes later.
+- Let agents list, match, and retrieve notes later.
 - Keep notes scoped to a resolved workspace.
 - Avoid mixing general memory with catalog routing metadata.
 
@@ -25,6 +25,7 @@ that is not a catalog entry.
 
 - The server must expose `remember_workspace_note`.
 - The server must expose `list_workspace_notes`.
+- The server must expose `find_matching_workspace_note`.
 - The server must expose `get_workspace_note`.
 - The server must expose `remove_workspace_note`.
 - Notes must require `workspace`, `title`, and `body`.
@@ -33,6 +34,10 @@ that is not a catalog entry.
 - Notes must be scoped to the requested workspace.
 - Notes must be durable.
 - Notes must not be returned by catalog matching.
+- Note matching must be deterministic and local, ranking title and tags above
+  body text.
+- Note matching must return previews only; callers use `get_workspace_note` for
+  full note bodies.
 
 ## 5. User Stories / Use Cases
 
@@ -67,7 +72,8 @@ Conceptual `WorkspaceNote` fields:
 
 - Should notes support update, or should remove plus remember be enough?
 - Should notes have a maximum size in v1?
-- Should matching later consider workspace notes as optional context?
+- Should note matching later support update-time summaries or explicit note
+  priority?
 
 ## 10. Decision Log
 
@@ -76,3 +82,5 @@ Conceptual `WorkspaceNote` fields:
   note body.
 - 2026-08-06: Plan workspace memory as small scoped notes, separate from catalog
   entries and delegated task messages.
+- 2026-08-15: Add `find_matching_workspace_note` for note-specific deterministic
+  matching without mixing notes into catalog skill/subagent matching.
