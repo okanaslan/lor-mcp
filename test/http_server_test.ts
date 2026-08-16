@@ -79,6 +79,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "apply_workspace_catalog_sync",
       "check_catalog_health",
       "get_workspace_diagnostics",
+      "get_usage_analytics",
       "remember_workspace_note",
       "list_workspace_notes",
       "find_matching_workspace_note",
@@ -759,6 +760,40 @@ Deno.test("HTTP MCP handler calls workspace note tools", async () => {
       JSON.stringify(logger.logs).includes("Do not log this note body."),
       false,
     );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("HTTP MCP handler calls get_usage_analytics", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    const response = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "get_usage_analytics",
+        arguments: {
+          workspace: "LOR-MCP",
+        },
+      },
+    });
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body.result.structuredContent.status, "ok");
+    assertEquals(body.result.structuredContent.data.workspace, "LOR-MCP");
+    assertEquals(body.result.structuredContent.data.summary.totalCount, 0);
+    assertEquals(body.result.structuredContent.data.entries, []);
   } finally {
     repo.close();
   }

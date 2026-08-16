@@ -80,6 +80,8 @@ Implemented in the runnable local 2.0.0 server:
   `404` responses log below warning severity without adding fake auth endpoints.
 - Workspace memory is implemented as durable workspace-scoped notes outside the
   routing catalog. Notes do not support global scope.
+- Usage analytics for skill, subagent, and workspace-note list/match/detail
+  usage is implemented as local aggregate counters.
 
 Current `LOR-MCP` catalog snapshot as of 2026-08-15:
 
@@ -208,6 +210,11 @@ Latest implementation verification:
   introduction/detail/match results, and workspace sync/export/import support
   for workspace-local subagents. Technical planning is tracked in
   [Subagent Suggestions](tech-specs/done/subagent-suggestions.md).
+- [Usage Analytics](feature-specs/usage-analytics.md): Implemented for V2 local
+  aggregate counters that record how often skills, subagents, and workspace
+  notes are listed, matched, and opened in detail without storing raw prompts,
+  task text, or note bodies. Technical planning is tracked in
+  [Usage Analytics Counters](tech-specs/usage-analytics-counters.md).
 
 ## Next
 

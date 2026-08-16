@@ -16,17 +16,20 @@ right skills, subagents, prompts, next steps, and failure behavior.
 - Keep prompt generation helpers because users can still perform manual
   coordination with fresh Codex chats.
 - Improve skill and subagent registration, discovery, quality, and coverage.
+- Use local aggregate usage analytics so users can see which skills, subagents,
+  and workspace notes are listed, matched, or opened in detail.
 - Make tool results more operational: tell the caller what to do next and what
   to do if a step fails.
 - Clarify the relationship between local Codex skills, LOR-registered skills,
   subagent profiles, and local `AGENTS.md`.
 
-## Planned Feature Specs
+## Feature Specs
 
 - [V2 Tool Surface Simplification](../feature-specs/v2-tool-surface-simplification.md)
 - [V2 Agent Initialization Context](../feature-specs/v2-agent-initialization-context.md)
 - [V2 Skill And Subagent Coverage Health](../feature-specs/v2-skill-and-subagent-coverage-health.md)
 - [V2 Local Skill And AGENTS.md Integration](../feature-specs/v2-local-skill-and-agents-integration.md)
+- [Usage Analytics](../feature-specs/usage-analytics.md)
 
 ## Implementation Principle
 

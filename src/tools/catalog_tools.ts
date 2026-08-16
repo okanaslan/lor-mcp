@@ -27,6 +27,8 @@ import {
   type GetSkillDetailToolInput,
   getSubagentDetailInputSchema,
   type GetSubagentDetailToolInput,
+  getUsageAnalyticsInputSchema,
+  type GetUsageAnalyticsToolInput,
   getWorkspaceDiagnosticsInputSchema,
   type GetWorkspaceDiagnosticsToolInput,
   getWorkspaceNoteInputSchema,
@@ -90,10 +92,11 @@ export function registerCatalogTools(
   server: McpServer,
   options: CatalogToolOptions = {},
 ): void {
-  const runtimeFactory = options.runtimeFactory ?? createDefaultRuntime;
   const logger = (options.logger ?? createNoopLogger()).child({
     component: "tools",
   });
+  const runtimeFactory = options.runtimeFactory ??
+    (() => createDefaultRuntime({ logger }));
 
   server.registerTool(
     "introduce_skill",
@@ -691,6 +694,36 @@ export function registerCatalogTools(
           return okResult(
             report,
             `Resolved workspace ${report.resolvedWorkspace}.`,
+          );
+        },
+      ),
+  );
+
+  server.registerTool(
+    "get_usage_analytics",
+    {
+      description:
+        "Read local aggregate usage counters for skills, subagents, and workspace notes.",
+      inputSchema: getUsageAnalyticsInputSchema,
+      outputSchema: toolOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input: GetUsageAnalyticsToolInput) =>
+      withLoggedRuntime(
+        "get_usage_analytics",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const report = await runtime.service.getUsageAnalytics(input);
+          return okResult(
+            report,
+            `Found ${report.summary.totalCount} recorded usage events across ${report.summary.totalEntries} entries.`,
           );
         },
       ),

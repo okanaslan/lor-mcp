@@ -9,6 +9,9 @@ skill/subagent matching, prompt generation, workspace catalog sync, shared
 global skill scope, registered skill context updates, and approval-gated local
 `SKILL.md` sync. Subagent support adds reusable workspace/global prompt profiles
 for small, scoped delegation without requiring a registered Codex agent session.
+Usage analytics adds local aggregate counters for skill, subagent, and
+workspace-note list/match/detail usage without storing raw prompts or note
+bodies.
 
 V2 keeps manual prompt generation available, while delegated task lifecycle
 internals and registered-agent catalog tools are hidden from the normal public
@@ -53,6 +56,8 @@ The main user flows are:
   resolved workspace and are not global catalog entries.
 - Use diagnostics to compare local Codex skill files and `AGENTS.md` presence
   with LOR-registered skill metadata.
+- Use usage analytics to review local aggregate list/match/detail counters for
+  skills, subagents, and workspace notes.
 - Improve stored skill context through approval-gated proposals.
 - Optionally sync approved skill context into a local `SKILL.md` managed
   section.
@@ -81,3 +86,5 @@ preview first, then apply with `confirm: true`.
   MCP tools are available.
 - Keep V2 direction notes aligned with the current public tool surface whenever
   implementation scope changes.
+- Keep analytics docs explicit about local aggregate counters and avoid
+  introducing remote telemetry or raw prompt storage.

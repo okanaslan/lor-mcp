@@ -20,6 +20,11 @@ import type {
   SkillCatalogEntry,
   SkillUpdateProposal,
   SubagentCatalogEntry,
+  UsageAnalyticsFilter,
+  UsageCounterIncrement,
+  UsageCounterRecord,
+  UsageEntryType,
+  UsageOperation,
   VerificationMetadata,
   WorkspaceNote,
 } from "@src/catalog/types.ts";
@@ -128,6 +133,18 @@ interface WorkspaceNoteRow {
   updatedAt: string;
 }
 
+interface UsageCounterRow {
+  workspace: string;
+  entryType: string;
+  entryScope: string;
+  entryKey: string;
+  projectName: string | null;
+  operation: string;
+  count: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
 const GLOBAL_SKILL_WORKSPACE = "__lor_global_skills__";
 const GLOBAL_SUBAGENT_WORKSPACE = "__lor_global_subagents__";
 const PUBLIC_GLOBAL_WORKSPACE = "global";
@@ -153,8 +170,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
       this.#db.exec(DELEGATED_TASK_MESSAGES_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
       this.#db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
+      this.#db.exec(USAGE_COUNTERS_SCHEMA_SQL);
       backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 9);
+      recordSchemaVersion(this.#db, 10);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -975,6 +993,84 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  recordUsageCounters(
+    increments: readonly UsageCounterIncrement[],
+    options: { now: string },
+  ): Promise<void> {
+    if (increments.length === 0) {
+      return Promise.resolve();
+    }
+
+    const db = this.requireDb();
+    const record = db.transaction(() => {
+      for (const increment of increments) {
+        db.exec(
+          `INSERT INTO usage_counters (
+            workspace, entryType, entryScope, entryKey, projectName, operation,
+            count, firstSeenAt, lastSeenAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (
+            workspace, entryType, entryScope, entryKey, operation
+          ) DO UPDATE SET
+            count = count + excluded.count,
+            projectName = excluded.projectName,
+            lastSeenAt = excluded.lastSeenAt`,
+          increment.workspace,
+          increment.entryType,
+          increment.scope,
+          increment.entryKey,
+          increment.projectName ?? null,
+          increment.operation,
+          increment.count ?? 1,
+          options.now,
+          options.now,
+        );
+      }
+    });
+
+    try {
+      record();
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  getUsageCounters(
+    workspace: string,
+    filter: Omit<UsageAnalyticsFilter, "workspace"> = {},
+  ): Promise<UsageCounterRecord[]> {
+    try {
+      const clauses = ["workspace = ?"];
+      const values: string[] = [workspace];
+      if (filter.entryType) {
+        clauses.push("entryType = ?");
+        values.push(filter.entryType);
+      }
+      if (filter.scope) {
+        clauses.push("entryScope = ?");
+        values.push(filter.scope);
+      }
+      if (filter.entryKey) {
+        clauses.push("entryKey = ?");
+        values.push(filter.entryKey);
+      }
+      if (filter.projectName) {
+        clauses.push("projectName = ?");
+        values.push(filter.projectName);
+      }
+
+      const rows = this.requireDb().prepare<UsageCounterRow>(
+        `SELECT * FROM usage_counters
+         WHERE ${clauses.join(" AND ")}
+         ORDER BY entryType, entryScope, projectName, entryKey, operation`,
+      ).all(...values);
+      return Promise.resolve(rows.map(mapUsageCounterRow));
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
   close(): void {
     this.#db?.close();
     this.#db = undefined;
@@ -1261,6 +1357,20 @@ function mapWorkspaceNoteRow(row: WorkspaceNoteRow): WorkspaceNote {
   };
 }
 
+function mapUsageCounterRow(row: UsageCounterRow): UsageCounterRecord {
+  return {
+    workspace: row.workspace,
+    entryType: parseUsageEntryType(row.entryType),
+    scope: parseCatalogScope(row.entryScope),
+    entryKey: row.entryKey,
+    projectName: row.projectName ?? undefined,
+    operation: parseUsageOperation(row.operation),
+    count: row.count,
+    firstSeenAt: row.firstSeenAt,
+    lastSeenAt: row.lastSeenAt,
+  };
+}
+
 function skillStorageWorkspace(
   workspace: string,
   scope: CatalogScope | undefined,
@@ -1386,6 +1496,24 @@ function parseDispatchMode(value: string): AgentReachability["dispatchMode"] {
     return value;
   }
   return "manual";
+}
+
+function parseCatalogScope(value: string): CatalogScope {
+  return value === "global" ? "global" : "workspace";
+}
+
+function parseUsageEntryType(value: string): UsageEntryType {
+  if (value === "skill" || value === "subagent" || value === "note") {
+    return value;
+  }
+  return "skill";
+}
+
+function parseUsageOperation(value: string): UsageOperation {
+  if (value === "listed" || value === "matched" || value === "detailed") {
+    return value;
+  }
+  return "listed";
 }
 
 interface TableColumn {
@@ -1689,4 +1817,25 @@ CREATE TABLE IF NOT EXISTS workspace_notes (
 
 CREATE INDEX IF NOT EXISTS workspace_notes_workspace_updated_idx
   ON workspace_notes(workspace, updatedAt DESC);
+`;
+
+const USAGE_COUNTERS_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS usage_counters (
+  workspace TEXT NOT NULL,
+  entryType TEXT NOT NULL,
+  entryScope TEXT NOT NULL,
+  entryKey TEXT NOT NULL,
+  projectName TEXT,
+  operation TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  firstSeenAt TEXT NOT NULL,
+  lastSeenAt TEXT NOT NULL,
+  PRIMARY KEY (workspace, entryType, entryScope, entryKey, operation)
+);
+
+CREATE INDEX IF NOT EXISTS usage_counters_workspace_type_idx
+  ON usage_counters(workspace, entryType);
+
+CREATE INDEX IF NOT EXISTS usage_counters_workspace_project_idx
+  ON usage_counters(workspace, projectName);
 `;

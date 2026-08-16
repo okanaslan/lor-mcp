@@ -877,6 +877,72 @@ Deno.test("SqliteCatalogRepository returns zero counts for empty workspace clear
   }
 });
 
+Deno.test("SqliteCatalogRepository stores and filters usage counters", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    const schemaVersion = await repo.getSchemaVersion();
+    await repo.recordUsageCounters([
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+        projectName: "Local Orchestration Router (LOR)",
+        operation: "listed",
+      },
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+        projectName: "Local Orchestration Router (LOR)",
+        operation: "listed",
+        count: 2,
+      },
+      {
+        workspace: "workspace-a",
+        entryType: "subagent",
+        scope: "workspace",
+        entryKey: "api-test-subagent",
+        projectName: "Local Orchestration Router (LOR)",
+        operation: "matched",
+      },
+      {
+        workspace: "workspace-b",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+        projectName: "Local Orchestration Router (LOR)",
+        operation: "listed",
+      },
+    ], { now: FIXED_NOW });
+
+    const workspaceA = await repo.getUsageCounters("workspace-a", {});
+    const skillOnly = await repo.getUsageCounters("workspace-a", {
+      entryType: "skill",
+      scope: "global",
+      entryKey: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+    });
+    const workspaceB = await repo.getUsageCounters("workspace-b", {});
+
+    assertEquals(schemaVersion, 10);
+    assertEquals(workspaceA.map((record) => record.entryKey), [
+      "backend-skill",
+      "api-test-subagent",
+    ]);
+    assertEquals(skillOnly.length, 1);
+    assertEquals(skillOnly[0].count, 3);
+    assertEquals(skillOnly[0].operation, "listed");
+    assertEquals(skillOnly[0].firstSeenAt, FIXED_NOW);
+    assertEquals(skillOnly[0].lastSeenAt, FIXED_NOW);
+    assertEquals(workspaceB.length, 1);
+    assertEquals(workspaceB[0].workspace, "workspace-b");
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("SqliteCatalogRepository migrates legacy catalogNamespace columns", async () => {
   const dir = await Deno.makeTempDir();
   const dbPath = join(dir, "catalog.db");

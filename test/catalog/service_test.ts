@@ -2501,6 +2501,181 @@ Deno.test("CatalogService validates prepare initialization inputs", async () => 
   }
 });
 
+Deno.test("CatalogService records usage analytics for public V2 entries", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-api",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Skill",
+      primarySpecialty: "backend api implementation",
+      specialtyTags: ["backend", "api"],
+      skillContext: {
+        whenToUse: "Use for backend API implementation.",
+      },
+    });
+    await service.introduceSubagent({
+      workspace: "LOR-MCP",
+      name: "backend-api-test-profile",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Test Subagent",
+      purpose: "Write backend API tests.",
+      limitedScope: "Only inspect service and API tests.",
+      primarySpecialty: "backend api testing",
+      specialtyTags: ["backend", "api", "tests"],
+    });
+    const note = await service.rememberWorkspaceNote({
+      workspace: "LOR-MCP",
+      title: "Branch plan",
+      body: "Keep backend API changes scoped and verify Deno tests.",
+      tags: ["branch-plan"],
+    });
+
+    await service.listSkills({ workspace: "Consumer-Workspace" });
+    await service.findMatchingSkills({
+      workspace: "Consumer-Workspace",
+      task: "backend api implementation",
+    });
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "backend-api",
+      scope: "global",
+    });
+    await service.listSubagents({ workspace: "Consumer-Workspace" });
+    await service.findMatchingSubagents({
+      workspace: "Consumer-Workspace",
+      task: "backend api tests",
+    });
+    await service.getSubagentDetail({
+      workspace: "Consumer-Workspace",
+      subagentName: "backend-api-test-profile",
+      scope: "global",
+    });
+    await service.listWorkspaceNotes({ workspace: "LOR-MCP" });
+    await service.findMatchingWorkspaceNotes({
+      workspace: "LOR-MCP",
+      query: "backend API",
+    });
+    await service.getWorkspaceNote({
+      workspace: "LOR-MCP",
+      noteId: note.noteId,
+    });
+
+    const consumerReport = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+    });
+    const noteReport = await service.getUsageAnalytics({
+      workspace: "LOR-MCP",
+      entryType: "note",
+    });
+    const skillProjectReport = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "backend-api",
+      projectName: "Local Orchestration Router (LOR)",
+    });
+
+    assertEquals(consumerReport.workspace, "Consumer-Workspace");
+    assertEquals(consumerReport.summary.totalEntries, 2);
+    assertEquals(consumerReport.summary.byEntryType.skill, {
+      entries: 1,
+      listed: 1,
+      matched: 1,
+      detailed: 1,
+      total: 3,
+    });
+    assertEquals(consumerReport.summary.byEntryType.subagent, {
+      entries: 1,
+      listed: 1,
+      matched: 1,
+      detailed: 1,
+      total: 3,
+    });
+    assertEquals(consumerReport.summary.byEntryType.note.total, 0);
+    assertEquals(
+      consumerReport.entries.map((entry) =>
+        `${entry.entryType}:${entry.scope}:${entry.entryKey}`
+      ),
+      [
+        "skill:global:backend-api",
+        "subagent:global:backend-api-test-profile",
+      ],
+    );
+    assertEquals(noteReport.summary.byEntryType.note, {
+      entries: 1,
+      listed: 1,
+      matched: 1,
+      detailed: 1,
+      total: 3,
+    });
+    assertEquals(noteReport.entries[0].scope, "workspace");
+    assertEquals(noteReport.entries[0].entryKey, note.noteId);
+    assertEquals(skillProjectReport.entries.length, 1);
+    assertEquals(skillProjectReport.entries[0].workspace, "Consumer-Workspace");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService returns empty usage analytics and validates note filters", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const report = await service.getUsageAnalytics({
+      workspace: "Empty-Workspace",
+    });
+
+    assertEquals(report.workspace, "Empty-Workspace");
+    assertEquals(report.entries, []);
+    assertEquals(report.summary.totalEntries, 0);
+    assertEquals(report.summary.totalCount, 0);
+    assertEquals(report.summary.byOperation, {
+      listed: 0,
+      matched: 0,
+      detailed: 0,
+    });
+    assert(report.recommendedActions.length > 0);
+    await assertRejects(
+      () =>
+        service.getUsageAnalytics({
+          workspace: "LOR-MCP",
+          entryType: "note",
+          scope: "global",
+        }),
+      Error,
+      "Workspace notes only support workspace scope",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService does not fail successful operations when usage writes fail", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-api",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Skill",
+      primarySpecialty: "backend api implementation",
+      specialtyTags: ["backend", "api"],
+    });
+    const failingRepo = repo as unknown as {
+      recordUsageCounters: typeof repo.recordUsageCounters;
+    };
+    failingRepo.recordUsageCounters = () =>
+      Promise.reject(new Error("analytics write failed"));
+
+    const skills = await service.listSkills({ workspace: "LOR-MCP" });
+
+    assertEquals(skills.map((skill) => skill.skillName), ["backend-api"]);
+  } finally {
+    repo.close();
+  }
+});
+
 async function createSkillFileForService(
   skillName: string,
 ): Promise<{ root: string; file: string }> {

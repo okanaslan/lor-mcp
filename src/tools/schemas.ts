@@ -2,6 +2,7 @@ import * as z from "zod/v4";
 
 export const entryTypeSchema = z.enum(["agent", "skill", "subagent"]);
 const healthEntryTypeSchema = z.enum(["agent", "skill"]);
+const usageEntryTypeSchema = z.enum(["skill", "subagent", "note"]);
 export const catalogScopeSchema = z.enum(["workspace", "global"]);
 export const agentStatusSchema = z.enum(["active", "retired"]);
 
@@ -370,6 +371,26 @@ export const getWorkspaceDiagnosticsInputSchema = z.object({
   workspace: workspaceSchema,
 });
 
+export const getUsageAnalyticsInputSchema = z.object({
+  workspace: workspaceSchema,
+  entryType: usageEntryTypeSchema.optional(),
+  scope: catalogScopeSchema.optional(),
+  entryKey: z.string().trim().min(1).optional(),
+  projectName: z.string().trim().min(1).optional(),
+}).refine(
+  (input) => !(input.entryType === "note" && input.scope === "global"),
+  {
+    message: "Workspace notes do not support global scope.",
+    path: ["scope"],
+  },
+).refine(
+  (input) => !(input.entryType === "note" && input.projectName !== undefined),
+  {
+    message: "Workspace notes do not support projectName filters.",
+    path: ["projectName"],
+  },
+);
+
 export const rememberWorkspaceNoteInputSchema = z.object({
   workspace: workspaceSchema,
   title: z.string().trim().min(1),
@@ -470,6 +491,9 @@ export type CheckCatalogHealthToolInput = z.infer<
 >;
 export type GetWorkspaceDiagnosticsToolInput = z.infer<
   typeof getWorkspaceDiagnosticsInputSchema
+>;
+export type GetUsageAnalyticsToolInput = z.infer<
+  typeof getUsageAnalyticsInputSchema
 >;
 export type RememberWorkspaceNoteToolInput = z.infer<
   typeof rememberWorkspaceNoteInputSchema

@@ -11,6 +11,8 @@ export type VerificationStatus = "verified" | "unverified" | "unknown";
 export type Confidence = "low" | "medium" | "high";
 export type MatchStatus = "ok" | "no_match" | "conflict";
 export type ReferenceEntryType = "agent" | "skill";
+export type UsageEntryType = "skill" | "subagent" | "note";
+export type UsageOperation = "listed" | "matched" | "detailed";
 
 export interface VerificationMetadata {
   verificationStatus: VerificationStatus;
@@ -657,6 +659,79 @@ export interface RemoveWorkspaceNoteResult {
   removed: boolean;
 }
 
+export interface UsageCounterIncrement {
+  workspace: string;
+  entryType: UsageEntryType;
+  scope: CatalogScope;
+  entryKey: string;
+  projectName?: string;
+  operation: UsageOperation;
+  count?: number;
+}
+
+export interface UsageCounterRecord {
+  workspace: string;
+  entryType: UsageEntryType;
+  scope: CatalogScope;
+  entryKey: string;
+  projectName?: string;
+  operation: UsageOperation;
+  count: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+export interface UsageAnalyticsFilter {
+  workspace: string;
+  entryType?: UsageEntryType;
+  scope?: CatalogScope;
+  entryKey?: string;
+  projectName?: string;
+}
+
+export interface UsageAnalyticsEntry {
+  workspace: string;
+  entryType: UsageEntryType;
+  scope: CatalogScope;
+  entryKey: string;
+  projectName?: string;
+  listed: number;
+  matched: number;
+  detailed: number;
+  total: number;
+  firstSeenAt?: string;
+  lastSeenAt?: string;
+}
+
+export interface UsageAnalyticsTypeSummary {
+  entries: number;
+  listed: number;
+  matched: number;
+  detailed: number;
+  total: number;
+}
+
+export interface UsageAnalyticsSummary {
+  totalEntries: number;
+  totalCount: number;
+  byEntryType: Record<UsageEntryType, UsageAnalyticsTypeSummary>;
+  byOperation: Record<UsageOperation, number>;
+}
+
+export interface UsageAnalyticsReport {
+  workspace: string;
+  checkedAt: string;
+  filters: {
+    entryType?: UsageEntryType;
+    scope?: CatalogScope;
+    entryKey?: string;
+    projectName?: string;
+  };
+  summary: UsageAnalyticsSummary;
+  entries: UsageAnalyticsEntry[];
+  recommendedActions: string[];
+}
+
 export interface HandoffTargetAgent {
   entryKey: string;
   codexSessionId: string;
@@ -833,6 +908,14 @@ export interface CatalogRepository {
     noteId: string,
   ): Promise<WorkspaceNote | undefined>;
   removeWorkspaceNote(workspace: string, noteId: string): Promise<boolean>;
+  recordUsageCounters(
+    increments: readonly UsageCounterIncrement[],
+    options: { now: string },
+  ): Promise<void>;
+  getUsageCounters(
+    workspace: string,
+    filter: Omit<UsageAnalyticsFilter, "workspace">,
+  ): Promise<UsageCounterRecord[]>;
   updateEntry(
     workspace: string,
     input: CatalogEntryUpdate & { now: string },

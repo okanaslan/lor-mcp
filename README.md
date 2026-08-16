@@ -27,6 +27,9 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
   surface.
 - Local context: diagnostics report `AGENTS.md` status and local Codex skill
   alignment without rewriting local instruction files.
+- Usage analytics: local aggregate counters show which skills, subagents, and
+  workspace notes are listed, matched, and opened in detail without storing raw
+  prompts or note bodies.
 
 ## Runtime
 
@@ -201,6 +204,12 @@ Workspace notes are not catalog entries and are not used by skill/subagent
 matching. Use `find_matching_workspace_note` when you want note-specific memory
 retrieval.
 
+### Inspect Usage
+
+Use `get_usage_analytics` to see which skills, subagents, and workspace notes
+are actually being listed, matched, or opened in detail. Filter by `entryType`,
+`scope`, `entryKey`, or `projectName` when reviewing a specific family or entry.
+
 ### Maintain The Catalog
 
 Use maintenance and expansion tools when the workspace catalog needs cleanup,
@@ -215,6 +224,7 @@ backup, or migration:
 - `preview_workspace_catalog_sync`
 - `apply_workspace_catalog_sync`
 - `introduce_subagent`
+- `get_usage_analytics`
 
 ## MCP Tool Map
 
@@ -243,6 +253,7 @@ flowchart RL
   registerAlias["register_workspace_alias"] --> catalog
   catalog --> checkHealth["check_catalog_health"]
   catalog --> workspaceDiagnostics["get_workspace_diagnostics"]
+  catalog --> usageAnalytics["get_usage_analytics"]
   catalog --> rememberWorkspaceNote["remember_workspace_note"]
   rememberWorkspaceNote --> listWorkspaceNotes["list_workspace_notes"]
   listWorkspaceNotes --> findWorkspaceNote["find_matching_workspace_note"]
@@ -270,6 +281,15 @@ flowchart RL
   findSubagent --> getSubagent["get_subagent_detail"]
   getSkill --> skills
   getSubagent --> subagents
+  listSkills --> usageAnalytics
+  listSubagents --> usageAnalytics
+  findSkill --> usageAnalytics
+  findSubagent --> usageAnalytics
+  getSkill --> usageAnalytics
+  getSubagent --> usageAnalytics
+  listWorkspaceNotes --> usageAnalytics
+  findWorkspaceNote --> usageAnalytics
+  getWorkspaceNote --> usageAnalytics
 ```
 
 ## Capability Details

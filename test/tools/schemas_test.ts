@@ -13,6 +13,7 @@ import {
   generateAgentPromptInputSchema,
   getSkillDetailInputSchema,
   getSubagentDetailInputSchema,
+  getUsageAnalyticsInputSchema,
   getWorkspaceDiagnosticsInputSchema,
   getWorkspaceNoteInputSchema,
   importCatalogInputSchema,
@@ -519,6 +520,51 @@ Deno.test("getWorkspaceDiagnosticsInputSchema requires workspace", () => {
     false,
   );
   assertEquals(getWorkspaceDiagnosticsInputSchema.safeParse({}).success, false);
+});
+
+Deno.test("getUsageAnalyticsInputSchema accepts public V2 usage filters", () => {
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "backend-skill",
+      projectName: "Local Orchestration Router (LOR)",
+    }).success,
+    true,
+  );
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "note",
+      scope: "workspace",
+      entryKey: "note-1",
+    }).success,
+    true,
+  );
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "note",
+      scope: "global",
+    }).success,
+    false,
+  );
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "note",
+      projectName: "Local Orchestration Router (LOR)",
+    }).success,
+    false,
+  );
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "agent",
+    }).success,
+    false,
+  );
 });
 
 Deno.test("workspace note schemas require scoped note inputs", () => {

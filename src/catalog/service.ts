@@ -62,6 +62,13 @@ import {
   type SkillUpdateProposal,
   type SkillUpdateProposalResult,
   type SubagentCatalogEntry,
+  type UsageAnalyticsEntry,
+  type UsageAnalyticsFilter,
+  type UsageAnalyticsReport,
+  type UsageAnalyticsSummary,
+  type UsageCounterIncrement,
+  type UsageCounterRecord,
+  type UsageOperation,
   type VerificationMetadata,
   type WorkspaceCatalogSyncApplyResult,
   type WorkspaceCatalogSyncInput,
@@ -96,20 +103,23 @@ import {
   validateRemoveWorkspaceNote,
   validateRetireAgent,
   validateSkillFileSyncInput,
+  validateUsageAnalyticsFilter,
   validateWorkspace,
   validateWorkspaceCatalogSyncInput,
   validateWorkspaceDiagnosticsInput,
 } from "@src/catalog/validation.ts";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
-import { LorError } from "@src/errors.ts";
+import { LorError, toLorError } from "@src/errors.ts";
 import { LocalSkillSync } from "@src/skills/local_skill_sync.ts";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 import { isAbsolute, join } from "@std/path";
+import { createNoopLogger, type LorLogger } from "@src/logger.ts";
 
 interface CatalogServiceOptions {
   repository: CatalogRepository;
   skillRoots?: readonly string[];
   now?: () => string;
+  logger?: LorLogger;
 }
 
 interface WorkspaceCatalogSyncPlan {
@@ -120,6 +130,7 @@ export class CatalogService {
   readonly #repository: CatalogRepository;
   readonly #localSkillSync: LocalSkillSync;
   readonly #now: () => string;
+  readonly #logger: LorLogger;
 
   constructor(options: CatalogServiceOptions) {
     this.#repository = options.repository;
@@ -127,6 +138,9 @@ export class CatalogService {
       skillRoots: options.skillRoots ?? [],
     });
     this.#now = options.now ?? (() => new Date().toISOString());
+    this.#logger = (options.logger ?? createNoopLogger()).child({
+      component: "catalog_service",
+    });
   }
 
   async introduceAgent(
@@ -199,25 +213,41 @@ export class CatalogService {
   async listSkills(
     filter: Omit<ListEntriesFilter, "entryType">,
   ): Promise<SkillCatalogEntry[]> {
-    const entries = await this.listEntries({
+    const workspace = await this.resolveWorkspace(filter.workspace);
+    validateListScope("skill", filter.scope);
+    const entries = await this.#repository.listEntries(workspace, {
       ...filter,
+      workspace,
       entryType: "skill",
     });
-    return entries.filter((entry): entry is SkillCatalogEntry =>
+    const skills = entries.filter((entry): entry is SkillCatalogEntry =>
       entry.entryType === "skill"
     );
+    await this.recordUsage(
+      skills.map((entry) => usageFromCatalogEntry(workspace, entry, "listed")),
+    );
+    return skills;
   }
 
   async listSubagents(
     filter: Omit<ListEntriesFilter, "entryType">,
   ): Promise<SubagentCatalogEntry[]> {
-    const entries = await this.listEntries({
+    const workspace = await this.resolveWorkspace(filter.workspace);
+    validateListScope("subagent", filter.scope);
+    const entries = await this.#repository.listEntries(workspace, {
       ...filter,
+      workspace,
       entryType: "subagent",
     });
-    return entries.filter((entry): entry is SubagentCatalogEntry =>
+    const subagents = entries.filter((entry): entry is SubagentCatalogEntry =>
       entry.entryType === "subagent"
     );
+    await this.recordUsage(
+      subagents.map((entry) =>
+        usageFromCatalogEntry(workspace, entry, "listed")
+      ),
+    );
+    return subagents;
   }
 
   async clearWorkspaceCatalog(
@@ -287,25 +317,39 @@ export class CatalogService {
   async getSkillDetail(
     input: { workspace: string; skillName: string; scope?: CatalogScope },
   ): Promise<SkillCatalogEntry | undefined> {
-    const entry = await this.getEntryDetail({
-      workspace: input.workspace,
+    const workspace = await this.resolveWorkspace(input.workspace);
+    const entry = await this.resolveScopedEntry(workspace, {
+      workspace,
       entryType: "skill",
       entryKey: input.skillName,
       scope: input.scope,
     });
-    return entry?.entryType === "skill" ? entry : undefined;
+    const skill = entry?.entryType === "skill" ? entry : undefined;
+    if (skill) {
+      await this.recordUsage([
+        usageFromCatalogEntry(workspace, skill, "detailed"),
+      ]);
+    }
+    return skill;
   }
 
   async getSubagentDetail(
     input: { workspace: string; subagentName: string; scope?: CatalogScope },
   ): Promise<SubagentCatalogEntry | undefined> {
-    const entry = await this.getEntryDetail({
-      workspace: input.workspace,
+    const workspace = await this.resolveWorkspace(input.workspace);
+    const entry = await this.resolveScopedEntry(workspace, {
+      workspace,
       entryType: "subagent",
       entryKey: input.subagentName,
       scope: input.scope,
     });
-    return entry?.entryType === "subagent" ? entry : undefined;
+    const subagent = entry?.entryType === "subagent" ? entry : undefined;
+    if (subagent) {
+      await this.recordUsage([
+        usageFromCatalogEntry(workspace, subagent, "detailed"),
+      ]);
+    }
+    return subagent;
   }
 
   async updateCatalogEntry(
@@ -1031,6 +1075,9 @@ export class CatalogService {
     const notes = await this.#repository.listWorkspaceNotes(workspace, {
       tags: validated.tags,
     });
+    await this.recordUsage(
+      notes.map((note) => usageFromWorkspaceNote(workspace, note, "listed")),
+    );
     return {
       workspace,
       filters: {
@@ -1054,6 +1101,9 @@ export class CatalogService {
       .filter((match): match is WorkspaceNoteMatch => match !== undefined)
       .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
       .slice(0, limit);
+    await this.recordUsage(
+      matches.map((note) => usageFromWorkspaceNoteMatch(workspace, note)),
+    );
 
     return {
       status: matches.length > 0 ? "ok" : "no_match",
@@ -1083,7 +1133,37 @@ export class CatalogService {
         { noteId: validated.noteId },
       );
     }
+    await this.recordUsage([
+      usageFromWorkspaceNote(workspace, note, "detailed"),
+    ]);
     return note;
+  }
+
+  async getUsageAnalytics(
+    input: UsageAnalyticsFilter,
+  ): Promise<UsageAnalyticsReport> {
+    const validated = validateUsageAnalyticsFilter(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const records = await this.#repository.getUsageCounters(workspace, {
+      entryType: validated.entryType,
+      scope: validated.scope,
+      entryKey: validated.entryKey,
+      projectName: validated.projectName,
+    });
+    const entries = usageAnalyticsEntries(workspace, records);
+    return {
+      workspace,
+      checkedAt: this.#now(),
+      filters: {
+        entryType: validated.entryType,
+        scope: validated.scope,
+        entryKey: validated.entryKey,
+        projectName: validated.projectName,
+      },
+      summary: summarizeUsageAnalytics(entries),
+      entries,
+      recommendedActions: usageAnalyticsRecommendedActions(entries),
+    };
   }
 
   async removeWorkspaceNote(
@@ -1190,19 +1270,33 @@ export class CatalogService {
   async findMatchingSkills(
     request: Omit<MatchRequest, "preferredType">,
   ): Promise<MatchResult> {
-    return filterMatchResult(
+    const result = filterMatchResult(
       await this.findMatchingEntries({ ...request, preferredType: "skill" }),
       "skill",
     );
+    const workspace = await this.resolveWorkspace(request.workspace);
+    await this.recordUsage(
+      result.data.skills.map((candidate) =>
+        usageFromMatchCandidate(workspace, candidate, "matched")
+      ),
+    );
+    return result;
   }
 
   async findMatchingSubagents(
     request: Omit<MatchRequest, "preferredType">,
   ): Promise<MatchResult> {
-    return filterMatchResult(
+    const result = filterMatchResult(
       await this.findMatchingEntries({ ...request, preferredType: "subagent" }),
       "subagent",
     );
+    const workspace = await this.resolveWorkspace(request.workspace);
+    await this.recordUsage(
+      result.data.subagents.map((candidate) =>
+        usageFromMatchCandidate(workspace, candidate, "matched")
+      ),
+    );
+    return result;
   }
 
   async registerWorkspaceAlias(
@@ -1274,6 +1368,29 @@ export class CatalogService {
       return await this.#localSkillSync.hasSkillFile(skillName);
     } catch {
       return false;
+    }
+  }
+
+  private async recordUsage(
+    increments: readonly UsageCounterIncrement[],
+  ): Promise<void> {
+    if (increments.length === 0) {
+      return;
+    }
+
+    try {
+      await this.#repository.recordUsageCounters(increments, {
+        now: this.#now(),
+      });
+    } catch (error) {
+      const appError = toLorError(error);
+      this.#logger.warn(
+        {
+          event: "usage_analytics_write_failed",
+          errorCode: appError.code,
+        },
+        "Usage analytics write failed after a successful operation.",
+      );
     }
   }
 
@@ -1699,6 +1816,183 @@ function filterMatchResult(
       conflict: entryType === "agent" ? result.data.conflict : undefined,
     },
   };
+}
+
+function usageFromCatalogEntry(
+  workspace: string,
+  entry: SkillCatalogEntry | SubagentCatalogEntry,
+  operation: UsageOperation,
+): UsageCounterIncrement {
+  return {
+    workspace,
+    entryType: entry.entryType,
+    scope: entry.scope,
+    entryKey: entry.entryKey,
+    projectName: entry.projectName,
+    operation,
+  };
+}
+
+function usageFromMatchCandidate(
+  workspace: string,
+  candidate: MatchCandidate,
+  operation: UsageOperation,
+): UsageCounterIncrement {
+  return {
+    workspace,
+    entryType: candidate.entryType === "subagent" ? "subagent" : "skill",
+    scope: candidate.scope,
+    entryKey: candidate.entryKey,
+    projectName: candidate.projectName,
+    operation,
+  };
+}
+
+function usageFromWorkspaceNote(
+  workspace: string,
+  note: WorkspaceNote,
+  operation: UsageOperation,
+): UsageCounterIncrement {
+  return {
+    workspace,
+    entryType: "note",
+    scope: "workspace",
+    entryKey: note.noteId,
+    operation,
+  };
+}
+
+function usageFromWorkspaceNoteMatch(
+  workspace: string,
+  note: WorkspaceNoteMatch,
+): UsageCounterIncrement {
+  return {
+    workspace,
+    entryType: "note",
+    scope: "workspace",
+    entryKey: note.noteId,
+    operation: "matched",
+  };
+}
+
+function usageAnalyticsEntries(
+  workspace: string,
+  records: readonly UsageCounterRecord[],
+): UsageAnalyticsEntry[] {
+  const entries = new Map<string, UsageAnalyticsEntry>();
+  for (const record of records) {
+    const key = [
+      record.entryType,
+      record.scope,
+      record.entryKey,
+      record.projectName ?? "",
+    ].join(":");
+    const current = entries.get(key) ?? {
+      workspace,
+      entryType: record.entryType,
+      scope: record.scope,
+      entryKey: record.entryKey,
+      projectName: record.projectName,
+      listed: 0,
+      matched: 0,
+      detailed: 0,
+      total: 0,
+      firstSeenAt: record.firstSeenAt,
+      lastSeenAt: record.lastSeenAt,
+    };
+    current[record.operation] += record.count;
+    current.total += record.count;
+    current.firstSeenAt = current.firstSeenAt &&
+        current.firstSeenAt < record.firstSeenAt
+      ? current.firstSeenAt
+      : record.firstSeenAt;
+    current.lastSeenAt = current.lastSeenAt &&
+        current.lastSeenAt > record.lastSeenAt
+      ? current.lastSeenAt
+      : record.lastSeenAt;
+    entries.set(key, current);
+  }
+
+  return [...entries.values()].sort((a, b) =>
+    a.entryType.localeCompare(b.entryType) ||
+    a.scope.localeCompare(b.scope) ||
+    (a.projectName ?? "").localeCompare(b.projectName ?? "") ||
+    a.entryKey.localeCompare(b.entryKey)
+  );
+}
+
+function summarizeUsageAnalytics(
+  entries: readonly UsageAnalyticsEntry[],
+): UsageAnalyticsSummary {
+  const summary: UsageAnalyticsSummary = {
+    totalEntries: entries.length,
+    totalCount: 0,
+    byEntryType: {
+      skill: emptyUsageTypeSummary(),
+      subagent: emptyUsageTypeSummary(),
+      note: emptyUsageTypeSummary(),
+    },
+    byOperation: {
+      listed: 0,
+      matched: 0,
+      detailed: 0,
+    },
+  };
+
+  for (const entry of entries) {
+    const typeSummary = summary.byEntryType[entry.entryType];
+    typeSummary.entries++;
+    typeSummary.listed += entry.listed;
+    typeSummary.matched += entry.matched;
+    typeSummary.detailed += entry.detailed;
+    typeSummary.total += entry.total;
+    summary.byOperation.listed += entry.listed;
+    summary.byOperation.matched += entry.matched;
+    summary.byOperation.detailed += entry.detailed;
+    summary.totalCount += entry.total;
+  }
+
+  return summary;
+}
+
+function emptyUsageTypeSummary() {
+  return {
+    entries: 0,
+    listed: 0,
+    matched: 0,
+    detailed: 0,
+    total: 0,
+  };
+}
+
+function usageAnalyticsRecommendedActions(
+  entries: readonly UsageAnalyticsEntry[],
+): string[] {
+  if (entries.length === 0) {
+    return [
+      "Use list, match, and detail tools to start collecting local aggregate usage counters.",
+    ];
+  }
+
+  const actions: string[] = [];
+  if (entries.some((entry) => entry.matched > entry.detailed)) {
+    actions.push(
+      "Review entries that are matched more often than opened in detail; their summaries may be enough, or detail metadata may need improvement.",
+    );
+  }
+  if (entries.some((entry) => entry.listed > 0 && entry.matched === 0)) {
+    actions.push(
+      "Inspect listed entries that are never matched and improve routing metadata where they should be discoverable.",
+    );
+  }
+  if (entries.some((entry) => entry.detailed > 0)) {
+    actions.push(
+      "Keep frequently opened entries current because agents are using their detailed metadata.",
+    );
+  }
+  return actions.length > 0 ? actions : [
+    "Usage counters are being collected; keep monitoring before changing catalog entries.",
+  ];
 }
 
 function isHealthEntry(

@@ -28,6 +28,7 @@ import {
   type SkillContext,
   type SkillFileSyncInput,
   type SkillMetadataUpdate,
+  type UsageAnalyticsFilter,
   type WorkspaceCatalogSyncInput,
   type WorkspaceDiagnosticsInput,
 } from "@src/catalog/types.ts";
@@ -271,6 +272,37 @@ export function validateGetWorkspaceNote(
   return {
     workspace: requireWorkspace(input.workspace),
     noteId: requireString(input.noteId, "noteId"),
+  };
+}
+
+export function validateUsageAnalyticsFilter(
+  input: UsageAnalyticsFilter,
+): UsageAnalyticsFilter {
+  if (input.entryType === "note" && input.scope === "global") {
+    throw new LorError(
+      "validation_error",
+      "Workspace notes only support workspace scope.",
+      { field: "scope", entryType: "note" },
+    );
+  }
+  if (input.entryType === "note" && input.projectName !== undefined) {
+    throw new LorError(
+      "validation_error",
+      "projectName does not apply to workspace notes.",
+      { field: "projectName", entryType: "note" },
+    );
+  }
+
+  return {
+    workspace: requireWorkspace(input.workspace),
+    entryType: input.entryType === undefined
+      ? undefined
+      : requireUsageEntryType(input.entryType),
+    scope: input.scope === undefined
+      ? undefined
+      : requireCatalogScope(input.scope, "scope"),
+    entryKey: input.entryKey?.trim() || undefined,
+    projectName: input.projectName?.trim() || undefined,
   };
 }
 
@@ -649,6 +681,19 @@ function requireCatalogScope(value: unknown, field: string): CatalogScope {
     "validation_error",
     `${field} must be workspace or global.`,
     { field },
+  );
+}
+
+function requireUsageEntryType(
+  value: unknown,
+): UsageAnalyticsFilter["entryType"] {
+  if (value === "skill" || value === "subagent" || value === "note") {
+    return value;
+  }
+  throw new LorError(
+    "validation_error",
+    "entryType is invalid.",
+    { field: "entryType" },
   );
 }
 
