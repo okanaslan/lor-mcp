@@ -16,7 +16,15 @@ interface FieldScore {
     | "skillContext.usageNotes"
     | "purpose"
     | "limitedScope"
-    | "projectName";
+    | "projectName"
+    | "skillContext.negativeRouting.doNotUseWhen"
+    | "negativeRouting.doNotUseWhen";
+  score: number;
+  signals: string[];
+}
+
+interface NegativeScore {
+  fields: string[];
   score: number;
   signals: string[];
 }
@@ -24,6 +32,8 @@ interface FieldScore {
 interface ScoredMatchCandidate extends MatchCandidate {
   fieldScores: FieldScore[];
 }
+
+const STRONG_NEGATIVE_SCORE = 10;
 
 export function findCatalogMatches(
   entries: CatalogEntry[],
@@ -117,14 +127,35 @@ function scoreEntry(
   if (score < 3) {
     return undefined;
   }
+  const negativeScore = scoreNegativeRouting(entry, queryTokens);
+  if (negativeScore && negativeScore.score >= STRONG_NEGATIVE_SCORE) {
+    return undefined;
+  }
+  const adjustedScore = Math.max(0, score - (negativeScore?.score ?? 0));
+  if (adjustedScore < 3) {
+    return undefined;
+  }
 
   const matchedFields = [...new Set(fieldScores.map((field) => field.field))];
   const matchedSignals = [
     ...new Set(fieldScores.flatMap((field) => field.signals)),
   ];
-  const confidence = score >= 10 ? "high" : "medium";
+  const confidence = adjustedScore >= 10 ? "high" : "medium";
   const strongestField = [...fieldScores].sort((a, b) => b.score - a.score)[0]
     ?.field;
+  const explanation: MatchCandidate["explanation"] = {
+    summary: explanationSummary(entry, strongestField, matchedSignals),
+    confidence,
+    matchedFields,
+    matchedSignals,
+    score: adjustedScore,
+  };
+  if (negativeScore) {
+    explanation.negativeMatchedFields = negativeScore.fields;
+    explanation.negativeMatchedSignals = negativeScore.signals;
+    explanation.negativeScore = negativeScore.score;
+    explanation.demotedByNegativeRouting = true;
+  }
 
   return {
     scope: entry.scope,
@@ -141,6 +172,11 @@ function scoreEntry(
       }
       : undefined,
     skillContext: entry.entryType === "skill" ? entry.skillContext : undefined,
+    negativeRouting: entry.entryType === "skill"
+      ? entry.skillContext?.negativeRouting ?? undefined
+      : entry.entryType === "subagent"
+      ? entry.negativeRouting
+      : undefined,
     purpose: entry.entryType === "subagent" ? entry.purpose : undefined,
     limitedScope: entry.entryType === "subagent"
       ? entry.limitedScope
@@ -155,17 +191,44 @@ function scoreEntry(
     unresolvedReferences: entry.entryType === "subagent"
       ? entry.unresolvedReferences
       : undefined,
-    score,
+    score: adjustedScore,
     matchedFields,
     matchedSignals,
-    explanation: {
-      summary: explanationSummary(entry, strongestField, matchedSignals),
-      confidence,
-      matchedFields,
-      matchedSignals,
-      score,
-    },
+    explanation,
     fieldScores,
+  };
+}
+
+function scoreNegativeRouting(
+  entry: CatalogEntry,
+  queryTokens: string[],
+): NegativeScore | undefined {
+  if (entry.entryType !== "skill" && entry.entryType !== "subagent") {
+    return undefined;
+  }
+  const negativeRouting = entry.entryType === "skill"
+    ? entry.skillContext?.negativeRouting
+    : entry.negativeRouting;
+  if (!negativeRouting?.doNotUseWhen.length) {
+    return undefined;
+  }
+
+  const field = entry.entryType === "skill"
+    ? "skillContext.negativeRouting.doNotUseWhen"
+    : "negativeRouting.doNotUseWhen";
+  const fieldScore = scoreField(
+    field,
+    negativeRouting.doNotUseWhen.join(" "),
+    queryTokens,
+    6,
+  );
+  if (!fieldScore) {
+    return undefined;
+  }
+  return {
+    fields: [field],
+    score: fieldScore.score,
+    signals: fieldScore.signals,
   };
 }
 
@@ -205,6 +268,10 @@ function fieldLabel(field: FieldScore["field"]): string {
       return "subagent limited scope";
     case "projectName":
       return "project name";
+    case "skillContext.negativeRouting.doNotUseWhen":
+      return "skill negative routing";
+    case "negativeRouting.doNotUseWhen":
+      return "subagent negative routing";
   }
 }
 

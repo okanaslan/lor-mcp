@@ -18,6 +18,7 @@ import {
   type IntroduceSkillInput,
   type IntroduceSubagentInput,
   type ListWorkspaceNotesInput,
+  type NegativeRoutingMetadata,
   type PrepareAgentInitializationInput,
   type PromoteSkillToGlobalInput,
   type ProposeSkillUpdateInput,
@@ -101,6 +102,12 @@ export function validateIntroduceSubagent(
       ? undefined
       : requireStringList(input.constraints, "constraints"),
     expectedOutput: input.expectedOutput?.trim() || undefined,
+    negativeRouting: input.negativeRouting
+      ? validateNegativeRouting(
+        input.negativeRouting,
+        "negativeRouting",
+      )
+      : undefined,
   };
 }
 
@@ -135,6 +142,18 @@ export function validateCatalogEntryUpdate(
   }
   if (input.specialtyTags !== undefined) {
     update.specialtyTags = requireTags(input.specialtyTags);
+  }
+  if (input.negativeRouting !== undefined) {
+    if (input.entryType === "agent") {
+      throw new LorError(
+        "validation_error",
+        "negativeRouting only applies to skills and subagents.",
+        { field: "negativeRouting" },
+      );
+    }
+    update.negativeRouting = input.negativeRouting === null
+      ? null
+      : validateNegativeRouting(input.negativeRouting, "negativeRouting");
   }
 
   if (!hasEditableUpdate(update)) {
@@ -422,7 +441,9 @@ export function validateProposeSkillUpdate(
   input: ProposeSkillUpdateInput,
 ): ProposeSkillUpdateInput {
   const skillContext = input.skillContext
-    ? validateSkillContext(input.skillContext, "skillContext")
+    ? validateSkillContext(input.skillContext, "skillContext", {
+      allowNegativeRoutingClear: true,
+    })
     : undefined;
   const metadata = input.metadata
     ? validateSkillMetadataUpdate(input.metadata)
@@ -623,6 +644,12 @@ function validateCatalogImportEntry(
         entry.expectedOutput,
         `catalog.entries.${index}.expectedOutput`,
       ),
+      negativeRouting: entry.negativeRouting
+        ? validateNegativeRouting(
+          entry.negativeRouting,
+          `catalog.entries.${index}.negativeRouting`,
+        )
+        : undefined,
     };
   }
 
@@ -646,7 +673,8 @@ function hasEditableUpdate(input: CatalogEntryUpdate): boolean {
   return input.projectName !== undefined ||
     input.displayName !== undefined ||
     input.primarySpecialty !== undefined ||
-    input.specialtyTags !== undefined;
+    input.specialtyTags !== undefined ||
+    input.negativeRouting !== undefined;
 }
 
 function requireEntryType(value: unknown): "agent" | "skill" | "subagent" {
@@ -860,6 +888,7 @@ function validateHandoff(handoff: HandoffMetadata): HandoffMetadata {
 function validateSkillContext(
   context: SkillContext,
   fieldPrefix: string,
+  options: { allowNegativeRoutingClear?: boolean } = {},
 ): SkillContext {
   const normalized: SkillContext = {};
 
@@ -886,6 +915,18 @@ function validateSkillContext(
       context.examplePrompts,
       `${fieldPrefix}.examplePrompts`,
     );
+  }
+  if (context.negativeRouting !== undefined) {
+    if (context.negativeRouting === null) {
+      if (options.allowNegativeRoutingClear) {
+        normalized.negativeRouting = null;
+      }
+    } else {
+      normalized.negativeRouting = validateNegativeRouting(
+        context.negativeRouting,
+        `${fieldPrefix}.negativeRouting`,
+      );
+    }
   }
 
   if (!hasSkillContextFields(normalized)) {
@@ -933,7 +974,8 @@ function hasSkillContextFields(context: SkillContext): boolean {
   return context.whenToUse !== undefined ||
     context.usageNotes !== undefined ||
     context.constraints !== undefined ||
-    context.examplePrompts !== undefined;
+    context.examplePrompts !== undefined ||
+    context.negativeRouting !== undefined;
 }
 
 function hasSkillMetadataFields(metadata: SkillMetadataUpdate): boolean {
@@ -950,6 +992,60 @@ function requireStringList(values: readonly string[], field: string): string[] {
     });
   }
   return values.map((value) => requireString(value, field));
+}
+
+function validateNegativeRouting(
+  input: NegativeRoutingMetadata,
+  fieldPrefix: string,
+): NegativeRoutingMetadata {
+  const doNotUseWhen = requireStringList(
+    input.doNotUseWhen,
+    `${fieldPrefix}.doNotUseWhen`,
+  );
+  if (doNotUseWhen.length === 0) {
+    throw new LorError(
+      "validation_error",
+      `${fieldPrefix}.doNotUseWhen must include at least one item.`,
+      { field: `${fieldPrefix}.doNotUseWhen` },
+    );
+  }
+  for (const [index, value] of doNotUseWhen.entries()) {
+    rejectOversizedString(value, `${fieldPrefix}.doNotUseWhen.${index}`, 240);
+  }
+
+  const insteadUse = normalizeOptionalStringList(
+    input.insteadUse,
+    `${fieldPrefix}.insteadUse`,
+  );
+  const notes = input.notes?.trim() || undefined;
+  if (notes) {
+    rejectOversizedString(notes, `${fieldPrefix}.notes`, 1000);
+  }
+
+  const normalized: NegativeRoutingMetadata = {
+    doNotUseWhen: [...new Set(doNotUseWhen)],
+  };
+  if (insteadUse) {
+    normalized.insteadUse = insteadUse;
+  }
+  if (notes) {
+    normalized.notes = notes;
+  }
+  return normalized;
+}
+
+function rejectOversizedString(
+  value: string,
+  field: string,
+  maxLength: number,
+): void {
+  if (value.length > maxLength) {
+    throw new LorError(
+      "validation_error",
+      `${field} must be ${maxLength} characters or fewer.`,
+      { field, maxLength },
+    );
+  }
 }
 
 function normalizeOptionalStringList(

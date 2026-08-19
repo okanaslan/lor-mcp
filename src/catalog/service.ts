@@ -888,6 +888,7 @@ export class CatalogService {
           promptTemplate: entry.promptTemplate,
           constraints: entry.constraints,
           expectedOutput: entry.expectedOutput,
+          negativeRouting: entry.negativeRouting,
           verification: {
             verificationStatus: entry.verificationStatus,
             verificationSource: entry.verificationSource,
@@ -1717,6 +1718,7 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
     promptTemplate: entry.promptTemplate,
     constraints: entry.constraints,
     expectedOutput: entry.expectedOutput,
+    negativeRouting: entry.negativeRouting,
   };
 }
 
@@ -2029,10 +2031,14 @@ function mergeSkillContext(
     return current;
   }
 
-  return {
+  const merged = {
     ...current,
     ...update,
   };
+  if (update.negativeRouting === null) {
+    delete merged.negativeRouting;
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 function toHealthEntry(

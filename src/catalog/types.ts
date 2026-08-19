@@ -42,6 +42,13 @@ export interface SkillContext {
   usageNotes?: string;
   constraints?: readonly string[];
   examplePrompts?: readonly string[];
+  negativeRouting?: NegativeRoutingMetadata | null;
+}
+
+export interface NegativeRoutingMetadata {
+  doNotUseWhen: readonly string[];
+  insteadUse?: readonly string[];
+  notes?: string;
 }
 
 export interface CatalogReference {
@@ -98,6 +105,7 @@ export interface SubagentCatalogEntry extends BaseCatalogEntry {
   constraints: readonly string[];
   expectedOutput: string;
   prompt: string;
+  negativeRouting?: NegativeRoutingMetadata;
 }
 
 export type CatalogEntry =
@@ -143,6 +151,7 @@ export interface IntroduceSubagentInput {
   promptTemplate?: string;
   constraints?: readonly string[];
   expectedOutput?: string;
+  negativeRouting?: NegativeRoutingMetadata;
 }
 
 export interface ListEntriesFilter {
@@ -185,6 +194,7 @@ export interface CatalogEntryUpdate extends EntryLookup {
   displayName?: string;
   primarySpecialty?: string;
   specialtyTags?: readonly string[];
+  negativeRouting?: NegativeRoutingMetadata | null;
 }
 
 export interface PromoteSkillToGlobalInput {
@@ -349,6 +359,7 @@ export interface CatalogExportSubagentEntry extends VerificationMetadata {
   promptTemplate?: string;
   constraints: readonly string[];
   expectedOutput: string;
+  negativeRouting?: NegativeRoutingMetadata;
 }
 
 export type CatalogExportEntry =
@@ -763,6 +774,10 @@ export interface MatchExplanation {
   matchedFields: string[];
   matchedSignals: string[];
   score: number;
+  negativeMatchedFields?: string[];
+  negativeMatchedSignals?: string[];
+  negativeScore?: number;
+  demotedByNegativeRouting?: boolean;
 }
 
 export interface MatchCandidate {
@@ -781,6 +796,7 @@ export interface MatchCandidate {
   agentReferences?: readonly CatalogReference[];
   skillReferences?: readonly CatalogReference[];
   unresolvedReferences?: readonly CatalogReference[];
+  negativeRouting?: NegativeRoutingMetadata;
   score: number;
   matchedFields: string[];
   matchedSignals: string[];

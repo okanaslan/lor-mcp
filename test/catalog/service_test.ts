@@ -2676,6 +2676,216 @@ Deno.test("CatalogService does not fail successful operations when usage writes 
   }
 });
 
+Deno.test("CatalogService updates and clears negative routing metadata", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      skillName: "performance-audit",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Audit",
+      primarySpecialty: "performance audit",
+      specialtyTags: ["performance"],
+    });
+    await service.introduceSubagent({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      name: "performance-subagent",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Subagent",
+      purpose: "Handle performance checks.",
+      limitedScope: "Only inspect performance files.",
+      primarySpecialty: "performance",
+      specialtyTags: ["performance"],
+    });
+
+    const updatedSkill = await service.updateSkill({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      skillName: "performance-audit",
+      negativeRouting: {
+        doNotUseWhen: ["memory profiling"],
+        insteadUse: ["memory-profiling"],
+      },
+    });
+    const updatedSubagent = await service.updateSubagent({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      subagentName: "performance-subagent",
+      negativeRouting: {
+        doNotUseWhen: ["memory profiling"],
+      },
+    });
+    const clearedSkill = await service.updateSkill({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      skillName: "performance-audit",
+      negativeRouting: null,
+    });
+    const clearedSubagent = await service.updateSubagent({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      subagentName: "performance-subagent",
+      negativeRouting: null,
+    });
+
+    assertEquals(updatedSkill.skillContext?.negativeRouting, {
+      doNotUseWhen: ["memory profiling"],
+      insteadUse: ["memory-profiling"],
+    });
+    assertEquals(updatedSubagent.negativeRouting, {
+      doNotUseWhen: ["memory profiling"],
+    });
+    assertEquals(clearedSkill.skillContext?.negativeRouting, undefined);
+    assertEquals(clearedSubagent.negativeRouting, undefined);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService preserves negative routing through skill proposals", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      skillName: "performance-audit",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Audit",
+      primarySpecialty: "performance audit",
+      specialtyTags: ["performance"],
+    });
+
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      skillName: "performance-audit",
+      reason: "Reduce false memory profiling matches.",
+      skillContext: {
+        negativeRouting: {
+          doNotUseWhen: ["memory profiling"],
+          insteadUse: ["memory-profiling"],
+        },
+      },
+    });
+    const applied = await service.applySkillUpdate({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+
+    assertEquals(proposal.after.skillContext?.negativeRouting, {
+      doNotUseWhen: ["memory profiling"],
+      insteadUse: ["memory-profiling"],
+    });
+    assertEquals(applied.after.skillContext?.negativeRouting, {
+      doNotUseWhen: ["memory profiling"],
+      insteadUse: ["memory-profiling"],
+    });
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService preserves negative routing through export import and sync", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "Source",
+      scope: "workspace",
+      skillName: "performance-audit",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Audit",
+      primarySpecialty: "performance audit",
+      specialtyTags: ["performance"],
+      skillContext: {
+        negativeRouting: {
+          doNotUseWhen: ["memory profiling"],
+          insteadUse: ["memory-profiling"],
+        },
+      },
+    });
+    await service.introduceSubagent({
+      workspace: "Source",
+      scope: "workspace",
+      name: "performance-subagent",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Subagent",
+      purpose: "Handle performance checks.",
+      limitedScope: "Only inspect performance files.",
+      primarySpecialty: "performance",
+      specialtyTags: ["performance"],
+      negativeRouting: {
+        doNotUseWhen: ["memory profiling"],
+      },
+    });
+
+    const exported = await service.exportCatalog({ workspace: "Source" });
+    await service.importCatalog({
+      workspace: "Imported",
+      catalog: exported,
+    });
+    await service.applyWorkspaceCatalogSync({
+      sourceWorkspace: "Source",
+      targetWorkspace: "Synced",
+      confirm: true,
+    });
+
+    const importedSkill = await service.getSkillDetail({
+      workspace: "Imported",
+      skillName: "performance-audit",
+      scope: "workspace",
+    });
+    const importedSubagent = await service.getSubagentDetail({
+      workspace: "Imported",
+      subagentName: "performance-subagent",
+      scope: "workspace",
+    });
+    const syncedSkill = await service.getSkillDetail({
+      workspace: "Synced",
+      skillName: "performance-audit",
+      scope: "workspace",
+    });
+
+    assertEquals(
+      exported.entries.find((entry) => entry.entryType === "skill"),
+      {
+        entryType: "skill",
+        skillName: "performance-audit",
+        projectName: "Local Orchestration Router (LOR)",
+        displayName: "Performance Audit",
+        primarySpecialty: "performance audit",
+        specialtyTags: ["performance"],
+        verificationStatus: "verified",
+        verificationSource: "mcp_introduction",
+        verifiedAt: FIXED_NOW,
+        verificationMessage: undefined,
+        skillContext: {
+          negativeRouting: {
+            doNotUseWhen: ["memory profiling"],
+            insteadUse: ["memory-profiling"],
+          },
+        },
+      },
+    );
+    assertEquals(importedSkill?.skillContext?.negativeRouting, {
+      doNotUseWhen: ["memory profiling"],
+      insteadUse: ["memory-profiling"],
+    });
+    assertEquals(importedSubagent?.negativeRouting, {
+      doNotUseWhen: ["memory profiling"],
+    });
+    assertEquals(syncedSkill?.skillContext?.negativeRouting, {
+      doNotUseWhen: ["memory profiling"],
+      insteadUse: ["memory-profiling"],
+    });
+  } finally {
+    repo.close();
+  }
+});
+
 async function createSkillFileForService(
   skillName: string,
 ): Promise<{ root: string; file: string }> {

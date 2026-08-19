@@ -82,6 +82,8 @@ Implemented in the runnable local 2.0.0 server:
   routing catalog. Notes do not support global scope.
 - Usage analytics for skill, subagent, and workspace-note list/match/detail
   usage is implemented as local aggregate counters.
+- Negative routing metadata for skills and subagents is implemented so
+  structured "do not use when" guidance can suppress or demote matches.
 
 Current `LOR-MCP` catalog snapshot as of 2026-08-15:
 
@@ -215,6 +217,11 @@ Latest implementation verification:
   notes are listed, matched, and opened in detail without storing raw prompts,
   task text, or note bodies. Technical planning is tracked in
   [Usage Analytics Counters](tech-specs/usage-analytics-counters.md).
+- [Negative Routing Metadata](feature-specs/negative-routing-metadata.md):
+  Implemented for V2. Adds structured "do not use when" metadata for skills and
+  subagents so overlapping entries can be demoted or suppressed during matching.
+  Technical design is tracked in
+  [Negative Routing Metadata Matching](tech-specs/negative-routing-metadata-matching.md).
 
 ## Next
 

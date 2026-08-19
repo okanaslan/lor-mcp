@@ -16,6 +16,12 @@ export const handoffSchema = z.object({
 
 export const workspaceSchema = z.string().trim().min(1);
 
+const negativeRoutingSchema = z.object({
+  doNotUseWhen: z.array(z.string().trim().min(1).max(240)).min(1),
+  insteadUse: z.array(z.string().trim().min(1)).min(1).optional(),
+  notes: z.string().trim().min(1).max(1000).optional(),
+});
+
 export const introduceSkillInputSchema = z.object({
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
@@ -29,12 +35,14 @@ export const introduceSkillInputSchema = z.object({
     usageNotes: z.string().trim().min(1).optional(),
     constraints: z.array(z.string().trim().min(1)).min(1).optional(),
     examplePrompts: z.array(z.string().trim().min(1)).min(1).optional(),
+    negativeRouting: negativeRoutingSchema.optional(),
   }).refine(
     (context) =>
       context.whenToUse !== undefined ||
       context.usageNotes !== undefined ||
       context.constraints !== undefined ||
-      context.examplePrompts !== undefined,
+      context.examplePrompts !== undefined ||
+      context.negativeRouting !== undefined,
     {
       message: "skillContext must include at least one field.",
       path: ["skillContext"],
@@ -81,6 +89,7 @@ export const introduceSubagentInputSchema = z.object({
   promptTemplate: z.string().trim().min(1).optional(),
   constraints: z.array(z.string().trim().min(1)).min(1).optional(),
   expectedOutput: z.string().trim().min(1).optional(),
+  negativeRouting: negativeRoutingSchema.optional(),
 });
 
 export const listSkillsInputSchema = z.object({
@@ -128,6 +137,7 @@ const commonMetadataUpdateFields = {
   displayName: z.string().trim().min(1).optional(),
   primarySpecialty: z.string().trim().min(1).optional(),
   specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
+  negativeRouting: negativeRoutingSchema.nullable().optional(),
 };
 
 function hasCommonMetadataUpdate(
@@ -136,12 +146,14 @@ function hasCommonMetadataUpdate(
     displayName?: unknown;
     primarySpecialty?: unknown;
     specialtyTags?: unknown;
+    negativeRouting?: unknown;
   },
 ): boolean {
   return input.projectName !== undefined ||
     input.displayName !== undefined ||
     input.primarySpecialty !== undefined ||
-    input.specialtyTags !== undefined;
+    input.specialtyTags !== undefined ||
+    input.negativeRouting !== undefined;
 }
 
 export const updateSkillInputSchema = z.object({
@@ -174,12 +186,14 @@ const skillContextSchema = z.object({
   usageNotes: z.string().trim().min(1).optional(),
   constraints: z.array(z.string().trim().min(1)).min(1).optional(),
   examplePrompts: z.array(z.string().trim().min(1)).min(1).optional(),
+  negativeRouting: negativeRoutingSchema.nullable().optional(),
 }).refine(
   (context) =>
     context.whenToUse !== undefined ||
     context.usageNotes !== undefined ||
     context.constraints !== undefined ||
-    context.examplePrompts !== undefined,
+    context.examplePrompts !== undefined ||
+    context.negativeRouting !== undefined,
   {
     message: "skillContext must include at least one field.",
     path: ["skillContext"],
@@ -305,6 +319,7 @@ const exportSubagentEntrySchema = z.object({
   promptTemplate: z.string().trim().min(1).optional(),
   constraints: z.array(z.string().trim().min(1)),
   expectedOutput: z.string().trim().min(1),
+  negativeRouting: negativeRoutingSchema.optional(),
   verificationStatus: verificationStatusSchema,
   verificationSource: z.string().trim().min(1),
   verifiedAt: z.string().trim().min(1),

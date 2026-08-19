@@ -250,6 +250,117 @@ Deno.test("skill schemas accept explicit global scope", () => {
   );
 });
 
+Deno.test("skill and subagent schemas accept valid negative routing metadata", () => {
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "performance-audit",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Audit",
+      primarySpecialty: "performance audit",
+      specialtyTags: ["performance"],
+      skillContext: {
+        negativeRouting: {
+          doNotUseWhen: ["memory profiling"],
+          insteadUse: ["memory-profiling"],
+          notes: "Use the narrower skill for memory investigations.",
+        },
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    updateSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "performance-audit",
+      negativeRouting: {
+        doNotUseWhen: ["memory profiling"],
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "performance-audit",
+      reason: "Reduce false matches.",
+      skillContext: {
+        negativeRouting: {
+          doNotUseWhen: ["memory profiling"],
+        },
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    introduceSubagentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      name: "performance-subagent",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Subagent",
+      purpose: "Handle performance checks.",
+      limitedScope: "Only inspect performance files.",
+      primarySpecialty: "performance",
+      specialtyTags: ["performance"],
+      negativeRouting: {
+        doNotUseWhen: ["memory profiling"],
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    updateSubagentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      subagentName: "performance-subagent",
+      negativeRouting: null,
+    }).success,
+    true,
+  );
+});
+
+Deno.test("negative routing schemas reject empty exclusion metadata", () => {
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "performance-audit",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Audit",
+      primarySpecialty: "performance audit",
+      specialtyTags: ["performance"],
+      skillContext: {
+        negativeRouting: {
+          doNotUseWhen: [],
+        },
+      },
+    }).success,
+    false,
+  );
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "performance-audit",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Performance Audit",
+      primarySpecialty: "performance audit",
+      specialtyTags: ["performance"],
+      skillContext: {
+        negativeRouting: null,
+      },
+    }).success,
+    false,
+  );
+  assertEquals(
+    updateSubagentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      subagentName: "performance-subagent",
+      negativeRouting: {
+        doNotUseWhen: [" "],
+      },
+    }).success,
+    false,
+  );
+});
+
 Deno.test("skill file sync schemas require proposal and confirmation", () => {
   assertEquals(
     previewSkillFileSyncInputSchema.safeParse({

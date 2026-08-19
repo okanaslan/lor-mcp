@@ -11,7 +11,8 @@ global skill scope, registered skill context updates, and approval-gated local
 for small, scoped delegation without requiring a registered Codex agent session.
 Usage analytics adds local aggregate counters for skill, subagent, and
 workspace-note list/match/detail usage without storing raw prompts or note
-bodies.
+bodies. Negative routing metadata lets overlapping skills and subagents store
+explicit "do not use when" rules so matching can reduce false positives.
 
 V2 keeps manual prompt generation available, while delegated task lifecycle
 internals and registered-agent catalog tools are hidden from the normal public
@@ -88,3 +89,5 @@ preview first, then apply with `confirm: true`.
   implementation scope changes.
 - Keep analytics docs explicit about local aggregate counters and avoid
   introducing remote telemetry or raw prompt storage.
+- Keep negative routing docs explicit about exclusion metadata so "do not use"
+  text does not get mixed into positive matching signals.

@@ -30,6 +30,8 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 - Usage analytics: local aggregate counters show which skills, subagents, and
   workspace notes are listed, matched, and opened in detail without storing raw
   prompts or note bodies.
+- Negative routing metadata: skills and subagents can carry structured "do not
+  use when" guidance so matching can suppress or demote false positives.
 
 ## Runtime
 
@@ -315,6 +317,9 @@ flowchart RL
   workspace/global scope and ready-to-use prompts returned from introduction,
   matching, and detail flows. New subagent registrations default to global scope
   unless `scope: "workspace"` is supplied.
+- Negative routing: skills and subagents can store structured exclusion
+  metadata. Strong negative matches are suppressed, moderate negative matches
+  are demoted, and visible demotions include negative evidence in explanations.
 
 ### Prompt Support
 

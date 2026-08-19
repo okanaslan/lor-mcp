@@ -115,6 +115,7 @@ export async function seedSubagent(
     promptTemplate: overrides.promptTemplate,
     constraints: overrides.constraints,
     expectedOutput: overrides.expectedOutput,
+    negativeRouting: overrides.negativeRouting,
     verification: overrides.verification ?? verification,
     now: overrides.now ?? FIXED_NOW,
   });

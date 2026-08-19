@@ -52,6 +52,8 @@ Skill entries may include `skillContext`:
 - `usageNotes`: project-specific usage guidance.
 - `constraints`: limits, warnings, or rules.
 - `examplePrompts`: example prompts or tasks that should use the skill.
+- optional `negativeRouting`: structured "do not use when" routing guidance,
+  implemented in [Negative Routing Metadata](negative-routing-metadata.md).
 
 Skill update proposals include:
 

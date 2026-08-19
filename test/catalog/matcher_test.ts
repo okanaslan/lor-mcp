@@ -493,3 +493,224 @@ Deno.test("findCatalogMatches does not match skill constraints", () => {
   assertEquals(result.status, "no_match");
   assertEquals(result.data.skills, []);
 });
+
+Deno.test("findCatalogMatches returns positive skill match when negative routing does not match", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "performance-audit",
+      skillName: "performance-audit",
+      displayName: "Performance Audit",
+      primarySpecialty: "react native performance audit",
+      specialtyTags: ["react-native", "performance"],
+      skillContext: {
+        whenToUse: "Use for React Native runtime performance audits.",
+        negativeRouting: {
+          doNotUseWhen: ["Expo memory leak profiling"],
+          insteadUse: ["expo-memory-profiling"],
+          notes: "Memory investigations need a narrower profiling skill.",
+        },
+      },
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "audit react native startup performance",
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills[0]?.entryKey, "performance-audit");
+  assertEquals(result.data.skills[0]?.explanation.negativeScore, undefined);
+});
+
+Deno.test("findCatalogMatches suppresses skill on strong negative routing match", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "performance-audit",
+      skillName: "performance-audit",
+      displayName: "Performance Audit",
+      primarySpecialty: "react native performance",
+      specialtyTags: ["react-native", "performance"],
+      skillContext: {
+        whenToUse: "Use for React Native performance work.",
+        negativeRouting: {
+          doNotUseWhen: ["React Native memory profiling"],
+          insteadUse: ["expo-memory-profiling"],
+        },
+      },
+    },
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "expo-memory-profiling",
+      skillName: "expo-memory-profiling",
+      displayName: "Expo Memory Profiling",
+      primarySpecialty: "react native memory profiling",
+      specialtyTags: ["react-native", "memory", "profiling"],
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "react native memory profiling investigation",
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills.map((skill) => skill.entryKey), [
+    "expo-memory-profiling",
+  ]);
+});
+
+Deno.test("findCatalogMatches demotes skill on moderate negative routing match with explanation", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "general-performance",
+      skillName: "general-performance",
+      displayName: "General Performance",
+      primarySpecialty: "performance audit",
+      specialtyTags: ["performance", "audit"],
+      skillContext: {
+        whenToUse: "Use for general performance audit work.",
+        negativeRouting: {
+          doNotUseWhen: ["production outage triage"],
+        },
+      },
+    },
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "production-performance",
+      skillName: "production-performance",
+      displayName: "Production Performance",
+      primarySpecialty: "production performance audit",
+      specialtyTags: ["production", "performance"],
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "production performance audit",
+  });
+
+  const demoted = result.data.skills.find((skill) =>
+    skill.entryKey === "general-performance"
+  );
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills[0]?.entryKey, "production-performance");
+  assertEquals(demoted?.explanation.demotedByNegativeRouting, true);
+  assertEquals(demoted?.explanation.negativeMatchedFields, [
+    "skillContext.negativeRouting.doNotUseWhen",
+  ]);
+  assertEquals(demoted?.explanation.negativeMatchedSignals, ["production"]);
+  assertEquals(demoted?.explanation.negativeScore, 6);
+});
+
+Deno.test("findCatalogMatches does not score negative routing text as positive evidence", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "negative-only",
+      skillName: "negative-only",
+      displayName: "Negative Only",
+      primarySpecialty: "documentation upkeep",
+      specialtyTags: ["catalog"],
+      skillContext: {
+        negativeRouting: {
+          doNotUseWhen: ["memory profiling"],
+        },
+      },
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "memory profiling",
+  });
+
+  assertEquals(result.status, "no_match");
+  assertEquals(result.data.skills, []);
+});
+
+Deno.test("findCatalogMatches suppresses subagent on strong negative routing match", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      entryType: "subagent",
+      entryKey: "performance-subagent",
+      name: "performance-subagent",
+      displayName: "Performance Subagent",
+      purpose: "Handle React Native performance checks.",
+      limitedScope: "Only inspect performance files.",
+      primarySpecialty: "react native performance",
+      specialtyTags: ["react-native", "performance"],
+      agentReferences: [],
+      skillReferences: [],
+      unresolvedReferences: [],
+      constraints: [],
+      expectedOutput: "Performance notes.",
+      prompt: "Check performance.",
+      negativeRouting: {
+        doNotUseWhen: ["React Native memory profiling"],
+        insteadUse: ["memory-subagent"],
+      },
+    },
+    {
+      ...baseEntry,
+      entryType: "subagent",
+      entryKey: "memory-subagent",
+      name: "memory-subagent",
+      displayName: "Memory Subagent",
+      purpose: "Handle React Native memory profiling.",
+      limitedScope: "Only inspect memory profiling files.",
+      primarySpecialty: "react native memory profiling",
+      specialtyTags: ["react-native", "memory", "profiling"],
+      agentReferences: [],
+      skillReferences: [],
+      unresolvedReferences: [],
+      constraints: [],
+      expectedOutput: "Memory notes.",
+      prompt: "Check memory.",
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "react native memory profiling investigation",
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.subagents.map((subagent) => subagent.entryKey), [
+    "memory-subagent",
+  ]);
+});
+
+Deno.test("findCatalogMatches does not score insteadUse as routing evidence", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "alternative-only",
+      skillName: "alternative-only",
+      displayName: "Alternative Only",
+      primarySpecialty: "documentation upkeep",
+      specialtyTags: ["catalog"],
+      skillContext: {
+        negativeRouting: {
+          doNotUseWhen: ["unrelated task"],
+          insteadUse: ["memory profiling"],
+        },
+      },
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "memory profiling",
+  });
+
+  assertEquals(result.status, "no_match");
+  assertEquals(result.data.skills, []);
+});

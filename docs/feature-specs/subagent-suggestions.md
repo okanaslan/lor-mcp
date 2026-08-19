@@ -92,6 +92,8 @@ Conceptual `SubagentProfile` fields:
 - optional `promptTemplate`
 - `constraints`
 - `expectedOutput`
+- optional `negativeRouting`: structured "do not use when" routing guidance,
+  implemented in [Negative Routing Metadata](negative-routing-metadata.md).
 - `createdAt`
 - `updatedAt`
 

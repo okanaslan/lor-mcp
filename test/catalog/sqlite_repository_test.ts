@@ -447,6 +447,61 @@ Deno.test("SqliteCatalogRepository round-trips skill context", async () => {
   }
 });
 
+Deno.test("SqliteCatalogRepository round-trips negative routing metadata", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedSkill(repo, "workspace-a", "performance-audit", {
+      skillContext: {
+        whenToUse: "Use for runtime performance audits.",
+        negativeRouting: {
+          doNotUseWhen: ["memory profiling"],
+          insteadUse: ["memory-profiling"],
+          notes: "Memory tasks need a narrower profiling skill.",
+        },
+      },
+    });
+    await seedSubagent(repo, "workspace-a", "performance-subagent", {
+      negativeRouting: {
+        doNotUseWhen: ["memory profiling"],
+        insteadUse: ["memory-subagent"],
+        notes: "Use the memory profile for memory tasks.",
+      },
+    });
+
+    const skill = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "skill",
+      entryKey: "performance-audit",
+      scope: "workspace",
+    });
+    const subagent = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "subagent",
+      entryKey: "performance-subagent",
+      scope: "workspace",
+    });
+
+    assertEquals(skill?.entryType, "skill");
+    assertEquals(subagent?.entryType, "subagent");
+    if (skill?.entryType === "skill") {
+      assertEquals(skill.skillContext?.negativeRouting, {
+        doNotUseWhen: ["memory profiling"],
+        insteadUse: ["memory-profiling"],
+        notes: "Memory tasks need a narrower profiling skill.",
+      });
+    }
+    if (subagent?.entryType === "subagent") {
+      assertEquals(subagent.negativeRouting, {
+        doNotUseWhen: ["memory profiling"],
+        insteadUse: ["memory-subagent"],
+        notes: "Use the memory profile for memory tasks.",
+      });
+    }
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("SqliteCatalogRepository persists skill update proposals across restarts", async () => {
   const dir = await Deno.makeTempDir();
   const dbPath = join(dir, "catalog.db");
@@ -926,7 +981,7 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     });
     const workspaceB = await repo.getUsageCounters("workspace-b", {});
 
-    assertEquals(schemaVersion, 10);
+    assertEquals(schemaVersion, 11);
     assertEquals(workspaceA.map((record) => record.entryKey), [
       "backend-skill",
       "api-test-subagent",

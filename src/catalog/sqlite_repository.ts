@@ -96,6 +96,7 @@ interface SubagentRow {
   promptTemplate: string | null;
   constraints: string;
   expectedOutput: string;
+  negativeRouting: string | null;
   verificationStatus: string;
   verificationSource: string;
   verifiedAt: string;
@@ -166,13 +167,14 @@ export class SqliteCatalogRepository implements CatalogRepository {
       migrateSkillContextColumn(this.#db);
       migrateAgentLifecycleColumns(this.#db);
       migrateAgentReachabilityColumns(this.#db);
+      migrateSubagentNegativeRoutingColumn(this.#db);
       this.#db.exec(DELEGATED_TASKS_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_MESSAGES_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
       this.#db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
       this.#db.exec(USAGE_COUNTERS_SCHEMA_SQL);
       backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 10);
+      recordSchemaVersion(this.#db, 11);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -326,9 +328,10 @@ export class SqliteCatalogRepository implements CatalogRepository {
           workspace, name, projectName, displayName, purpose, limitedScope,
           primarySpecialty, specialtyTags, agentReferences, skillReferences,
           unresolvedReferences, promptTemplate, constraints, expectedOutput,
+          negativeRouting,
           verificationStatus, verificationSource, verifiedAt,
           verificationMessage, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         storageWorkspace,
         input.name,
         input.projectName,
@@ -343,6 +346,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         input.promptTemplate ?? null,
         JSON.stringify(promptFields.constraints),
         promptFields.expectedOutput,
+        input.negativeRouting ? JSON.stringify(input.negativeRouting) : null,
         input.verification.verificationStatus,
         input.verification.verificationSource,
         input.verification.verifiedAt,
@@ -544,15 +548,22 @@ export class SqliteCatalogRepository implements CatalogRepository {
         );
       } else if (input.entryType === "skill") {
         const storageWorkspace = skillStorageWorkspace(workspace, input.scope);
+        const skillContext = existing.entryType === "skill"
+          ? skillContextWithNegativeRouting(
+            existing.skillContext,
+            input.negativeRouting,
+          )
+          : undefined;
         db.exec(
           `UPDATE introduced_skills
            SET projectName = ?, displayName = ?, primarySpecialty = ?,
-             specialtyTags = ?, updatedAt = ?
+             specialtyTags = ?, skillContext = ?, updatedAt = ?
            WHERE workspace = ? AND skillName = ?`,
           input.projectName ?? existing.projectName,
           input.displayName ?? existing.displayName,
           input.primarySpecialty ?? existing.primarySpecialty,
           JSON.stringify(input.specialtyTags ?? existing.specialtyTags),
+          skillContext ? JSON.stringify(skillContext) : null,
           input.now,
           storageWorkspace,
           input.entryKey,
@@ -565,12 +576,13 @@ export class SqliteCatalogRepository implements CatalogRepository {
         db.exec(
           `UPDATE introduced_subagents
            SET projectName = ?, displayName = ?, primarySpecialty = ?,
-             specialtyTags = ?, updatedAt = ?
+             specialtyTags = ?, negativeRouting = ?, updatedAt = ?
            WHERE workspace = ? AND name = ?`,
           input.projectName ?? existing.projectName,
           input.displayName ?? existing.displayName,
           input.primarySpecialty ?? existing.primarySpecialty,
           JSON.stringify(input.specialtyTags ?? existing.specialtyTags),
+          subagentNegativeRoutingJson(existing, input.negativeRouting),
           input.now,
           storageWorkspace,
           input.entryKey,
@@ -1311,6 +1323,9 @@ function mapSubagentRow(row: SubagentRow): SubagentCatalogEntry {
     promptTemplate: row.promptTemplate ?? undefined,
     constraints: parseJsonArray(row.constraints),
     expectedOutput: row.expectedOutput,
+    negativeRouting: row.negativeRouting
+      ? JSON.parse(row.negativeRouting)
+      : undefined,
     verificationStatus: parseVerificationStatus(row.verificationStatus),
     verificationSource: row.verificationSource,
     verifiedAt: row.verifiedAt,
@@ -1322,6 +1337,35 @@ function mapSubagentRow(row: SubagentRow): SubagentCatalogEntry {
     ...entry,
     prompt: renderSubagentPrompt(entry),
   };
+}
+
+function skillContextWithNegativeRouting(
+  current: SkillCatalogEntry["skillContext"],
+  negativeRouting: CatalogEntryUpdate["negativeRouting"],
+): SkillCatalogEntry["skillContext"] {
+  if (negativeRouting === undefined) {
+    return current;
+  }
+
+  const next = { ...current };
+  if (negativeRouting === null) {
+    delete next.negativeRouting;
+  } else {
+    next.negativeRouting = negativeRouting;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function subagentNegativeRoutingJson(
+  existing: CatalogEntry,
+  negativeRouting: CatalogEntryUpdate["negativeRouting"],
+): string | null {
+  if (negativeRouting === undefined) {
+    return existing.entryType === "subagent" && existing.negativeRouting
+      ? JSON.stringify(existing.negativeRouting)
+      : null;
+  }
+  return negativeRouting === null ? null : JSON.stringify(negativeRouting);
 }
 
 function mapSkillUpdateProposalRow(
@@ -1581,6 +1625,17 @@ function migrateAgentReachabilityColumns(db: Database): void {
   }
 }
 
+function migrateSubagentNegativeRoutingColumn(db: Database): void {
+  const columns = db.prepare<TableColumn>(
+    "PRAGMA table_info(introduced_subagents)",
+  )
+    .all();
+  const columnNames = new Set(columns.map((column) => column.name));
+  if (!columnNames.has("negativeRouting")) {
+    db.exec("ALTER TABLE introduced_subagents ADD COLUMN negativeRouting TEXT");
+  }
+}
+
 function renameLegacyNamespaceColumn(db: Database, tableName: string): void {
   const columns = db.prepare<TableColumn>(`PRAGMA table_info(${tableName})`)
     .all();
@@ -1730,6 +1785,7 @@ CREATE TABLE IF NOT EXISTS introduced_subagents (
   promptTemplate TEXT,
   constraints TEXT NOT NULL,
   expectedOutput TEXT NOT NULL,
+  negativeRouting TEXT,
   verificationStatus TEXT NOT NULL,
   verificationSource TEXT NOT NULL,
   verifiedAt TEXT NOT NULL,
