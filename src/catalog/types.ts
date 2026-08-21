@@ -43,12 +43,28 @@ export interface SkillContext {
   constraints?: readonly string[];
   examplePrompts?: readonly string[];
   negativeRouting?: NegativeRoutingMetadata | null;
+  implementationGuidance?: SkillImplementationGuidance | null;
 }
 
 export interface NegativeRoutingMetadata {
   doNotUseWhen: readonly string[];
   insteadUse?: readonly string[];
   notes?: string;
+}
+
+export interface SkillImplementationGuidance {
+  firstInspect?: readonly string[];
+  implementationRules?: readonly string[];
+  commonFixPatterns?: readonly SkillFixPattern[];
+  testsToAdd?: readonly string[];
+  verification?: readonly string[];
+  handoffChecklist?: readonly string[];
+}
+
+export interface SkillFixPattern {
+  problem: string;
+  approach: string;
+  antiPattern?: string;
 }
 
 export interface CatalogReference {

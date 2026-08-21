@@ -13,6 +13,8 @@ Usage analytics adds local aggregate counters for skill, subagent, and
 workspace-note list/match/detail usage without storing raw prompts or note
 bodies. Negative routing metadata lets overlapping skills and subagents store
 explicit "do not use when" rules so matching can reduce false positives.
+Implementation guidance lets selected skills store detail-loaded operational
+instructions without adding large guidance blocks to list or match responses.
 
 V2 keeps manual prompt generation available, while delegated task lifecycle
 internals and registered-agent catalog tools are hidden from the normal public
@@ -60,6 +62,8 @@ The main user flows are:
 - Use usage analytics to review local aggregate list/match/detail counters for
   skills, subagents, and workspace notes.
 - Improve stored skill context through approval-gated proposals.
+- Load full implementation guidance with `get_skill_detail` after selecting a
+  skill from compact routing results.
 - Optionally sync approved skill context into a local `SKILL.md` managed
   section.
 - Export/import portable catalog data, sync workspace skills/subagents, inspect

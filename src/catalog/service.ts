@@ -222,7 +222,7 @@ export class CatalogService {
     });
     const skills = entries.filter((entry): entry is SkillCatalogEntry =>
       entry.entryType === "skill"
-    );
+    ).map(compactSkillCatalogEntry);
     await this.recordUsage(
       skills.map((entry) => usageFromCatalogEntry(workspace, entry, "listed")),
     );
@@ -2038,7 +2038,28 @@ function mergeSkillContext(
   if (update.negativeRouting === null) {
     delete merged.negativeRouting;
   }
+  if (update.implementationGuidance === null) {
+    delete merged.implementationGuidance;
+  }
   return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function compactSkillCatalogEntry(entry: SkillCatalogEntry): SkillCatalogEntry {
+  return {
+    ...entry,
+    skillContext: compactSkillContext(entry.skillContext),
+  };
+}
+
+function compactSkillContext(
+  skillContext: SkillContext | undefined,
+): SkillContext | undefined {
+  if (!skillContext) {
+    return undefined;
+  }
+  const { implementationGuidance: _implementationGuidance, ...compact } =
+    skillContext;
+  return Object.keys(compact).length > 0 ? compact : undefined;
 }
 
 function toHealthEntry(

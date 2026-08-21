@@ -62,6 +62,10 @@ Skill entries may store this under `skillContext.negativeRouting`.
 
 Subagent entries may store this under `negativeRouting`.
 
+Author-facing "negative keywords" should be modeled as
+`negativeRouting.doNotUseWhen`. LOR does not expose a separate
+`negativeKeywords` field in V2.
+
 ## 7. Error Handling
 
 - Empty negative routing objects must be rejected or normalized away.
@@ -96,3 +100,5 @@ Subagent entries may store this under `negativeRouting`.
   judgment.
 - 2026-08-19: Implement strong negative matches as suppression and moderate
   matches as score demotion with visible explanation evidence.
+- 2026-08-21: Keep "negative keywords" as author-facing wording for
+  `negativeRouting.doNotUseWhen`; do not add a separate field.

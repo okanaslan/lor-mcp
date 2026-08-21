@@ -84,6 +84,9 @@ Implemented in the runnable local 2.0.0 server:
   usage is implemented as local aggregate counters.
 - Negative routing metadata for skills and subagents is implemented so
   structured "do not use when" guidance can suppress or demote matches.
+- Implementation-oriented skill guidance is implemented as detail-loaded skill
+  context that is preserved through detail/export/import/sync and omitted from
+  compact list/match responses.
 
 Current `LOR-MCP` catalog snapshot as of 2026-08-15:
 
@@ -222,6 +225,12 @@ Latest implementation verification:
   subagents so overlapping entries can be demoted or suppressed during matching.
   Technical design is tracked in
   [Negative Routing Metadata Matching](tech-specs/negative-routing-metadata-matching.md).
+- [Implementation Skill Guidance](feature-specs/implementation-skill-guidance.md):
+  Implemented for V2. Defines detail-loaded skill guidance sections such as
+  first inspect, implementation rules, common fix patterns, tests to add,
+  verification, and handoff checklist while keeping routing metadata compact.
+  Technical design is tracked in
+  [Implementation Skill Guidance Structure](tech-specs/implementation-skill-guidance-structure.md).
 
 ## Next
 

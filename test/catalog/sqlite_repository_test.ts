@@ -1,7 +1,10 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { SqliteCatalogRepository } from "@src/catalog/sqlite_repository.ts";
-import type { VerificationMetadata } from "@src/catalog/types.ts";
+import type {
+  SkillImplementationGuidance,
+  VerificationMetadata,
+} from "@src/catalog/types.ts";
 import {
   createInitializedRepository,
   FIXED_NOW,
@@ -496,6 +499,35 @@ Deno.test("SqliteCatalogRepository round-trips negative routing metadata", async
         insteadUse: ["memory-subagent"],
         notes: "Use the memory profile for memory tasks.",
       });
+    }
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository round-trips implementation guidance metadata", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await seedSkill(repo, "workspace-a", "backend-implementation", {
+      skillContext: {
+        whenToUse: "Use for backend implementation.",
+        implementationGuidance: implementationGuidanceFixture(),
+      },
+    });
+
+    const skill = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "skill",
+      entryKey: "backend-implementation",
+      scope: "workspace",
+    });
+
+    assertEquals(skill?.entryType, "skill");
+    if (skill?.entryType === "skill") {
+      assertEquals(
+        skill.skillContext?.implementationGuidance,
+        implementationGuidanceFixture(),
+      );
     }
   } finally {
     repo.close();
@@ -1080,3 +1112,18 @@ Deno.test("SqliteCatalogRepository migrates legacy catalogNamespace columns", as
 
   repo.close();
 });
+
+function implementationGuidanceFixture(): SkillImplementationGuidance {
+  return {
+    firstInspect: ["src/catalog/service.ts", "src/tools/schemas.ts"],
+    implementationRules: ["Keep edits scoped to the requested tool behavior."],
+    commonFixPatterns: [{
+      problem: "Repeated validation logic",
+      approach: "Extract a focused validation helper.",
+      antiPattern: "Parsing user input inside tool handlers.",
+    }],
+    testsToAdd: ["Add service tests for proposal and sync behavior."],
+    verification: ["mise x deno@latest -- deno task test"],
+    handoffChecklist: ["Report changed files and verification results."],
+  };
+}

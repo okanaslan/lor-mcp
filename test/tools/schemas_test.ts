@@ -361,6 +361,120 @@ Deno.test("negative routing schemas reject empty exclusion metadata", () => {
   );
 });
 
+Deno.test("skill schemas accept valid implementation guidance metadata", () => {
+  const implementationGuidance = {
+    firstInspect: ["src/catalog/service.ts"],
+    implementationRules: ["Keep matching deterministic and local."],
+    commonFixPatterns: [{
+      problem: "Repeated validation logic",
+      approach: "Extract a focused validator helper.",
+      antiPattern: "Adding ad hoc parsing in tool handlers.",
+    }],
+    testsToAdd: ["Add service tests for round-trip behavior."],
+    verification: ["mise x deno@latest -- deno task test"],
+    handoffChecklist: ["Report changed files and exact verification."],
+  };
+
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-implementation",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Implementation",
+      primarySpecialty: "backend implementation",
+      specialtyTags: ["backend"],
+      skillContext: {
+        implementationGuidance,
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-implementation",
+      reason: "Add implementation guidance.",
+      skillContext: {
+        implementationGuidance,
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-implementation",
+      reason: "Clear implementation guidance.",
+      skillContext: {
+        implementationGuidance: null,
+      },
+    }).success,
+    true,
+  );
+});
+
+Deno.test("implementation guidance schemas reject empty or blank metadata", () => {
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-implementation",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Implementation",
+      primarySpecialty: "backend implementation",
+      specialtyTags: ["backend"],
+      skillContext: {
+        implementationGuidance: {},
+      },
+    }).success,
+    false,
+  );
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-implementation",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Implementation",
+      primarySpecialty: "backend implementation",
+      specialtyTags: ["backend"],
+      skillContext: {
+        implementationGuidance: {
+          firstInspect: [" "],
+        },
+      },
+    }).success,
+    false,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-implementation",
+      reason: "Add bad implementation guidance.",
+      skillContext: {
+        implementationGuidance: {
+          commonFixPatterns: [{
+            problem: "Repeated validation logic",
+          }],
+        },
+      },
+    }).success,
+    false,
+  );
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-implementation",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Implementation",
+      primarySpecialty: "backend implementation",
+      specialtyTags: ["backend"],
+      skillContext: {
+        implementationGuidance: null,
+      },
+    }).success,
+    false,
+  );
+});
+
 Deno.test("skill file sync schemas require proposal and confirmation", () => {
   assertEquals(
     previewSkillFileSyncInputSchema.safeParse({

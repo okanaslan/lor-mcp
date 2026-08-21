@@ -44,6 +44,48 @@ Deno.test("LocalSkillSync appends managed section to SKILL.md", async () => {
   assertEquals(updated.includes("Use for backend implementation."), true);
 });
 
+Deno.test("LocalSkillSync renders implementation guidance in managed section", async () => {
+  const { root } = await createSkillFile(
+    "backend-skill",
+    "# Backend Skill\n",
+  );
+  const sync = new LocalSkillSync({ skillRoots: [root] });
+
+  const preview = await sync.preview(skillEntry({
+    skillContext: {
+      implementationGuidance: {
+        firstInspect: ["src/catalog/service.ts"],
+        implementationRules: ["Keep matching deterministic."],
+        commonFixPatterns: [{
+          problem: "Repeated validation logic",
+          approach: "Extract a focused helper.",
+          antiPattern: "Parse user input inside handlers.",
+        }],
+        testsToAdd: ["Add service and schema tests."],
+        verification: ["mise x deno@latest -- deno task test"],
+        handoffChecklist: ["Report exact verification results."],
+      },
+    },
+  }));
+
+  assertEquals(
+    preview.renderedSection.includes("### Implementation Guidance"),
+    true,
+  );
+  assertEquals(preview.renderedSection.includes("#### First Inspect"), true);
+  assertEquals(
+    preview.renderedSection.includes("- src/catalog/service.ts"),
+    true,
+  );
+  assertEquals(
+    preview.renderedSection.includes(
+      "- Problem: Repeated validation logic; Approach: Extract a focused helper.; Anti-pattern: Parse user input inside handlers.",
+    ),
+    true,
+  );
+  assertEquals(preview.renderedSection.includes("#### Verification"), true);
+});
+
 Deno.test("LocalSkillSync replaces existing managed section only", async () => {
   const existing = [
     "# Backend Skill",

@@ -4,6 +4,7 @@ import type {
   MatchData,
   MatchRequest,
   MatchResult,
+  SkillContext,
 } from "@src/catalog/types.ts";
 
 interface FieldScore {
@@ -171,7 +172,9 @@ function scoreEntry(
         dispatchMode: entry.reachability.dispatchMode,
       }
       : undefined,
-    skillContext: entry.entryType === "skill" ? entry.skillContext : undefined,
+    skillContext: entry.entryType === "skill"
+      ? compactSkillContext(entry.skillContext)
+      : undefined,
     negativeRouting: entry.entryType === "skill"
       ? entry.skillContext?.negativeRouting ?? undefined
       : entry.entryType === "subagent"
@@ -197,6 +200,17 @@ function scoreEntry(
     explanation,
     fieldScores,
   };
+}
+
+function compactSkillContext(
+  skillContext: SkillContext | undefined,
+): SkillContext | undefined {
+  if (!skillContext) {
+    return undefined;
+  }
+  const { implementationGuidance: _implementationGuidance, ...compact } =
+    skillContext;
+  return Object.keys(compact).length > 0 ? compact : undefined;
 }
 
 function scoreNegativeRouting(

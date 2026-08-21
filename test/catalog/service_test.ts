@@ -2886,6 +2886,117 @@ Deno.test("CatalogService preserves negative routing through export import and s
   }
 });
 
+Deno.test("CatalogService preserves implementation guidance and keeps list match compact", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const implementationGuidance = implementationGuidanceFixture();
+    await service.introduceSkill({
+      workspace: "Source",
+      scope: "workspace",
+      skillName: "backend-implementation",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend Implementation",
+      primarySpecialty: "backend implementation",
+      specialtyTags: ["backend", "implementation"],
+      skillContext: {
+        whenToUse: "Use for backend implementation changes.",
+        implementationGuidance,
+      },
+    });
+
+    const listed = await service.listSkills({ workspace: "Source" });
+    const detail = await service.getSkillDetail({
+      workspace: "Source",
+      skillName: "backend-implementation",
+      scope: "workspace",
+    });
+    const match = await service.findMatchingSkills({
+      workspace: "Source",
+      task: "backend implementation changes",
+    });
+    const proposal = await service.proposeSkillUpdate({
+      workspace: "Source",
+      scope: "workspace",
+      skillName: "backend-implementation",
+      reason: "Clear implementation guidance.",
+      skillContext: {
+        implementationGuidance: null,
+      },
+    });
+    const applied = await service.applySkillUpdate({
+      workspace: "Source",
+      scope: "workspace",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+
+    await service.proposeSkillUpdate({
+      workspace: "Source",
+      scope: "workspace",
+      skillName: "backend-implementation",
+      reason: "Restore implementation guidance.",
+      skillContext: {
+        implementationGuidance,
+      },
+    }).then((restoreProposal) =>
+      service.applySkillUpdate({
+        workspace: "Source",
+        scope: "workspace",
+        proposalId: restoreProposal.proposal.proposalId,
+        confirm: true,
+      })
+    );
+    const exported = await service.exportCatalog({ workspace: "Source" });
+    await service.importCatalog({
+      workspace: "Imported",
+      catalog: exported,
+    });
+    await service.applyWorkspaceCatalogSync({
+      sourceWorkspace: "Source",
+      targetWorkspace: "Synced",
+      confirm: true,
+    });
+    const importedSkill = await service.getSkillDetail({
+      workspace: "Imported",
+      scope: "workspace",
+      skillName: "backend-implementation",
+    });
+    const syncedSkill = await service.getSkillDetail({
+      workspace: "Synced",
+      scope: "workspace",
+      skillName: "backend-implementation",
+    });
+
+    assertEquals(
+      listed[0]?.skillContext?.implementationGuidance,
+      undefined,
+    );
+    assertEquals(
+      detail?.skillContext?.implementationGuidance,
+      implementationGuidance,
+    );
+    assertEquals(
+      match.data.skills[0]?.skillContext?.implementationGuidance,
+      undefined,
+    );
+    assertEquals(
+      proposal.after.skillContext?.implementationGuidance,
+      undefined,
+    );
+    assertEquals(applied.after.skillContext?.implementationGuidance, undefined);
+    assertEquals(
+      importedSkill?.skillContext?.implementationGuidance,
+      implementationGuidance,
+    );
+    assertEquals(
+      syncedSkill?.skillContext?.implementationGuidance,
+      implementationGuidance,
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 async function createSkillFileForService(
   skillName: string,
 ): Promise<{ root: string; file: string }> {
@@ -2895,4 +3006,19 @@ async function createSkillFileForService(
   const file = join(skillDir, "SKILL.md");
   await Deno.writeTextFile(file, "# Backend Skill\n");
   return { root, file };
+}
+
+function implementationGuidanceFixture() {
+  return {
+    firstInspect: ["src/catalog/service.ts", "src/tools/schemas.ts"],
+    implementationRules: ["Keep matching deterministic and local."],
+    commonFixPatterns: [{
+      problem: "Repeated validation logic",
+      approach: "Extract a focused validator helper.",
+      antiPattern: "Parsing input inside tool handlers.",
+    }],
+    testsToAdd: ["Add service tests for round-trip behavior."],
+    verification: ["mise x deno@latest -- deno task test"],
+    handoffChecklist: ["Report changed files and verification results."],
+  };
 }

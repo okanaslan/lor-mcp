@@ -48,6 +48,8 @@ delimited LOR-managed section after explicit confirmation.
   would change without mutating the file.
 - Apply must write only the LOR-managed section and report whether a write
   occurred.
+- Managed sections must render approved implementation guidance when the applied
+  skill context includes `implementationGuidance`.
 
 ## 5. Managed Section
 
@@ -109,3 +111,5 @@ pass file paths through MCP tool input.
   whole `SKILL.md` file.
 - 2026-08-04: Implement local skill sync support for global skills using the
   same managed section and configured skill roots.
+- 2026-08-21: Render implementation guidance in the managed section after it is
+  approved through the existing skill update proposal flow.

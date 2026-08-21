@@ -494,6 +494,55 @@ Deno.test("findCatalogMatches does not match skill constraints", () => {
   assertEquals(result.data.skills, []);
 });
 
+Deno.test("findCatalogMatches does not score or return implementation guidance", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "implementation-only",
+      skillName: "implementation-only",
+      displayName: "Operational Guidance",
+      primarySpecialty: "documentation upkeep",
+      specialtyTags: ["catalog"],
+      skillContext: {
+        implementationGuidance: {
+          firstInspect: ["src/catalog/matcher.ts"],
+          implementationRules: ["Handle memory profiling tasks."],
+        },
+      },
+    },
+    {
+      ...baseEntry,
+      projectName: "Workspace Tools",
+      entryType: "skill",
+      entryKey: "backend-implementation",
+      skillName: "backend-implementation",
+      displayName: "Backend Implementation",
+      primarySpecialty: "backend implementation",
+      specialtyTags: ["backend"],
+      skillContext: {
+        whenToUse: "Use for backend implementation work.",
+        implementationGuidance: {
+          firstInspect: ["src/catalog/service.ts"],
+        },
+      },
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "backend implementation",
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills.map((skill) => skill.entryKey), [
+    "backend-implementation",
+  ]);
+  assertEquals(
+    result.data.skills[0]?.skillContext?.implementationGuidance,
+    undefined,
+  );
+});
+
 Deno.test("findCatalogMatches returns positive skill match when negative routing does not match", () => {
   const result = findCatalogMatches([
     {

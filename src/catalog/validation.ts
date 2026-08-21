@@ -28,6 +28,8 @@ import {
   type RetireAgentInput,
   type SkillContext,
   type SkillFileSyncInput,
+  type SkillFixPattern,
+  type SkillImplementationGuidance,
   type SkillMetadataUpdate,
   type UsageAnalyticsFilter,
   type WorkspaceCatalogSyncInput,
@@ -443,6 +445,7 @@ export function validateProposeSkillUpdate(
   const skillContext = input.skillContext
     ? validateSkillContext(input.skillContext, "skillContext", {
       allowNegativeRoutingClear: true,
+      allowImplementationGuidanceClear: true,
     })
     : undefined;
   const metadata = input.metadata
@@ -888,7 +891,10 @@ function validateHandoff(handoff: HandoffMetadata): HandoffMetadata {
 function validateSkillContext(
   context: SkillContext,
   fieldPrefix: string,
-  options: { allowNegativeRoutingClear?: boolean } = {},
+  options: {
+    allowNegativeRoutingClear?: boolean;
+    allowImplementationGuidanceClear?: boolean;
+  } = {},
 ): SkillContext {
   const normalized: SkillContext = {};
 
@@ -920,11 +926,35 @@ function validateSkillContext(
     if (context.negativeRouting === null) {
       if (options.allowNegativeRoutingClear) {
         normalized.negativeRouting = null;
+      } else {
+        throw new LorError(
+          "validation_error",
+          `${fieldPrefix}.negativeRouting cannot be null here.`,
+          { field: `${fieldPrefix}.negativeRouting` },
+        );
       }
     } else {
       normalized.negativeRouting = validateNegativeRouting(
         context.negativeRouting,
         `${fieldPrefix}.negativeRouting`,
+      );
+    }
+  }
+  if (context.implementationGuidance !== undefined) {
+    if (context.implementationGuidance === null) {
+      if (options.allowImplementationGuidanceClear) {
+        normalized.implementationGuidance = null;
+      } else {
+        throw new LorError(
+          "validation_error",
+          `${fieldPrefix}.implementationGuidance cannot be null here.`,
+          { field: `${fieldPrefix}.implementationGuidance` },
+        );
+      }
+    } else {
+      normalized.implementationGuidance = validateImplementationGuidance(
+        context.implementationGuidance,
+        `${fieldPrefix}.implementationGuidance`,
       );
     }
   }
@@ -975,7 +1005,8 @@ function hasSkillContextFields(context: SkillContext): boolean {
     context.usageNotes !== undefined ||
     context.constraints !== undefined ||
     context.examplePrompts !== undefined ||
-    context.negativeRouting !== undefined;
+    context.negativeRouting !== undefined ||
+    context.implementationGuidance !== undefined;
 }
 
 function hasSkillMetadataFields(metadata: SkillMetadataUpdate): boolean {
@@ -1032,6 +1063,119 @@ function validateNegativeRouting(
     normalized.notes = notes;
   }
   return normalized;
+}
+
+function validateImplementationGuidance(
+  input: SkillImplementationGuidance,
+  fieldPrefix: string,
+): SkillImplementationGuidance {
+  const normalized: SkillImplementationGuidance = {};
+
+  if (input.firstInspect !== undefined) {
+    normalized.firstInspect = requireGuidanceStringList(
+      input.firstInspect,
+      `${fieldPrefix}.firstInspect`,
+    );
+  }
+  if (input.implementationRules !== undefined) {
+    normalized.implementationRules = requireGuidanceStringList(
+      input.implementationRules,
+      `${fieldPrefix}.implementationRules`,
+    );
+  }
+  if (input.commonFixPatterns !== undefined) {
+    normalized.commonFixPatterns = validateCommonFixPatterns(
+      input.commonFixPatterns,
+      `${fieldPrefix}.commonFixPatterns`,
+    );
+  }
+  if (input.testsToAdd !== undefined) {
+    normalized.testsToAdd = requireGuidanceStringList(
+      input.testsToAdd,
+      `${fieldPrefix}.testsToAdd`,
+    );
+  }
+  if (input.verification !== undefined) {
+    normalized.verification = requireGuidanceStringList(
+      input.verification,
+      `${fieldPrefix}.verification`,
+    );
+  }
+  if (input.handoffChecklist !== undefined) {
+    normalized.handoffChecklist = requireGuidanceStringList(
+      input.handoffChecklist,
+      `${fieldPrefix}.handoffChecklist`,
+    );
+  }
+
+  if (Object.keys(normalized).length === 0) {
+    throw new LorError(
+      "validation_error",
+      `${fieldPrefix} must include at least one section.`,
+      { field: fieldPrefix },
+    );
+  }
+
+  return normalized;
+}
+
+function requireGuidanceStringList(
+  values: readonly string[],
+  field: string,
+): string[] {
+  const normalized = requireStringList(values, field);
+  if (normalized.length === 0) {
+    throw new LorError(
+      "validation_error",
+      `${field} must include at least one item.`,
+      { field },
+    );
+  }
+  for (const [index, value] of normalized.entries()) {
+    rejectOversizedString(value, `${field}.${index}`, 500);
+  }
+  return [...new Set(normalized)];
+}
+
+function validateCommonFixPatterns(
+  patterns: readonly SkillFixPattern[],
+  field: string,
+): SkillFixPattern[] {
+  if (!Array.isArray(patterns)) {
+    throw new LorError("validation_error", `${field} is required.`, {
+      field,
+    });
+  }
+  if (patterns.length === 0) {
+    throw new LorError(
+      "validation_error",
+      `${field} must include at least one item.`,
+      { field },
+    );
+  }
+
+  return patterns.map((pattern, index) => {
+    const normalized: SkillFixPattern = {
+      problem: requireString(pattern.problem, `${field}.${index}.problem`),
+      approach: requireString(pattern.approach, `${field}.${index}.approach`),
+    };
+    rejectOversizedString(normalized.problem, `${field}.${index}.problem`, 500);
+    rejectOversizedString(
+      normalized.approach,
+      `${field}.${index}.approach`,
+      500,
+    );
+    const antiPattern = pattern.antiPattern?.trim() || undefined;
+    if (antiPattern) {
+      rejectOversizedString(
+        antiPattern,
+        `${field}.${index}.antiPattern`,
+        500,
+      );
+      normalized.antiPattern = antiPattern;
+    }
+    return normalized;
+  });
 }
 
 function rejectOversizedString(

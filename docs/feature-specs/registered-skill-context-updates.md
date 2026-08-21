@@ -54,6 +54,9 @@ Skill entries may include `skillContext`:
 - `examplePrompts`: example prompts or tasks that should use the skill.
 - optional `negativeRouting`: structured "do not use when" routing guidance,
   implemented in [Negative Routing Metadata](negative-routing-metadata.md).
+- optional `implementationGuidance`: detail-loaded operational guidance for
+  implementation work, implemented in
+  [Implementation Skill Guidance](implementation-skill-guidance.md).
 
 Skill update proposals include:
 
@@ -100,3 +103,5 @@ Skill update proposals include:
 - 2026-07-19: Add Local Skill Sync as a separate follow-up workflow for writing
   applied skill context into local `SKILL.md` files.
 - 2026-08-04: Implement stored skill context update support for global skills.
+- 2026-08-21: Support approval-gated create, replace, and clear semantics for
+  `skillContext.implementationGuidance`.

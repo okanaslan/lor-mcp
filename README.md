@@ -32,6 +32,8 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
   prompts or note bodies.
 - Negative routing metadata: skills and subagents can carry structured "do not
   use when" guidance so matching can suppress or demote false positives.
+- Implementation guidance: selected skills can carry detail-loaded operational
+  guidance without adding large blocks to list or match responses.
 
 ## Runtime
 
@@ -174,7 +176,9 @@ Use routing when deciding what context should shape a task:
 4. `generate_agent_prompt` when a fresh short-lived Codex task prompt is useful.
 
 Use `list_skills` and `list_subagents` when browsing by entry family.
-`get_subagent_detail` returns the rendered prompt for a subagent profile.
+`get_skill_detail` returns full implementation guidance when a selected skill
+has it. `get_subagent_detail` returns the rendered prompt for a subagent
+profile.
 
 ### Improve Skills
 
@@ -320,6 +324,9 @@ flowchart RL
 - Negative routing: skills and subagents can store structured exclusion
   metadata. Strong negative matches are suppressed, moderate negative matches
   are demoted, and visible demotions include negative evidence in explanations.
+- Implementation guidance: skills can store detail-loaded first-inspect lists,
+  implementation rules, common fix patterns, test expectations, verification,
+  and handoff checklists. Matching does not score this guidance.
 
 ### Prompt Support
 

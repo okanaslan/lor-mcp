@@ -168,6 +168,58 @@ export function renderSkillContextSection(entry: SkillCatalogEntry): string {
     lines.push("", "### Example Prompts", "");
     lines.push(...entry.skillContext.examplePrompts.map(toMarkdownListItem));
   }
+  const implementationGuidance = entry.skillContext.implementationGuidance;
+  if (implementationGuidance) {
+    lines.push("", "### Implementation Guidance");
+    if (implementationGuidance.firstInspect?.length) {
+      pushGuidanceList(
+        lines,
+        "First Inspect",
+        implementationGuidance.firstInspect,
+      );
+    }
+    if (implementationGuidance.implementationRules?.length) {
+      pushGuidanceList(
+        lines,
+        "Implementation Rules",
+        implementationGuidance.implementationRules,
+      );
+    }
+    if (implementationGuidance.commonFixPatterns?.length) {
+      lines.push("", "#### Common Fix Patterns", "");
+      for (const pattern of implementationGuidance.commonFixPatterns) {
+        const parts = [
+          `Problem: ${singleLine(pattern.problem)}`,
+          `Approach: ${singleLine(pattern.approach)}`,
+        ];
+        if (pattern.antiPattern) {
+          parts.push(`Anti-pattern: ${singleLine(pattern.antiPattern)}`);
+        }
+        lines.push(`- ${parts.join("; ")}`);
+      }
+    }
+    if (implementationGuidance.testsToAdd?.length) {
+      pushGuidanceList(
+        lines,
+        "Tests To Add",
+        implementationGuidance.testsToAdd,
+      );
+    }
+    if (implementationGuidance.verification?.length) {
+      pushGuidanceList(
+        lines,
+        "Verification",
+        implementationGuidance.verification,
+      );
+    }
+    if (implementationGuidance.handoffChecklist?.length) {
+      pushGuidanceList(
+        lines,
+        "Handoff Checklist",
+        implementationGuidance.handoffChecklist,
+      );
+    }
+  }
 
   lines.push(LOR_SKILL_CONTEXT_END);
   return `${lines.join("\n")}\n`;
@@ -252,5 +304,18 @@ function trimLeadingBlankLines(value: string): string {
 }
 
 function toMarkdownListItem(value: string): string {
-  return `- ${value.replace(/\n/g, " ")}`;
+  return `- ${singleLine(value)}`;
+}
+
+function pushGuidanceList(
+  lines: string[],
+  heading: string,
+  values: readonly string[],
+): void {
+  lines.push("", `#### ${heading}`, "");
+  lines.push(...values.map(toMarkdownListItem));
+}
+
+function singleLine(value: string): string {
+  return value.replace(/\n/g, " ");
 }

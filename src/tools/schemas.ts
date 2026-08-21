@@ -22,6 +22,33 @@ const negativeRoutingSchema = z.object({
   notes: z.string().trim().min(1).max(1000).optional(),
 });
 
+const implementationGuidanceSchema = z.object({
+  firstInspect: z.array(z.string().trim().min(1).max(500)).min(1).optional(),
+  implementationRules: z.array(z.string().trim().min(1).max(500)).min(1)
+    .optional(),
+  commonFixPatterns: z.array(z.object({
+    problem: z.string().trim().min(1).max(500),
+    approach: z.string().trim().min(1).max(500),
+    antiPattern: z.string().trim().min(1).max(500).optional(),
+  })).min(1).optional(),
+  testsToAdd: z.array(z.string().trim().min(1).max(500)).min(1).optional(),
+  verification: z.array(z.string().trim().min(1).max(500)).min(1).optional(),
+  handoffChecklist: z.array(z.string().trim().min(1).max(500)).min(1)
+    .optional(),
+}).refine(
+  (guidance) =>
+    guidance.firstInspect !== undefined ||
+    guidance.implementationRules !== undefined ||
+    guidance.commonFixPatterns !== undefined ||
+    guidance.testsToAdd !== undefined ||
+    guidance.verification !== undefined ||
+    guidance.handoffChecklist !== undefined,
+  {
+    message: "implementationGuidance must include at least one section.",
+    path: ["implementationGuidance"],
+  },
+);
+
 export const introduceSkillInputSchema = z.object({
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
@@ -36,13 +63,15 @@ export const introduceSkillInputSchema = z.object({
     constraints: z.array(z.string().trim().min(1)).min(1).optional(),
     examplePrompts: z.array(z.string().trim().min(1)).min(1).optional(),
     negativeRouting: negativeRoutingSchema.optional(),
+    implementationGuidance: implementationGuidanceSchema.optional(),
   }).refine(
     (context) =>
       context.whenToUse !== undefined ||
       context.usageNotes !== undefined ||
       context.constraints !== undefined ||
       context.examplePrompts !== undefined ||
-      context.negativeRouting !== undefined,
+      context.negativeRouting !== undefined ||
+      context.implementationGuidance !== undefined,
     {
       message: "skillContext must include at least one field.",
       path: ["skillContext"],
@@ -187,13 +216,15 @@ const skillContextSchema = z.object({
   constraints: z.array(z.string().trim().min(1)).min(1).optional(),
   examplePrompts: z.array(z.string().trim().min(1)).min(1).optional(),
   negativeRouting: negativeRoutingSchema.nullable().optional(),
+  implementationGuidance: implementationGuidanceSchema.nullable().optional(),
 }).refine(
   (context) =>
     context.whenToUse !== undefined ||
     context.usageNotes !== undefined ||
     context.constraints !== undefined ||
     context.examplePrompts !== undefined ||
-    context.negativeRouting !== undefined,
+    context.negativeRouting !== undefined ||
+    context.implementationGuidance !== undefined,
   {
     message: "skillContext must include at least one field.",
     path: ["skillContext"],

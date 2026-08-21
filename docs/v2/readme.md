@@ -20,6 +20,8 @@ right skills, subagents, prompts, next steps, and failure behavior.
   and workspace notes are listed, matched, or opened in detail.
 - Use negative routing metadata for overlapping skills and subagents so "do not
   use when" guidance reduces false-positive recommendations.
+- Use detail-loaded implementation guidance for skills so selected skills can
+  guide real feature work without bloating routing responses.
 - Make tool results more operational: tell the caller what to do next and what
   to do if a step fails.
 - Clarify the relationship between local Codex skills, LOR-registered skills,
@@ -33,6 +35,7 @@ right skills, subagents, prompts, next steps, and failure behavior.
 - [V2 Local Skill And AGENTS.md Integration](../feature-specs/v2-local-skill-and-agents-integration.md)
 - [Usage Analytics](../feature-specs/usage-analytics.md)
 - [Negative Routing Metadata](../feature-specs/negative-routing-metadata.md)
+- [Implementation Skill Guidance](../feature-specs/implementation-skill-guidance.md)
 
 ## Implementation Principle
 

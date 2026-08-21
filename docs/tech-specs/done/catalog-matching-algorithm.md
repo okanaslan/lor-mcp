@@ -83,6 +83,8 @@ This means stored skill context follows the same field priority rules:
 - `skillContext.examplePrompts`: medium signal near `displayName`.
 - `skillContext.usageNotes`: weak signal.
 - `skillContext.constraints`: not scored in v1.
+- `skillContext.implementationGuidance`: not scored in v1 and omitted from
+  compact match candidates.
 
 The scorer should use token-level fuzzy matching without external dependencies:
 
@@ -220,3 +222,5 @@ checking the docs tree, running `git diff --check`, and checking git status.
   deterministic selection.
 - 2026-08-15: Remove registered-agent matching from the normal public V2
   surface; keep public matching focused on skills and subagents.
+- 2026-08-21: Keep implementation guidance out of matching and compact match
+  responses; use `get_skill_detail` for full operational guidance.
