@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { findCatalogMatches } from "@src/catalog/matcher.ts";
 import type { CatalogEntry } from "@src/catalog/types.ts";
 
@@ -762,4 +762,249 @@ Deno.test("findCatalogMatches does not score insteadUse as routing evidence", ()
 
   assertEquals(result.status, "no_match");
   assertEquals(result.data.skills, []);
+});
+
+Deno.test("findCatalogMatches separates PR feedback from fresh review and commit intents", () => {
+  const entries: CatalogEntry[] = [
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "pr-feedback-evaluator",
+      skillName: "pr-feedback-evaluator",
+      displayName: "PR Feedback Evaluator",
+      primarySpecialty: "pull request feedback triage",
+      specialtyTags: ["pull-request", "feedback", "reviewer-comment"],
+      routing: {
+        intents: ["evaluate_feedback"],
+        excludedIntents: ["commit", "review_code"],
+        positiveKeywords: [
+          "pr-feedback",
+          "reviewer-comment",
+          "comment-validity",
+          "received-feedback",
+        ],
+        requiredAny: [
+          "received-feedback",
+          "existing-pr-comment",
+          "unresolved-thread",
+        ],
+        domain: ["github"],
+        outputNeed: ["triage"],
+      },
+      skillContext: {
+        whenToUse:
+          "Use for received PR feedback and unresolved review threads.",
+      },
+    },
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "okan-code-review",
+      skillName: "okan-code-review",
+      displayName: "Okan Code Review",
+      primarySpecialty: "fresh pull request code review",
+      specialtyTags: ["pull-request", "review-code"],
+      routing: {
+        intents: ["review_code"],
+        positiveKeywords: ["fresh-review", "pull-request"],
+        negativeKeywords: ["received-feedback"],
+      },
+    },
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "okan-commit-message",
+      skillName: "okan-commit-message",
+      displayName: "Okan Commit Message",
+      primarySpecialty: "git commit message",
+      specialtyTags: ["git", "commit"],
+      routing: {
+        intents: ["commit"],
+        positiveKeywords: ["commit", "staged-changes"],
+      },
+    },
+  ];
+
+  const feedback = findCatalogMatches(entries, {
+    workspace: "LOR-MCP",
+    task: "Evaluate whether the received PR reviewer comment is still valid",
+    intent: "evaluate_feedback",
+    positiveKeywords: ["received feedback", "review comment", "still valid"],
+    requiredAny: ["unresolved thread"],
+    domain: ["github"],
+    outputNeed: ["triage"],
+    debug: true,
+  });
+  const freshReview = findCatalogMatches(entries, {
+    workspace: "LOR-MCP",
+    task: "Do a fresh PR code review",
+    intent: "review_code",
+    positiveKeywords: ["fresh review", "pull request"],
+    debug: true,
+  });
+  const commit = findCatalogMatches(entries, {
+    workspace: "LOR-MCP",
+    task: "Commit the current staged changes",
+    intent: "commit",
+    positiveKeywords: ["commit", "staged changes"],
+    debug: true,
+  });
+
+  assertEquals(feedback.status, "ok");
+  assertEquals(feedback.data.skills[0]?.entryKey, "pr-feedback-evaluator");
+  assertEquals(
+    feedback.data.skills[0]?.matchedFields.includes("routing.intents"),
+    true,
+  );
+  assertEquals(
+    feedback.data.skills[0]?.matchedFields.includes("routing.requiredAny"),
+    true,
+  );
+  assert(
+    feedback.data.skills[0]?.explanation.signalBreakdown?.some((signal) =>
+      signal.source === "intent" && signal.term === "evaluate-feedback"
+    ),
+  );
+
+  assertEquals(freshReview.status, "ok");
+  assertEquals(freshReview.data.skills[0]?.entryKey, "okan-code-review");
+  assert(
+    freshReview.data.excludedCandidates?.some((candidate) =>
+      candidate.entryKey === "pr-feedback-evaluator" &&
+      candidate.excludedBy.includes("routing.excludedIntents")
+    ),
+  );
+
+  assertEquals(commit.status, "ok");
+  assertEquals(commit.data.skills[0]?.entryKey, "okan-commit-message");
+  assert(
+    commit.data.excludedCandidates?.some((candidate) =>
+      candidate.entryKey === "pr-feedback-evaluator" &&
+      candidate.excludedBy.includes("routing.excludedIntents")
+    ),
+  );
+});
+
+Deno.test("findCatalogMatches honors request negative keywords and preferred skills", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "pr-feedback-evaluator",
+      skillName: "pr-feedback-evaluator",
+      displayName: "PR Feedback Evaluator",
+      primarySpecialty: "pull request feedback triage",
+      specialtyTags: ["pull-request", "feedback"],
+      routing: {
+        intents: ["evaluate_feedback"],
+        positiveKeywords: ["received-feedback", "reviewer-comment"],
+      },
+    },
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "general-triage",
+      skillName: "general-triage",
+      displayName: "General Triage",
+      primarySpecialty: "pull request triage",
+      specialtyTags: ["pull-request", "triage"],
+      routing: {
+        intents: ["evaluate_feedback"],
+        positiveKeywords: ["pull-request"],
+      },
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "Evaluate a pull request",
+    intent: "evaluate_feedback",
+    negativeKeywords: ["received-feedback"],
+    preferredSkills: ["general-triage"],
+    debug: true,
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills.map((skill) => skill.entryKey), [
+    "general-triage",
+  ]);
+  assertEquals(
+    result.data.skills[0]?.explanation.finalScoreBreakdown?.preferenceBoost,
+    20,
+  );
+  assert(
+    result.data.excludedCandidates?.some((candidate) =>
+      candidate.entryKey === "pr-feedback-evaluator" &&
+      candidate.excludedBy.includes("request.negativeKeywords")
+    ),
+  );
+});
+
+Deno.test("findCatalogMatches ignores stop words and exposes debug signals", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "routing-debug",
+      skillName: "routing-debug",
+      displayName: "Routing Debug",
+      primarySpecialty: "routing diagnostics",
+      specialtyTags: ["routing", "debug"],
+      routing: {
+        positiveKeywords: ["routing", "debug"],
+      },
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "the routing is on and to debug",
+    debug: true,
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.ignoredSignals?.includes("the"), true);
+  assertEquals(result.data.ignoredSignals?.includes("is"), true);
+  assertEquals(result.data.ignoredSignals?.includes("on"), true);
+  assertEquals(result.data.skills[0]?.matchedSignals.includes("the"), false);
+  assertEquals(
+    result.data.skills[0]?.explanation.finalScoreBreakdown?.positive
+      .positiveKeywords,
+    24,
+  );
+});
+
+Deno.test("findCatalogMatches lets specialty hints materially improve ranking", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "general-review",
+      skillName: "general-review",
+      displayName: "General Review",
+      primarySpecialty: "code review",
+      specialtyTags: ["review"],
+      routing: {
+        positiveKeywords: ["review"],
+      },
+    },
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "frontend-review",
+      skillName: "frontend-review",
+      displayName: "Frontend Review",
+      primarySpecialty: "frontend review",
+      specialtyTags: ["frontend", "review"],
+      routing: {
+        positiveKeywords: ["frontend", "review"],
+      },
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "review this change",
+    specialtyHints: ["frontend"],
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills.map((skill) => skill.entryKey), [
+    "frontend-review",
+    "general-review",
+  ]);
 });
