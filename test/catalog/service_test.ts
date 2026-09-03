@@ -2960,6 +2960,61 @@ Deno.test("CatalogService preserves negative routing through export import and s
   }
 });
 
+Deno.test("CatalogService exposes structured match debug metadata", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      skillName: "pr-feedback-evaluator",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "PR Feedback Evaluator",
+      primarySpecialty: "pull request feedback triage",
+      specialtyTags: ["pull-request", "feedback"],
+      routing: {
+        intents: ["evaluate_feedback"],
+        positiveKeywords: ["received-feedback", "reviewer-comment"],
+      },
+    });
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      skillName: "general-triage",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "General Triage",
+      primarySpecialty: "pull request triage",
+      specialtyTags: ["pull-request", "triage"],
+      routing: {
+        intents: ["evaluate_feedback"],
+        positiveKeywords: ["pull-request"],
+      },
+    });
+
+    const match = await service.findMatchingSkills({
+      workspace: "LOR-MCP",
+      task: "Evaluate a pull request",
+      intent: "evaluate_feedback",
+      negativeKeywords: ["received-feedback"],
+      preferredSkills: ["general-triage"],
+      debug: true,
+    });
+
+    assertEquals(match.status, "ok");
+    assertEquals(match.data.querySignals?.includes("evaluate-feedback"), true);
+    assertEquals(match.data.skills[0]?.entryKey, "general-triage");
+    assertEquals(
+      match.data.skills[0]?.explanation.finalScoreBreakdown?.preferenceBoost,
+      20,
+    );
+    assertEquals(
+      match.data.excludedCandidates?.map((candidate) => candidate.entryKey),
+      ["pr-feedback-evaluator"],
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService preserves implementation guidance and keeps list match compact", async () => {
   const { repo, service } = await createCatalogService();
   try {

@@ -1820,6 +1820,11 @@ function filterMatchResult(
       skills,
       subagents,
       agentsAmbiguous: entryType === "agent" && result.data.agentsAmbiguous,
+      ignoredSignals: result.data.ignoredSignals,
+      querySignals: result.data.querySignals,
+      excludedCandidates: result.data.excludedCandidates?.filter(
+        (candidate) => candidate.entryType === entryType,
+      ),
       conflict: entryType === "agent" ? result.data.conflict : undefined,
     },
   };
