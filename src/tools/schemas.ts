@@ -6,6 +6,66 @@ const usageEntryTypeSchema = z.enum(["skill", "subagent", "note"]);
 export const catalogScopeSchema = z.enum(["workspace", "global"]);
 export const agentStatusSchema = z.enum(["active", "retired"]);
 
+const routingSignalSources = [
+  "skillName",
+  "subagentName",
+  "displayName",
+  "projectName",
+  "primarySpecialty",
+  "specialtyTags",
+  "intent",
+  "positiveKeywords",
+  "domain",
+  "outputNeed",
+  "requiredAny",
+  "requiredAll",
+  "examplePrompts",
+  "usageNotes",
+  "bodyText",
+] as const;
+const routingStringListSchema = z.array(
+  z.string().trim().min(1).max(120),
+).min(1);
+const routingFieldWeightsSchema = z.object(
+  Object.fromEntries(
+    routingSignalSources.map((source) => [
+      source,
+      z.number().int().min(0).max(100).optional(),
+    ]),
+  ) as Record<typeof routingSignalSources[number], z.ZodOptional<z.ZodNumber>>,
+).partial().refine((weights) => Object.keys(weights).length > 0, {
+  message: "fieldWeights must include at least one source.",
+  path: ["fieldWeights"],
+});
+const routingMetadataSchema = z.object({
+  intents: routingStringListSchema.optional(),
+  excludedIntents: routingStringListSchema.optional(),
+  positiveKeywords: routingStringListSchema.optional(),
+  negativeKeywords: routingStringListSchema.optional(),
+  requiredAny: routingStringListSchema.optional(),
+  requiredAll: routingStringListSchema.optional(),
+  domain: routingStringListSchema.optional(),
+  outputNeed: routingStringListSchema.optional(),
+  softNegativeExamples: routingStringListSchema.optional(),
+  fieldWeights: routingFieldWeightsSchema.optional(),
+}).refine(
+  (routing) =>
+    routing.intents !== undefined ||
+    routing.excludedIntents !== undefined ||
+    routing.positiveKeywords !== undefined ||
+    routing.negativeKeywords !== undefined ||
+    routing.requiredAny !== undefined ||
+    routing.requiredAll !== undefined ||
+    routing.domain !== undefined ||
+    routing.outputNeed !== undefined ||
+    routing.softNegativeExamples !== undefined ||
+    routing.fieldWeights !== undefined,
+  {
+    message: "routing must include at least one field.",
+    path: ["routing"],
+  },
+);
+
 export const handoffSchema = z.object({
   whenToUse: z.string().trim().min(1),
   handoffPromptTemplate: z.string().trim().min(1),
@@ -57,6 +117,7 @@ export const introduceSkillInputSchema = z.object({
   displayName: z.string().trim().min(1),
   primarySpecialty: z.string().trim().min(1),
   specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  routing: routingMetadataSchema.optional(),
   skillContext: z.object({
     whenToUse: z.string().trim().min(1).optional(),
     usageNotes: z.string().trim().min(1).optional(),
@@ -119,6 +180,7 @@ export const introduceSubagentInputSchema = z.object({
   constraints: z.array(z.string().trim().min(1)).min(1).optional(),
   expectedOutput: z.string().trim().min(1).optional(),
   negativeRouting: negativeRoutingSchema.optional(),
+  routing: routingMetadataSchema.optional(),
 });
 
 export const listSkillsInputSchema = z.object({
@@ -167,6 +229,7 @@ const commonMetadataUpdateFields = {
   primarySpecialty: z.string().trim().min(1).optional(),
   specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
   negativeRouting: negativeRoutingSchema.nullable().optional(),
+  routing: routingMetadataSchema.nullable().optional(),
 };
 
 function hasCommonMetadataUpdate(
@@ -176,13 +239,15 @@ function hasCommonMetadataUpdate(
     primarySpecialty?: unknown;
     specialtyTags?: unknown;
     negativeRouting?: unknown;
+    routing?: unknown;
   },
 ): boolean {
   return input.projectName !== undefined ||
     input.displayName !== undefined ||
     input.primarySpecialty !== undefined ||
     input.specialtyTags !== undefined ||
-    input.negativeRouting !== undefined;
+    input.negativeRouting !== undefined ||
+    input.routing !== undefined;
 }
 
 export const updateSkillInputSchema = z.object({
@@ -255,10 +320,15 @@ export const proposeSkillUpdateInputSchema = z.object({
   reason: z.string().trim().min(1),
   skillContext: skillContextSchema.optional(),
   metadata: skillMetadataUpdateSchema.optional(),
+  routing: routingMetadataSchema.nullable().optional(),
 }).refine(
-  (input) => input.skillContext !== undefined || input.metadata !== undefined,
+  (input) =>
+    input.skillContext !== undefined ||
+    input.metadata !== undefined ||
+    input.routing !== undefined,
   {
-    message: "At least one skillContext or metadata field is required.",
+    message:
+      "At least one skillContext, metadata, or routing field is required.",
     path: ["update"],
   },
 );
@@ -333,6 +403,7 @@ const exportSkillEntrySchema = z.object({
   verifiedAt: z.string().trim().min(1),
   verificationMessage: z.string().trim().min(1).optional(),
   skillContext: skillContextSchema.optional(),
+  routing: routingMetadataSchema.optional(),
 });
 
 const exportSubagentEntrySchema = z.object({
@@ -351,6 +422,7 @@ const exportSubagentEntrySchema = z.object({
   constraints: z.array(z.string().trim().min(1)),
   expectedOutput: z.string().trim().min(1),
   negativeRouting: negativeRoutingSchema.optional(),
+  routing: routingMetadataSchema.optional(),
   verificationStatus: verificationStatusSchema,
   verificationSource: z.string().trim().min(1),
   verifiedAt: z.string().trim().min(1),
@@ -477,6 +549,16 @@ export const findMatchingSkillInputSchema = z.object({
   task: z.string().trim().min(1),
   projectName: z.string().trim().min(1).optional(),
   specialtyHints: z.array(z.string().trim().min(1)).optional(),
+  intent: z.string().trim().min(1).max(120).optional(),
+  positiveKeywords: routingStringListSchema.optional(),
+  negativeKeywords: routingStringListSchema.optional(),
+  requiredAny: routingStringListSchema.optional(),
+  requiredAll: routingStringListSchema.optional(),
+  excludedSkills: routingStringListSchema.optional(),
+  preferredSkills: routingStringListSchema.optional(),
+  domain: routingStringListSchema.optional(),
+  outputNeed: routingStringListSchema.optional(),
+  debug: z.boolean().optional(),
 });
 
 export const findMatchingSubagentInputSchema = z.object({
@@ -484,6 +566,16 @@ export const findMatchingSubagentInputSchema = z.object({
   task: z.string().trim().min(1),
   projectName: z.string().trim().min(1).optional(),
   specialtyHints: z.array(z.string().trim().min(1)).optional(),
+  intent: z.string().trim().min(1).max(120).optional(),
+  positiveKeywords: routingStringListSchema.optional(),
+  negativeKeywords: routingStringListSchema.optional(),
+  requiredAny: routingStringListSchema.optional(),
+  requiredAll: routingStringListSchema.optional(),
+  excludedSkills: routingStringListSchema.optional(),
+  preferredSkills: routingStringListSchema.optional(),
+  domain: routingStringListSchema.optional(),
+  outputNeed: routingStringListSchema.optional(),
+  debug: z.boolean().optional(),
 });
 
 export type IntroduceSkillToolInput = z.infer<typeof introduceSkillInputSchema>;

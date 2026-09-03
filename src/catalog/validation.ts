@@ -18,6 +18,7 @@ import {
   type IntroduceSkillInput,
   type IntroduceSubagentInput,
   type ListWorkspaceNotesInput,
+  type MatchRequest,
   type NegativeRoutingMetadata,
   type PrepareAgentInitializationInput,
   type PromoteSkillToGlobalInput,
@@ -26,6 +27,8 @@ import {
   type RememberWorkspaceNoteInput,
   type RemoveWorkspaceNoteInput,
   type RetireAgentInput,
+  type RoutingMetadata,
+  type RoutingSignalSource,
   type SkillContext,
   type SkillFileSyncInput,
   type SkillFixPattern,
@@ -68,6 +71,9 @@ export function validateIntroduceSkill(
     displayName: requireString(input.displayName, "displayName"),
     primarySpecialty: requireString(input.primarySpecialty, "primarySpecialty"),
     specialtyTags: requireTags(input.specialtyTags),
+    routing: input.routing
+      ? validateRoutingMetadata(input.routing, "routing")
+      : undefined,
     skillContext: input.skillContext
       ? validateSkillContext(input.skillContext, "skillContext")
       : undefined,
@@ -109,6 +115,9 @@ export function validateIntroduceSubagent(
         input.negativeRouting,
         "negativeRouting",
       )
+      : undefined,
+    routing: input.routing
+      ? validateRoutingMetadata(input.routing, "routing")
       : undefined,
   };
 }
@@ -156,6 +165,18 @@ export function validateCatalogEntryUpdate(
     update.negativeRouting = input.negativeRouting === null
       ? null
       : validateNegativeRouting(input.negativeRouting, "negativeRouting");
+  }
+  if (input.routing !== undefined) {
+    if (input.entryType === "agent") {
+      throw new LorError(
+        "validation_error",
+        "routing only applies to skills and subagents.",
+        { field: "routing" },
+      );
+    }
+    update.routing = input.routing === null
+      ? null
+      : validateRoutingMetadata(input.routing, "routing");
   }
 
   if (!hasEditableUpdate(update)) {
@@ -253,6 +274,46 @@ export function validateWorkspaceDiagnosticsInput(
 ): WorkspaceDiagnosticsInput {
   return {
     workspace: requireWorkspace(input.workspace),
+  };
+}
+
+export function validateMatchRequest(input: MatchRequest): MatchRequest {
+  return {
+    workspace: requireWorkspace(input.workspace),
+    task: requireString(input.task, "task"),
+    projectName: input.projectName?.trim() || undefined,
+    preferredType: input.preferredType === undefined
+      ? undefined
+      : requireEntryType(input.preferredType),
+    specialtyHints: input.specialtyHints === undefined
+      ? undefined
+      : requireStringList(input.specialtyHints, "specialtyHints"),
+    intent: input.intent?.trim() || undefined,
+    positiveKeywords: input.positiveKeywords === undefined
+      ? undefined
+      : requireRoutingStringList(input.positiveKeywords, "positiveKeywords"),
+    negativeKeywords: input.negativeKeywords === undefined
+      ? undefined
+      : requireRoutingStringList(input.negativeKeywords, "negativeKeywords"),
+    requiredAny: input.requiredAny === undefined
+      ? undefined
+      : requireRoutingStringList(input.requiredAny, "requiredAny"),
+    requiredAll: input.requiredAll === undefined
+      ? undefined
+      : requireRoutingStringList(input.requiredAll, "requiredAll"),
+    excludedSkills: input.excludedSkills === undefined
+      ? undefined
+      : requireRoutingStringList(input.excludedSkills, "excludedSkills"),
+    preferredSkills: input.preferredSkills === undefined
+      ? undefined
+      : requireRoutingStringList(input.preferredSkills, "preferredSkills"),
+    domain: input.domain === undefined
+      ? undefined
+      : requireRoutingStringList(input.domain, "domain"),
+    outputNeed: input.outputNeed === undefined
+      ? undefined
+      : requireRoutingStringList(input.outputNeed, "outputNeed"),
+    debug: input.debug === true ? true : undefined,
   };
 }
 
@@ -451,11 +512,16 @@ export function validateProposeSkillUpdate(
   const metadata = input.metadata
     ? validateSkillMetadataUpdate(input.metadata)
     : undefined;
+  const routing = input.routing === undefined
+    ? undefined
+    : input.routing === null
+    ? null
+    : validateRoutingMetadata(input.routing, "routing");
 
-  if (!skillContext && !metadata) {
+  if (!skillContext && !metadata && routing === undefined) {
     throw new LorError(
       "validation_error",
-      "At least one skillContext or metadata field is required.",
+      "At least one skillContext, metadata, or routing field is required.",
       { field: "update" },
     );
   }
@@ -470,6 +536,7 @@ export function validateProposeSkillUpdate(
     reason: requireString(input.reason, "reason"),
     skillContext,
     metadata,
+    routing,
   };
 }
 
@@ -653,6 +720,12 @@ function validateCatalogImportEntry(
           `catalog.entries.${index}.negativeRouting`,
         )
         : undefined,
+      routing: entry.routing
+        ? validateRoutingMetadata(
+          entry.routing,
+          `catalog.entries.${index}.routing`,
+        )
+        : undefined,
     };
   }
 
@@ -669,6 +742,12 @@ function validateCatalogImportEntry(
         `catalog.entries.${index}.skillContext`,
       )
       : undefined,
+    routing: entry.routing
+      ? validateRoutingMetadata(
+        entry.routing,
+        `catalog.entries.${index}.routing`,
+      )
+      : undefined,
   };
 }
 
@@ -677,7 +756,8 @@ function hasEditableUpdate(input: CatalogEntryUpdate): boolean {
     input.displayName !== undefined ||
     input.primarySpecialty !== undefined ||
     input.specialtyTags !== undefined ||
-    input.negativeRouting !== undefined;
+    input.negativeRouting !== undefined ||
+    input.routing !== undefined;
 }
 
 function requireEntryType(value: unknown): "agent" | "skill" | "subagent" {
@@ -1016,6 +1096,154 @@ function hasSkillMetadataFields(metadata: SkillMetadataUpdate): boolean {
     metadata.specialtyTags !== undefined;
 }
 
+const routingSignalSources = new Set<RoutingSignalSource>([
+  "skillName",
+  "subagentName",
+  "displayName",
+  "projectName",
+  "primarySpecialty",
+  "specialtyTags",
+  "intent",
+  "positiveKeywords",
+  "domain",
+  "outputNeed",
+  "requiredAny",
+  "requiredAll",
+  "examplePrompts",
+  "usageNotes",
+  "bodyText",
+]);
+
+function validateRoutingMetadata(
+  routing: RoutingMetadata,
+  fieldPrefix: string,
+): RoutingMetadata {
+  const normalized: RoutingMetadata = {};
+
+  if (routing.intents !== undefined) {
+    normalized.intents = requireRoutingStringList(
+      routing.intents,
+      `${fieldPrefix}.intents`,
+    );
+  }
+  if (routing.excludedIntents !== undefined) {
+    normalized.excludedIntents = requireRoutingStringList(
+      routing.excludedIntents,
+      `${fieldPrefix}.excludedIntents`,
+    );
+  }
+  if (routing.positiveKeywords !== undefined) {
+    normalized.positiveKeywords = requireRoutingStringList(
+      routing.positiveKeywords,
+      `${fieldPrefix}.positiveKeywords`,
+    );
+  }
+  if (routing.negativeKeywords !== undefined) {
+    normalized.negativeKeywords = requireRoutingStringList(
+      routing.negativeKeywords,
+      `${fieldPrefix}.negativeKeywords`,
+    );
+  }
+  if (routing.requiredAny !== undefined) {
+    normalized.requiredAny = requireRoutingStringList(
+      routing.requiredAny,
+      `${fieldPrefix}.requiredAny`,
+    );
+  }
+  if (routing.requiredAll !== undefined) {
+    normalized.requiredAll = requireRoutingStringList(
+      routing.requiredAll,
+      `${fieldPrefix}.requiredAll`,
+    );
+  }
+  if (routing.domain !== undefined) {
+    normalized.domain = requireRoutingStringList(
+      routing.domain,
+      `${fieldPrefix}.domain`,
+    );
+  }
+  if (routing.outputNeed !== undefined) {
+    normalized.outputNeed = requireRoutingStringList(
+      routing.outputNeed,
+      `${fieldPrefix}.outputNeed`,
+    );
+  }
+  if (routing.softNegativeExamples !== undefined) {
+    normalized.softNegativeExamples = requireRoutingStringList(
+      routing.softNegativeExamples,
+      `${fieldPrefix}.softNegativeExamples`,
+    );
+  }
+  if (routing.fieldWeights !== undefined) {
+    normalized.fieldWeights = validateRoutingFieldWeights(
+      routing.fieldWeights,
+      `${fieldPrefix}.fieldWeights`,
+    );
+  }
+
+  if (!hasRoutingMetadataFields(normalized)) {
+    throw new LorError(
+      "validation_error",
+      `${fieldPrefix} must include at least one field.`,
+      { field: fieldPrefix },
+    );
+  }
+
+  return normalized;
+}
+
+function validateRoutingFieldWeights(
+  weights: RoutingMetadata["fieldWeights"],
+  fieldPrefix: string,
+): NonNullable<RoutingMetadata["fieldWeights"]> {
+  if (!weights || typeof weights !== "object") {
+    throw new LorError(
+      "validation_error",
+      `${fieldPrefix} must be an object.`,
+      { field: fieldPrefix },
+    );
+  }
+  const normalized: NonNullable<RoutingMetadata["fieldWeights"]> = {};
+  for (const [source, weight] of Object.entries(weights)) {
+    if (!routingSignalSources.has(source as RoutingSignalSource)) {
+      throw new LorError(
+        "validation_error",
+        `${fieldPrefix}.${source} is not a supported routing source.`,
+        { field: `${fieldPrefix}.${source}` },
+      );
+    }
+    if (!Number.isInteger(weight) || weight < 0 || weight > 100) {
+      throw new LorError(
+        "validation_error",
+        `${fieldPrefix}.${source} must be an integer between 0 and 100.`,
+        { field: `${fieldPrefix}.${source}` },
+      );
+    }
+    normalized[source as RoutingSignalSource] = weight;
+  }
+  if (Object.keys(normalized).length === 0) {
+    throw new LorError(
+      "validation_error",
+      `${fieldPrefix} must include at least one source.`,
+      { field: fieldPrefix },
+    );
+  }
+  return normalized;
+}
+
+function hasRoutingMetadataFields(routing: RoutingMetadata): boolean {
+  return routing.intents !== undefined ||
+    routing.excludedIntents !== undefined ||
+    routing.positiveKeywords !== undefined ||
+    routing.negativeKeywords !== undefined ||
+    routing.requiredAny !== undefined ||
+    routing.requiredAll !== undefined ||
+    routing.domain !== undefined ||
+    routing.outputNeed !== undefined ||
+    routing.softNegativeExamples !== undefined ||
+    routing.fieldWeights !== undefined;
+}
+
 function requireStringList(values: readonly string[], field: string): string[] {
   if (!Array.isArray(values)) {
     throw new LorError("validation_error", `${field} is required.`, {
@@ -1023,6 +1251,17 @@ function requireStringList(values: readonly string[], field: string): string[] {
     });
   }
   return values.map((value) => requireString(value, field));
+}
+
+function requireRoutingStringList(
+  values: readonly string[],
+  field: string,
+): string[] {
+  const normalized = requireStringList(values, field).map((value) => {
+    rejectOversizedString(value, field, 120);
+    return value;
+  });
+  return [...new Set(normalized)];
 }
 
 function validateNegativeRouting(

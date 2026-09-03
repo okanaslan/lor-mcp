@@ -1016,7 +1016,7 @@ Deno.test("CatalogService validates skill update proposals and application", asy
           reason: "Improve context.",
         }),
       Error,
-      "At least one skillContext or metadata field is required",
+      "At least one skillContext, metadata, or routing field is required",
     );
     await assertRejects(
       () =>

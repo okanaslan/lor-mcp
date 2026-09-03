@@ -177,6 +177,27 @@ Deno.test("skill update schemas require proposal content and confirmation", () =
       workspace: "LOR-MCP",
       skillName: "backend-skill",
       reason: "Improve routing metadata.",
+      routing: {
+        intents: ["implement_fix"],
+        positiveKeywords: ["backend-api"],
+      },
+    }).success,
+    true,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Clear routing metadata.",
+      routing: null,
+    }).success,
+    true,
+  );
+  assertEquals(
+    proposeSkillUpdateInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "backend-skill",
+      reason: "Improve routing metadata.",
       metadata: {
         specialtyTags: ["deno", "mcp"],
       },
@@ -315,6 +336,79 @@ Deno.test("skill and subagent schemas accept valid negative routing metadata", (
       negativeRouting: null,
     }).success,
     true,
+  );
+});
+
+Deno.test("skill and subagent schemas accept structured routing metadata", () => {
+  const routing = {
+    intents: ["evaluate_feedback"],
+    excludedIntents: ["commit"],
+    positiveKeywords: ["pr-feedback", "reviewer-comment"],
+    negativeKeywords: ["fresh-review"],
+    requiredAny: ["existing-feedback", "unresolved-thread"],
+    requiredAll: ["pull-request"],
+    domain: ["github"],
+    outputNeed: ["triage"],
+    softNegativeExamples: ["fresh branch review"],
+    fieldWeights: {
+      intent: 25,
+      specialtyTags: 15,
+    },
+  };
+
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "pr-feedback-evaluator",
+      projectName: "generic",
+      displayName: "PR Feedback Evaluator",
+      primarySpecialty: "Evaluate received PR feedback.",
+      specialtyTags: ["pr-feedback"],
+      routing,
+    }).success,
+    true,
+  );
+  assertEquals(
+    introduceSubagentInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      name: "feedback-triage-subagent",
+      displayName: "Feedback Triage Subagent",
+      projectName: "generic",
+      purpose: "Evaluate existing PR feedback.",
+      limitedScope: "Only classify received feedback.",
+      primarySpecialty: "PR feedback triage",
+      specialtyTags: ["pr-feedback"],
+      routing,
+    }).success,
+    true,
+  );
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "bad-routing",
+      projectName: "generic",
+      displayName: "Bad Routing",
+      primarySpecialty: "Bad routing metadata.",
+      specialtyTags: ["routing"],
+      routing: {},
+    }).success,
+    false,
+  );
+  assertEquals(
+    introduceSkillInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      skillName: "bad-routing",
+      projectName: "generic",
+      displayName: "Bad Routing",
+      primarySpecialty: "Bad routing metadata.",
+      specialtyTags: ["routing"],
+      routing: {
+        fieldWeights: {
+          intent: 101,
+        },
+      },
+    }).success,
+    false,
   );
 });
 
@@ -918,7 +1012,17 @@ Deno.test("typed matching schemas accept task and hints", () => {
   const input = {
     workspace: "LOR-MCP",
     task: "write focused backend api tests",
+    intent: "implement_fix",
     specialtyHints: ["backend"],
+    positiveKeywords: ["api-route"],
+    negativeKeywords: ["fresh-review"],
+    requiredAny: ["backend-api"],
+    requiredAll: ["code-change"],
+    excludedSkills: ["pr-feedback-evaluator"],
+    preferredSkills: ["okan-backend-api-slice-implementer"],
+    domain: ["nestjs"],
+    outputNeed: ["patch"],
+    debug: true,
   };
 
   assertEquals(findMatchingSkillInputSchema.safeParse(input).success, true);

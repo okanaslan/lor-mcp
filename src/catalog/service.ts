@@ -95,6 +95,7 @@ import {
   validateIntroduceSkill,
   validateIntroduceSubagent,
   validateListWorkspaceNotes,
+  validateMatchRequest,
   validatePrepareAgentInitialization,
   validatePromoteSkillToGlobal,
   validateProposeSkillUpdate,
@@ -1243,18 +1244,14 @@ export class CatalogService {
   async findMatchingEntries(
     request: MatchRequest,
   ): Promise<MatchResult> {
-    const workspace = await this.resolveWorkspace(request.workspace);
-    if (!request.task?.trim()) {
-      throw new LorError("validation_error", "task is required.", {
-        field: "task",
-      });
-    }
+    const validated = validateMatchRequest(request);
+    const workspace = await this.resolveWorkspace(validated.workspace);
 
     const entries = await this.#repository.listEntries(workspace, {
       workspace,
     });
     return findCatalogMatches(entries.filter(isRoutableEntry), {
-      ...request,
+      ...validated,
       workspace,
     });
   }

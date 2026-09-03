@@ -13,6 +13,22 @@ export type MatchStatus = "ok" | "no_match" | "conflict";
 export type ReferenceEntryType = "agent" | "skill";
 export type UsageEntryType = "skill" | "subagent" | "note";
 export type UsageOperation = "listed" | "matched" | "detailed";
+export type RoutingSignalSource =
+  | "skillName"
+  | "subagentName"
+  | "displayName"
+  | "projectName"
+  | "primarySpecialty"
+  | "specialtyTags"
+  | "intent"
+  | "positiveKeywords"
+  | "domain"
+  | "outputNeed"
+  | "requiredAny"
+  | "requiredAll"
+  | "examplePrompts"
+  | "usageNotes"
+  | "bodyText";
 
 export interface VerificationMetadata {
   verificationStatus: VerificationStatus;
@@ -50,6 +66,19 @@ export interface NegativeRoutingMetadata {
   doNotUseWhen: readonly string[];
   insteadUse?: readonly string[];
   notes?: string;
+}
+
+export interface RoutingMetadata {
+  intents?: readonly string[];
+  excludedIntents?: readonly string[];
+  positiveKeywords?: readonly string[];
+  negativeKeywords?: readonly string[];
+  requiredAny?: readonly string[];
+  requiredAll?: readonly string[];
+  domain?: readonly string[];
+  outputNeed?: readonly string[];
+  softNegativeExamples?: readonly string[];
+  fieldWeights?: Partial<Record<RoutingSignalSource, number>>;
 }
 
 export interface SkillImplementationGuidance {
@@ -106,6 +135,7 @@ export interface SkillCatalogEntry extends BaseCatalogEntry {
   scope: CatalogScope;
   skillName: string;
   skillContext?: SkillContext;
+  routing?: RoutingMetadata;
 }
 
 export interface SubagentCatalogEntry extends BaseCatalogEntry {
@@ -122,6 +152,7 @@ export interface SubagentCatalogEntry extends BaseCatalogEntry {
   expectedOutput: string;
   prompt: string;
   negativeRouting?: NegativeRoutingMetadata;
+  routing?: RoutingMetadata;
 }
 
 export type CatalogEntry =
@@ -149,6 +180,7 @@ export interface IntroduceSkillInput {
   primarySpecialty: string;
   specialtyTags: readonly string[];
   skillContext?: SkillContext;
+  routing?: RoutingMetadata;
 }
 
 export interface IntroduceSubagentInput {
@@ -168,6 +200,7 @@ export interface IntroduceSubagentInput {
   constraints?: readonly string[];
   expectedOutput?: string;
   negativeRouting?: NegativeRoutingMetadata;
+  routing?: RoutingMetadata;
 }
 
 export interface ListEntriesFilter {
@@ -211,6 +244,7 @@ export interface CatalogEntryUpdate extends EntryLookup {
   primarySpecialty?: string;
   specialtyTags?: readonly string[];
   negativeRouting?: NegativeRoutingMetadata | null;
+  routing?: RoutingMetadata | null;
 }
 
 export interface PromoteSkillToGlobalInput {
@@ -269,6 +303,7 @@ export interface ProposeSkillUpdateInput {
   reason: string;
   skillContext?: SkillContext;
   metadata?: SkillMetadataUpdate;
+  routing?: RoutingMetadata | null;
 }
 
 export interface ApplySkillUpdateInput {
@@ -286,6 +321,7 @@ export interface SkillUpdateProposal {
   reason: string;
   proposedSkillContext?: SkillContext;
   proposedMetadata?: SkillMetadataUpdate;
+  proposedRouting?: RoutingMetadata | null;
   status: SkillUpdateProposalStatus;
   createdAt: string;
   appliedAt?: string;
@@ -358,6 +394,7 @@ export interface CatalogExportSkillEntry extends VerificationMetadata {
   primarySpecialty: string;
   specialtyTags: readonly string[];
   skillContext?: SkillContext;
+  routing?: RoutingMetadata;
 }
 
 export interface CatalogExportSubagentEntry extends VerificationMetadata {
@@ -376,6 +413,7 @@ export interface CatalogExportSubagentEntry extends VerificationMetadata {
   constraints: readonly string[];
   expectedOutput: string;
   negativeRouting?: NegativeRoutingMetadata;
+  routing?: RoutingMetadata;
 }
 
 export type CatalogExportEntry =
@@ -782,6 +820,29 @@ export interface MatchRequest {
   projectName?: string;
   preferredType?: EntryType;
   specialtyHints?: string[];
+  intent?: string;
+  positiveKeywords?: string[];
+  negativeKeywords?: string[];
+  requiredAny?: string[];
+  requiredAll?: string[];
+  excludedSkills?: string[];
+  preferredSkills?: string[];
+  domain?: string[];
+  outputNeed?: string[];
+  debug?: boolean;
+}
+
+export interface MatchSignal {
+  term: string;
+  source: RoutingSignalSource | string;
+  weight: number;
+}
+
+export interface MatchScoreBreakdown {
+  positive: Partial<Record<RoutingSignalSource | string, number>>;
+  negativePenalty: number;
+  preferenceBoost: number;
+  finalScore: number;
 }
 
 export interface MatchExplanation {
@@ -794,6 +855,11 @@ export interface MatchExplanation {
   negativeMatchedSignals?: string[];
   negativeScore?: number;
   demotedByNegativeRouting?: boolean;
+  signalBreakdown?: MatchSignal[];
+  ignoredSignals?: string[];
+  negativeSignals?: MatchSignal[];
+  finalScoreBreakdown?: MatchScoreBreakdown;
+  excludedBy?: string[];
 }
 
 export interface MatchCandidate {
@@ -813,10 +879,24 @@ export interface MatchCandidate {
   skillReferences?: readonly CatalogReference[];
   unresolvedReferences?: readonly CatalogReference[];
   negativeRouting?: NegativeRoutingMetadata;
+  routing?: RoutingMetadata;
   score: number;
   matchedFields: string[];
   matchedSignals: string[];
   explanation: MatchExplanation;
+}
+
+export interface ExcludedMatchCandidate {
+  scope: CatalogScope;
+  entryType: EntryType;
+  entryKey: string;
+  displayName: string;
+  projectName: string;
+  primarySpecialty: string;
+  specialtyTags: readonly string[];
+  excludedBy: readonly string[];
+  matchedSignals: readonly string[];
+  negativeSignals: readonly MatchSignal[];
 }
 
 export interface MatchData {
@@ -824,6 +904,9 @@ export interface MatchData {
   skills: MatchCandidate[];
   subagents: MatchCandidate[];
   agentsAmbiguous: boolean;
+  ignoredSignals?: string[];
+  querySignals?: string[];
+  excludedCandidates?: ExcludedMatchCandidate[];
   conflict?: {
     reason: string;
     candidates: MatchCandidate[];
