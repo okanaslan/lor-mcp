@@ -505,6 +505,57 @@ Deno.test("SqliteCatalogRepository round-trips negative routing metadata", async
   }
 });
 
+Deno.test("SqliteCatalogRepository round-trips structured routing metadata", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    const routing = {
+      intents: ["evaluate_feedback"],
+      excludedIntents: ["commit"],
+      positiveKeywords: ["pr-feedback", "reviewer-comment"],
+      negativeKeywords: ["fresh-review"],
+      requiredAny: ["existing-feedback"],
+      requiredAll: ["pull-request"],
+      domain: ["github"],
+      outputNeed: ["triage"],
+      softNegativeExamples: ["fresh branch review"],
+      fieldWeights: {
+        intent: 25,
+        specialtyTags: 15,
+      },
+    };
+    await seedSkill(repo, "workspace-a", "pr-feedback-evaluator", {
+      routing,
+    });
+    await seedSubagent(repo, "workspace-a", "feedback-subagent", {
+      routing,
+    });
+
+    const skill = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "skill",
+      entryKey: "pr-feedback-evaluator",
+      scope: "workspace",
+    });
+    const subagent = await repo.getEntry("workspace-a", {
+      workspace: "workspace-a",
+      entryType: "subagent",
+      entryKey: "feedback-subagent",
+      scope: "workspace",
+    });
+
+    assertEquals(skill?.entryType, "skill");
+    assertEquals(subagent?.entryType, "subagent");
+    if (skill?.entryType === "skill") {
+      assertEquals(skill.routing, routing);
+    }
+    if (subagent?.entryType === "subagent") {
+      assertEquals(subagent.routing, routing);
+    }
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("SqliteCatalogRepository round-trips implementation guidance metadata", async () => {
   const repo = await createInitializedRepository();
   try {
@@ -553,6 +604,10 @@ Deno.test("SqliteCatalogRepository persists skill update proposals across restar
       proposedMetadata: {
         specialtyTags: ["backend", "api"],
       },
+      proposedRouting: {
+        intents: ["implement_fix"],
+        positiveKeywords: ["backend-api"],
+      },
       status: "pending",
       createdAt: FIXED_NOW,
     });
@@ -574,6 +629,7 @@ Deno.test("SqliteCatalogRepository persists skill update proposals across restar
       "Use for backend API work.",
     );
     assertEquals(proposal?.proposedMetadata?.specialtyTags, ["backend", "api"]);
+    assertEquals(proposal?.proposedRouting?.intents, ["implement_fix"]);
   } finally {
     secondRepo.close();
   }
@@ -615,6 +671,10 @@ Deno.test("SqliteCatalogRepository applies skill update proposals", async () => 
           skillContext: {
             usageNotes: "Use after checking existing catalog entries.",
           },
+          routing: {
+            intents: ["implement_fix"],
+            positiveKeywords: ["backend-api"],
+          },
           verificationStatus: "verified",
           verificationSource: "test",
           verifiedAt: FIXED_NOW,
@@ -648,6 +708,7 @@ Deno.test("SqliteCatalogRepository applies skill update proposals", async () => 
       skill.skillContext?.usageNotes,
       "Use after checking existing catalog entries.",
     );
+    assertEquals(skill.routing?.positiveKeywords, ["backend-api"]);
     assertEquals(secondApply, undefined);
   } finally {
     repo.close();
@@ -1013,7 +1074,7 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     });
     const workspaceB = await repo.getUsageCounters("workspace-b", {});
 
-    assertEquals(schemaVersion, 11);
+    assertEquals(schemaVersion, 12);
     assertEquals(workspaceA.map((record) => record.entryKey), [
       "backend-skill",
       "api-test-subagent",

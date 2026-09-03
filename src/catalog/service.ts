@@ -444,6 +444,7 @@ export class CatalogService {
       primarySpecialty: source.primarySpecialty,
       specialtyTags: source.specialtyTags,
       skillContext: source.skillContext,
+      routing: source.routing,
       verification: {
         verificationStatus: source.verificationStatus,
         verificationSource: source.verificationSource,
@@ -595,6 +596,7 @@ export class CatalogService {
     const after = mergeSkillUpdate(existing, {
       skillContext: validated.skillContext,
       metadata: validated.metadata,
+      routing: validated.routing,
       updatedAt: now,
     });
     const proposal: SkillUpdateProposal = {
@@ -605,6 +607,7 @@ export class CatalogService {
       reason: validated.reason,
       proposedSkillContext: validated.skillContext,
       proposedMetadata: validated.metadata,
+      proposedRouting: validated.routing,
       status: "pending",
       createdAt: now,
     };
@@ -655,6 +658,7 @@ export class CatalogService {
     const after = mergeSkillUpdate(existing, {
       skillContext: proposal.proposedSkillContext,
       metadata: proposal.proposedMetadata,
+      routing: proposal.proposedRouting,
       updatedAt: appliedAt,
     });
     const applied = await this.#repository.applySkillUpdateProposal(
@@ -864,6 +868,7 @@ export class CatalogService {
           primarySpecialty: entry.primarySpecialty,
           specialtyTags: entry.specialtyTags,
           skillContext: entry.skillContext,
+          routing: entry.routing,
           verification: {
             verificationStatus: entry.verificationStatus,
             verificationSource: entry.verificationSource,
@@ -890,6 +895,7 @@ export class CatalogService {
           constraints: entry.constraints,
           expectedOutput: entry.expectedOutput,
           negativeRouting: entry.negativeRouting,
+          routing: entry.routing,
           verification: {
             verificationStatus: entry.verificationStatus,
             verificationSource: entry.verificationSource,
@@ -1700,6 +1706,7 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
       entryType: "skill",
       skillName: entry.skillName,
       skillContext: entry.skillContext,
+      routing: entry.routing,
     };
   }
 
@@ -1716,6 +1723,7 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
     constraints: entry.constraints,
     expectedOutput: entry.expectedOutput,
     negativeRouting: entry.negativeRouting,
+    routing: entry.routing,
   };
 }
 
@@ -2005,6 +2013,7 @@ function mergeSkillUpdate(
   input: {
     skillContext?: SkillContext;
     metadata?: SkillMetadataUpdate;
+    routing?: SkillCatalogEntry["routing"] | null;
     updatedAt: string;
   },
 ): SkillCatalogEntry {
@@ -2016,8 +2025,22 @@ function mergeSkillUpdate(
       entry.primarySpecialty,
     specialtyTags: input.metadata?.specialtyTags ?? entry.specialtyTags,
     skillContext: mergeSkillContext(entry.skillContext, input.skillContext),
+    routing: mergeRouting(entry.routing, input.routing),
     updatedAt: input.updatedAt,
   };
+}
+
+function mergeRouting(
+  current: SkillCatalogEntry["routing"],
+  update: SkillCatalogEntry["routing"] | null | undefined,
+): SkillCatalogEntry["routing"] {
+  if (update === undefined) {
+    return current;
+  }
+  if (update === null) {
+    return undefined;
+  }
+  return update;
 }
 
 function mergeSkillContext(

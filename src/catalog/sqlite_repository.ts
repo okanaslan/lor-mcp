@@ -73,6 +73,7 @@ interface SkillRow {
   primarySpecialty: string;
   specialtyTags: string;
   skillContext: string | null;
+  routingMetadata: string | null;
   verificationStatus: string;
   verificationSource: string;
   verifiedAt: string;
@@ -97,6 +98,7 @@ interface SubagentRow {
   constraints: string;
   expectedOutput: string;
   negativeRouting: string | null;
+  routingMetadata: string | null;
   verificationStatus: string;
   verificationSource: string;
   verifiedAt: string;
@@ -112,6 +114,7 @@ interface SkillUpdateProposalRow {
   reason: string;
   proposedSkillContext: string | null;
   proposedMetadata: string | null;
+  proposedRouting: string | null;
   status: string;
   createdAt: string;
   appliedAt: string | null;
@@ -168,13 +171,14 @@ export class SqliteCatalogRepository implements CatalogRepository {
       migrateAgentLifecycleColumns(this.#db);
       migrateAgentReachabilityColumns(this.#db);
       migrateSubagentNegativeRoutingColumn(this.#db);
+      migrateRoutingMetadataColumns(this.#db);
       this.#db.exec(DELEGATED_TASKS_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_MESSAGES_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
       this.#db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
       this.#db.exec(USAGE_COUNTERS_SCHEMA_SQL);
       backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 11);
+      recordSchemaVersion(this.#db, 12);
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -267,10 +271,10 @@ export class SqliteCatalogRepository implements CatalogRepository {
       db.exec(
         `INSERT INTO introduced_skills (
           workspace, skillName, projectName, displayName,
-          primarySpecialty, specialtyTags, skillContext, verificationStatus,
-          verificationSource, verifiedAt, verificationMessage, createdAt,
-          updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          primarySpecialty, specialtyTags, skillContext, routingMetadata,
+          verificationStatus, verificationSource, verifiedAt,
+          verificationMessage, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         storageWorkspace,
         input.skillName,
         input.projectName,
@@ -278,6 +282,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         input.primarySpecialty,
         JSON.stringify(input.specialtyTags),
         input.skillContext ? JSON.stringify(input.skillContext) : null,
+        input.routing ? JSON.stringify(input.routing) : null,
         input.verification.verificationStatus,
         input.verification.verificationSource,
         input.verification.verifiedAt,
@@ -328,10 +333,10 @@ export class SqliteCatalogRepository implements CatalogRepository {
           workspace, name, projectName, displayName, purpose, limitedScope,
           primarySpecialty, specialtyTags, agentReferences, skillReferences,
           unresolvedReferences, promptTemplate, constraints, expectedOutput,
-          negativeRouting,
+          negativeRouting, routingMetadata,
           verificationStatus, verificationSource, verifiedAt,
           verificationMessage, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         storageWorkspace,
         input.name,
         input.projectName,
@@ -347,6 +352,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         JSON.stringify(promptFields.constraints),
         promptFields.expectedOutput,
         input.negativeRouting ? JSON.stringify(input.negativeRouting) : null,
+        input.routing ? JSON.stringify(input.routing) : null,
         input.verification.verificationStatus,
         input.verification.verificationSource,
         input.verification.verifiedAt,
@@ -382,8 +388,8 @@ export class SqliteCatalogRepository implements CatalogRepository {
       db.exec(
         `INSERT INTO skill_update_proposals (
           proposalId, workspace, skillName, reason, proposedSkillContext,
-          proposedMetadata, status, createdAt, appliedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          proposedMetadata, proposedRouting, status, createdAt, appliedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         input.proposalId,
         storageWorkspace,
         input.skillName,
@@ -392,6 +398,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
           ? JSON.stringify(input.proposedSkillContext)
           : null,
         input.proposedMetadata ? JSON.stringify(input.proposedMetadata) : null,
+        input.proposedRouting !== undefined
+          ? JSON.stringify(input.proposedRouting)
+          : null,
         input.status,
         input.createdAt,
         input.appliedAt ?? null,
@@ -453,7 +462,8 @@ export class SqliteCatalogRepository implements CatalogRepository {
       db.exec(
         `UPDATE introduced_skills
          SET projectName = ?, displayName = ?, primarySpecialty = ?,
-           specialtyTags = ?, skillContext = ?, updatedAt = ?
+           specialtyTags = ?, skillContext = ?, routingMetadata = ?,
+           updatedAt = ?
          WHERE workspace = ? AND skillName = ?`,
         input.entry.projectName,
         input.entry.displayName,
@@ -462,6 +472,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         input.entry.skillContext
           ? JSON.stringify(input.entry.skillContext)
           : null,
+        input.entry.routing ? JSON.stringify(input.entry.routing) : null,
         input.appliedAt,
         storageWorkspace,
         input.entry.skillName,
@@ -557,13 +568,15 @@ export class SqliteCatalogRepository implements CatalogRepository {
         db.exec(
           `UPDATE introduced_skills
            SET projectName = ?, displayName = ?, primarySpecialty = ?,
-             specialtyTags = ?, skillContext = ?, updatedAt = ?
+             specialtyTags = ?, skillContext = ?, routingMetadata = ?,
+             updatedAt = ?
            WHERE workspace = ? AND skillName = ?`,
           input.projectName ?? existing.projectName,
           input.displayName ?? existing.displayName,
           input.primarySpecialty ?? existing.primarySpecialty,
           JSON.stringify(input.specialtyTags ?? existing.specialtyTags),
           skillContext ? JSON.stringify(skillContext) : null,
+          routingMetadataJson(existing, input.routing),
           input.now,
           storageWorkspace,
           input.entryKey,
@@ -576,13 +589,15 @@ export class SqliteCatalogRepository implements CatalogRepository {
         db.exec(
           `UPDATE introduced_subagents
            SET projectName = ?, displayName = ?, primarySpecialty = ?,
-             specialtyTags = ?, negativeRouting = ?, updatedAt = ?
+             specialtyTags = ?, negativeRouting = ?, routingMetadata = ?,
+             updatedAt = ?
            WHERE workspace = ? AND name = ?`,
           input.projectName ?? existing.projectName,
           input.displayName ?? existing.displayName,
           input.primarySpecialty ?? existing.primarySpecialty,
           JSON.stringify(input.specialtyTags ?? existing.specialtyTags),
           subagentNegativeRoutingJson(existing, input.negativeRouting),
+          routingMetadataJson(existing, input.routing),
           input.now,
           storageWorkspace,
           input.entryKey,
@@ -1295,6 +1310,7 @@ function mapSkillRow(row: SkillRow): SkillCatalogEntry {
     primarySpecialty: row.primarySpecialty,
     specialtyTags: parseTags(row.specialtyTags),
     skillContext: row.skillContext ? JSON.parse(row.skillContext) : undefined,
+    routing: row.routingMetadata ? JSON.parse(row.routingMetadata) : undefined,
     verificationStatus: parseVerificationStatus(row.verificationStatus),
     verificationSource: row.verificationSource,
     verifiedAt: row.verifiedAt,
@@ -1326,6 +1342,7 @@ function mapSubagentRow(row: SubagentRow): SubagentCatalogEntry {
     negativeRouting: row.negativeRouting
       ? JSON.parse(row.negativeRouting)
       : undefined,
+    routing: row.routingMetadata ? JSON.parse(row.routingMetadata) : undefined,
     verificationStatus: parseVerificationStatus(row.verificationStatus),
     verificationSource: row.verificationSource,
     verifiedAt: row.verifiedAt,
@@ -1368,6 +1385,18 @@ function subagentNegativeRoutingJson(
   return negativeRouting === null ? null : JSON.stringify(negativeRouting);
 }
 
+function routingMetadataJson(
+  existing: CatalogEntry,
+  routing: CatalogEntryUpdate["routing"],
+): string | null {
+  if (routing === undefined) {
+    return "routing" in existing && existing.routing
+      ? JSON.stringify(existing.routing)
+      : null;
+  }
+  return routing === null ? null : JSON.stringify(routing);
+}
+
 function mapSkillUpdateProposalRow(
   row: SkillUpdateProposalRow,
 ): SkillUpdateProposal {
@@ -1382,6 +1411,9 @@ function mapSkillUpdateProposalRow(
       : undefined,
     proposedMetadata: row.proposedMetadata
       ? JSON.parse(row.proposedMetadata)
+      : undefined,
+    proposedRouting: row.proposedRouting !== null
+      ? JSON.parse(row.proposedRouting)
       : undefined,
     status: row.status === "applied" ? "applied" : "pending",
     createdAt: row.createdAt,
@@ -1636,6 +1668,41 @@ function migrateSubagentNegativeRoutingColumn(db: Database): void {
   }
 }
 
+function migrateRoutingMetadataColumns(db: Database): void {
+  addColumnIfMissing(
+    db,
+    "introduced_skills",
+    "routingMetadata",
+    "TEXT",
+  );
+  addColumnIfMissing(
+    db,
+    "introduced_subagents",
+    "routingMetadata",
+    "TEXT",
+  );
+  addColumnIfMissing(
+    db,
+    "skill_update_proposals",
+    "proposedRouting",
+    "TEXT",
+  );
+}
+
+function addColumnIfMissing(
+  db: Database,
+  tableName: string,
+  columnName: string,
+  definition: string,
+): void {
+  const columns = db.prepare<TableColumn>(`PRAGMA table_info(${tableName})`)
+    .all();
+  const columnNames = new Set(columns.map((column) => column.name));
+  if (!columnNames.has(columnName)) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
+}
+
 function renameLegacyNamespaceColumn(db: Database, tableName: string): void {
   const columns = db.prepare<TableColumn>(`PRAGMA table_info(${tableName})`)
     .all();
@@ -1761,6 +1828,7 @@ CREATE TABLE IF NOT EXISTS introduced_skills (
   primarySpecialty TEXT NOT NULL,
   specialtyTags TEXT NOT NULL,
   skillContext TEXT,
+  routingMetadata TEXT,
   verificationStatus TEXT NOT NULL,
   verificationSource TEXT NOT NULL,
   verifiedAt TEXT NOT NULL,
@@ -1786,6 +1854,7 @@ CREATE TABLE IF NOT EXISTS introduced_subagents (
   constraints TEXT NOT NULL,
   expectedOutput TEXT NOT NULL,
   negativeRouting TEXT,
+  routingMetadata TEXT,
   verificationStatus TEXT NOT NULL,
   verificationSource TEXT NOT NULL,
   verifiedAt TEXT NOT NULL,
@@ -1802,6 +1871,7 @@ CREATE TABLE IF NOT EXISTS skill_update_proposals (
   reason TEXT NOT NULL,
   proposedSkillContext TEXT,
   proposedMetadata TEXT,
+  proposedRouting TEXT,
   status TEXT NOT NULL,
   createdAt TEXT NOT NULL,
   appliedAt TEXT,

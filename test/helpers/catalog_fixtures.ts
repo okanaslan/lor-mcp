@@ -87,6 +87,7 @@ export async function seedSkill(
     primarySpecialty: overrides.primarySpecialty ?? "backend api",
     specialtyTags: overrides.specialtyTags ?? ["api"],
     skillContext: overrides.skillContext,
+    routing: overrides.routing,
     verification: overrides.verification ?? verification,
     now: overrides.now ?? FIXED_NOW,
   });
@@ -116,6 +117,7 @@ export async function seedSubagent(
     constraints: overrides.constraints,
     expectedOutput: overrides.expectedOutput,
     negativeRouting: overrides.negativeRouting,
+    routing: overrides.routing,
     verification: overrides.verification ?? verification,
     now: overrides.now ?? FIXED_NOW,
   });

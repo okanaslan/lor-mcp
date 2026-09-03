@@ -953,6 +953,11 @@ Deno.test("CatalogService applies skill update with confirmation", async () => {
         primarySpecialty: "Deno MCP backend",
         specialtyTags: ["deno", "mcp", "backend"],
       },
+      routing: {
+        intents: ["implement"],
+        positiveKeywords: ["backend-api", "mcp-tool"],
+        requiredAny: ["backend"],
+      },
     });
 
     const applied = await service.applySkillUpdate({
@@ -970,6 +975,11 @@ Deno.test("CatalogService applies skill update with confirmation", async () => {
     assertEquals(applied.proposal.appliedAt, FIXED_NOW);
     assertEquals(applied.after.primarySpecialty, "Deno MCP backend");
     assertEquals(applied.after.specialtyTags, ["deno", "mcp", "backend"]);
+    assertEquals(applied.after.routing, {
+      intents: ["implement"],
+      positiveKeywords: ["backend-api", "mcp-tool"],
+      requiredAny: ["backend"],
+    });
     if (detail?.entryType !== "skill") {
       throw new Error("Expected skill.");
     }
@@ -980,6 +990,11 @@ Deno.test("CatalogService applies skill update with confirmation", async () => {
     assertEquals(detail.skillContext?.constraints, [
       "Do not edit local skill files.",
     ]);
+    assertEquals(detail.routing, {
+      intents: ["implement"],
+      positiveKeywords: ["backend-api", "mcp-tool"],
+      requiredAny: ["backend"],
+    });
   } finally {
     repo.close();
   }
@@ -2676,7 +2691,7 @@ Deno.test("CatalogService does not fail successful operations when usage writes 
   }
 });
 
-Deno.test("CatalogService updates and clears negative routing metadata", async () => {
+Deno.test("CatalogService updates and clears routing metadata", async () => {
   const { repo, service } = await createCatalogService();
   try {
     await service.introduceSkill({
@@ -2704,6 +2719,11 @@ Deno.test("CatalogService updates and clears negative routing metadata", async (
       workspace: "LOR-MCP",
       scope: "workspace",
       skillName: "performance-audit",
+      routing: {
+        intents: ["performance_audit"],
+        positiveKeywords: ["performance"],
+        negativeKeywords: ["memory-profiling"],
+      },
       negativeRouting: {
         doNotUseWhen: ["memory profiling"],
         insteadUse: ["memory-profiling"],
@@ -2713,6 +2733,11 @@ Deno.test("CatalogService updates and clears negative routing metadata", async (
       workspace: "LOR-MCP",
       scope: "workspace",
       subagentName: "performance-subagent",
+      routing: {
+        intents: ["performance_audit"],
+        positiveKeywords: ["performance"],
+        negativeKeywords: ["memory-profiling"],
+      },
       negativeRouting: {
         doNotUseWhen: ["memory profiling"],
       },
@@ -2721,23 +2746,37 @@ Deno.test("CatalogService updates and clears negative routing metadata", async (
       workspace: "LOR-MCP",
       scope: "workspace",
       skillName: "performance-audit",
+      routing: null,
       negativeRouting: null,
     });
     const clearedSubagent = await service.updateSubagent({
       workspace: "LOR-MCP",
       scope: "workspace",
       subagentName: "performance-subagent",
+      routing: null,
       negativeRouting: null,
     });
 
+    assertEquals(updatedSkill.routing, {
+      intents: ["performance_audit"],
+      positiveKeywords: ["performance"],
+      negativeKeywords: ["memory-profiling"],
+    });
     assertEquals(updatedSkill.skillContext?.negativeRouting, {
       doNotUseWhen: ["memory profiling"],
       insteadUse: ["memory-profiling"],
     });
+    assertEquals(updatedSubagent.routing, {
+      intents: ["performance_audit"],
+      positiveKeywords: ["performance"],
+      negativeKeywords: ["memory-profiling"],
+    });
     assertEquals(updatedSubagent.negativeRouting, {
       doNotUseWhen: ["memory profiling"],
     });
+    assertEquals(clearedSkill.routing, undefined);
     assertEquals(clearedSkill.skillContext?.negativeRouting, undefined);
+    assertEquals(clearedSubagent.routing, undefined);
     assertEquals(clearedSubagent.negativeRouting, undefined);
   } finally {
     repo.close();
@@ -2768,6 +2807,11 @@ Deno.test("CatalogService preserves negative routing through skill proposals", a
           insteadUse: ["memory-profiling"],
         },
       },
+      routing: {
+        intents: ["performance_audit"],
+        positiveKeywords: ["performance"],
+        negativeKeywords: ["memory-profiling"],
+      },
     });
     const applied = await service.applySkillUpdate({
       workspace: "LOR-MCP",
@@ -2776,9 +2820,19 @@ Deno.test("CatalogService preserves negative routing through skill proposals", a
       confirm: true,
     });
 
+    assertEquals(proposal.after.routing, {
+      intents: ["performance_audit"],
+      positiveKeywords: ["performance"],
+      negativeKeywords: ["memory-profiling"],
+    });
     assertEquals(proposal.after.skillContext?.negativeRouting, {
       doNotUseWhen: ["memory profiling"],
       insteadUse: ["memory-profiling"],
+    });
+    assertEquals(applied.after.routing, {
+      intents: ["performance_audit"],
+      positiveKeywords: ["performance"],
+      negativeKeywords: ["memory-profiling"],
     });
     assertEquals(applied.after.skillContext?.negativeRouting, {
       doNotUseWhen: ["memory profiling"],
@@ -2792,6 +2846,14 @@ Deno.test("CatalogService preserves negative routing through skill proposals", a
 Deno.test("CatalogService preserves negative routing through export import and sync", async () => {
   const { repo, service } = await createCatalogService();
   try {
+    const routing = {
+      intents: ["performance_audit"],
+      positiveKeywords: ["performance"],
+      negativeKeywords: ["memory-profiling"],
+      requiredAny: ["profiling-report"],
+      domain: ["deno"],
+      outputNeed: ["triage"],
+    };
     await service.introduceSkill({
       workspace: "Source",
       scope: "workspace",
@@ -2800,6 +2862,7 @@ Deno.test("CatalogService preserves negative routing through export import and s
       displayName: "Performance Audit",
       primarySpecialty: "performance audit",
       specialtyTags: ["performance"],
+      routing,
       skillContext: {
         negativeRouting: {
           doNotUseWhen: ["memory profiling"],
@@ -2817,6 +2880,7 @@ Deno.test("CatalogService preserves negative routing through export import and s
       limitedScope: "Only inspect performance files.",
       primarySpecialty: "performance",
       specialtyTags: ["performance"],
+      routing,
       negativeRouting: {
         doNotUseWhen: ["memory profiling"],
       },
@@ -2848,6 +2912,11 @@ Deno.test("CatalogService preserves negative routing through export import and s
       skillName: "performance-audit",
       scope: "workspace",
     });
+    const syncedSubagent = await service.getSubagentDetail({
+      workspace: "Synced",
+      subagentName: "performance-subagent",
+      scope: "workspace",
+    });
 
     assertEquals(
       exported.entries.find((entry) => entry.entryType === "skill"),
@@ -2862,6 +2931,7 @@ Deno.test("CatalogService preserves negative routing through export import and s
         verificationSource: "mcp_introduction",
         verifiedAt: FIXED_NOW,
         verificationMessage: undefined,
+        routing,
         skillContext: {
           negativeRouting: {
             doNotUseWhen: ["memory profiling"],
@@ -2870,17 +2940,21 @@ Deno.test("CatalogService preserves negative routing through export import and s
         },
       },
     );
+    assertEquals(importedSkill?.routing, routing);
     assertEquals(importedSkill?.skillContext?.negativeRouting, {
       doNotUseWhen: ["memory profiling"],
       insteadUse: ["memory-profiling"],
     });
+    assertEquals(importedSubagent?.routing, routing);
     assertEquals(importedSubagent?.negativeRouting, {
       doNotUseWhen: ["memory profiling"],
     });
+    assertEquals(syncedSkill?.routing, routing);
     assertEquals(syncedSkill?.skillContext?.negativeRouting, {
       doNotUseWhen: ["memory profiling"],
       insteadUse: ["memory-profiling"],
     });
+    assertEquals(syncedSubagent?.routing, routing);
   } finally {
     repo.close();
   }
