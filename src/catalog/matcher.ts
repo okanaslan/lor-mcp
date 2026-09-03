@@ -63,6 +63,8 @@ const MINIMUM_SCORE = 3;
 const PREFERRED_SKILL_BOOST = 20;
 
 const DEFAULT_FIELD_WEIGHTS: Record<string, number> = {
+  skillName: 30,
+  subagentName: 30,
   "routing.intents": 25,
   "routing.requiredAll": 18,
   "routing.requiredAny": 16,
@@ -124,6 +126,7 @@ const STOP_WORDS = new Set([
   "of",
   "on",
   "or",
+  "request",
   "that",
   "the",
   "this",
@@ -131,6 +134,17 @@ const STOP_WORDS = new Set([
   "use",
   "when",
   "with",
+]);
+
+const NEGATIVE_ROUTING_GENERIC_TERMS = new Set([
+  "comment",
+  "comments",
+  "feedback",
+  "pull",
+  "pull-request",
+  "review",
+  "reviewer",
+  "reviewer-comment",
 ]);
 
 const ALIASES: ReadonlyArray<[RegExp, string]> = [
@@ -307,6 +321,7 @@ function scoreEntry(
 
   const fieldScores = [
     ...scoreRoutingFields(entry, query),
+    ...scoreIdentityFields(entry, query),
     scoreField(
       "primarySpecialty",
       "primarySpecialty",
@@ -369,14 +384,15 @@ function scoreEntry(
   }
 
   const matchedFields = [...new Set(fieldScores.map((field) => field.field))];
-  const matchedSignals = [
-    ...new Set(fieldScores.flatMap((field) => field.signals)),
-  ];
+  const matchedSignals = uniqueMatchedSignalStrings(
+    fieldScores.flatMap((field) => field.signals),
+  );
   const confidence = adjustedScore >= 10 ? "high" : "medium";
   const strongestField = [...fieldScores].sort((a, b) => b.score - a.score)[0]
     ?.field;
+  const summarySignals = summaryMatchedSignals(fieldScores);
   const explanation: MatchCandidate["explanation"] = {
-    summary: explanationSummary(entry, strongestField, matchedSignals),
+    summary: explanationSummary(entry, strongestField, summarySignals),
     confidence,
     matchedFields,
     matchedSignals,
@@ -456,6 +472,53 @@ function compactSkillContext(
   const { implementationGuidance: _implementationGuidance, ...compact } =
     skillContext;
   return Object.keys(compact).length > 0 ? compact : undefined;
+}
+
+function scoreIdentityFields(
+  entry: CatalogEntry,
+  query: NormalizedQuery,
+): FieldScore[] {
+  if (entry.entryType === "skill") {
+    return [
+      scoreIdentityField(
+        "skillName",
+        "skillName",
+        entry.skillName,
+        query.positiveSignals,
+        fieldWeight(entry.routing, "skillName"),
+      ),
+    ].filter((score): score is FieldScore => score !== undefined);
+  }
+  if (entry.entryType === "subagent") {
+    return [
+      scoreIdentityField(
+        "subagentName",
+        "subagentName",
+        entry.name,
+        query.positiveSignals,
+        fieldWeight(entry.routing, "subagentName"),
+      ),
+    ].filter((score): score is FieldScore => score !== undefined);
+  }
+  return [];
+}
+
+function scoreIdentityField(
+  field: string,
+  source: string,
+  value: string,
+  querySignals: QuerySignal[],
+  weight: number,
+): FieldScore | undefined {
+  const terms = normalizeTerms([value]).terms;
+  const hasCompoundIdentifier = terms.some((term) => term.includes("-"));
+  const fieldTerms = hasCompoundIdentifier
+    ? terms.filter((term) => term.includes("-"))
+    : terms;
+  const identitySignals = hasCompoundIdentifier
+    ? querySignals.filter((signal) => signal.term.includes("-"))
+    : querySignals;
+  return scoreFieldTerms(field, source, fieldTerms, identitySignals, weight);
 }
 
 function scoreRoutingFields(
@@ -556,7 +619,22 @@ function scoreField(
   querySignals: QuerySignal[],
   weight: number,
 ): FieldScore | undefined {
-  const fieldTerms = normalizeTerms([value]).terms;
+  return scoreFieldTerms(
+    field,
+    source,
+    normalizeTerms([value]).terms,
+    querySignals,
+    weight,
+  );
+}
+
+function scoreFieldTerms(
+  field: string,
+  source: RoutingSignalSource | string,
+  fieldTerms: readonly string[],
+  querySignals: QuerySignal[],
+  weight: number,
+): FieldScore | undefined {
   let score = 0;
   const signals: string[] = [];
   const signalBreakdown: MatchSignal[] = [];
@@ -566,11 +644,16 @@ function scoreField(
       const tokenScore = scoreToken(querySignal.term, fieldTerm, weight);
       if (tokenScore > 0) {
         score += tokenScore;
-        signals.push(querySignal.term);
+        signals.push(formatMatchedSignal(querySignal, source, fieldTerm));
         signalBreakdown.push({
-          term: querySignal.term,
+          term: fieldTerm,
           source,
           weight: tokenScore,
+          queryTerm: querySignal.term,
+          querySource: querySignal.source,
+          candidateTerm: fieldTerm,
+          candidateSource: source,
+          matchKind: querySignal.term === fieldTerm ? "exact" : "prefix",
         });
         break;
       }
@@ -596,11 +679,12 @@ function scoreToken(
   if (queryToken === fieldToken) {
     return weight;
   }
-  if (fieldToken.startsWith(queryToken) || queryToken.startsWith(fieldToken)) {
+  if (
+    queryToken.length >= 6 &&
+    fieldToken.length >= 6 &&
+    (fieldToken.startsWith(queryToken) || queryToken.startsWith(fieldToken))
+  ) {
     return Math.max(1, Math.floor(weight * 0.6));
-  }
-  if (fieldToken.includes(queryToken) || queryToken.includes(fieldToken)) {
-    return Math.max(1, Math.floor(weight * 0.4));
   }
   return 0;
 }
@@ -622,10 +706,9 @@ function scoreNegativeRouting(
   const field = entry.entryType === "skill"
     ? "skillContext.negativeRouting.doNotUseWhen"
     : "negativeRouting.doNotUseWhen";
-  const fieldScore = scoreField(
+  const fieldScore = scoreLegacyNegativeRoutingExamples(
     field,
-    field,
-    negativeRouting.doNotUseWhen.join(" "),
+    negativeRouting.doNotUseWhen,
     querySignals,
     6,
   );
@@ -635,8 +718,47 @@ function scoreNegativeRouting(
   return {
     fields: [field],
     score: fieldScore.score,
-    signals: fieldScore.signals,
+    signals: fieldScore.signalBreakdown.map((signal) =>
+      signal.candidateTerm ?? signal.term
+    ),
     signalBreakdown: fieldScore.signalBreakdown,
+  };
+}
+
+function scoreLegacyNegativeRoutingExamples(
+  field: string,
+  values: readonly string[],
+  querySignals: QuerySignal[],
+  weight: number,
+): FieldScore | undefined {
+  const scores = values.map((value) => {
+    const fieldTerms = normalizeTerms([value]).terms;
+    const distinctiveTerms = fieldTerms.filter((term) =>
+      !NEGATIVE_ROUTING_GENERIC_TERMS.has(term)
+    );
+    return scoreFieldTerms(
+      field,
+      field,
+      distinctiveTerms.length > 0 ? distinctiveTerms : fieldTerms,
+      querySignals,
+      weight,
+    );
+  }).filter((score): score is FieldScore => score !== undefined);
+
+  if (scores.length === 0) {
+    return undefined;
+  }
+
+  return {
+    field,
+    source: field,
+    score: scores.reduce((sum, score) => sum + score.score, 0),
+    signals: uniqueMatchedSignalStrings(
+      scores.flatMap((score) => score.signals),
+    ),
+    signalBreakdown: uniqueSignals(
+      scores.flatMap((score) => score.signalBreakdown),
+    ),
   };
 }
 
@@ -671,7 +793,16 @@ function scoreStructuredNegativeRouting(
   return {
     fields: fieldScores.map((score) => score.field),
     score: fieldScores.reduce((sum, field) => sum + field.score, 0),
-    signals: [...new Set(fieldScores.flatMap((score) => score.signals))],
+    signals: [
+      ...new Set(
+        fieldScores.flatMap((score) =>
+          score.signalBreakdown.map((signal) =>
+            signal.candidateTerm ??
+              signal.term
+          )
+        ),
+      ),
+    ],
     signalBreakdown: fieldScores.flatMap((score) => score.signalBreakdown),
   };
 }
@@ -694,7 +825,12 @@ function scoreRequestNegativeAgainstEntry(
     fields: ["request.negativeKeywords"],
     score: matches.length * 10,
     signals: [...new Set(matches)],
-    signalBreakdown: toSignals(matches, "negativeKeywords", 10),
+    signalBreakdown: toSignals(
+      matches,
+      "negativeKeywords",
+      10,
+      "negativeKeywords",
+    ),
   };
 }
 
@@ -976,7 +1112,15 @@ function uniqueQuerySignals(signals: QuerySignal[]): QuerySignal[] {
 function uniqueSignals(signals: MatchSignal[]): MatchSignal[] {
   const seen = new Set<string>();
   return signals.filter((signal) => {
-    const key = `${signal.source}\u0000${signal.term}\u0000${signal.weight}`;
+    const key = [
+      signal.querySource,
+      signal.queryTerm,
+      signal.candidateSource,
+      signal.candidateTerm,
+      signal.source,
+      signal.term,
+      signal.weight,
+    ].join("\u0000");
     if (seen.has(key)) {
       return false;
     }
@@ -989,8 +1133,97 @@ function toSignals(
   terms: readonly string[],
   source: RoutingSignalSource | string,
   weight: number,
+  querySource?: RoutingSignalSource | string,
 ): MatchSignal[] {
-  return [...new Set(terms)].map((term) => ({ term, source, weight }));
+  return [...new Set(terms)].map((term) => ({
+    term,
+    source,
+    weight,
+    queryTerm: term,
+    querySource,
+    candidateTerm: term,
+    candidateSource: source,
+    matchKind: "exact",
+  }));
+}
+
+function formatMatchedSignal(
+  querySignal: QuerySignal,
+  candidateSource: RoutingSignalSource | string,
+  candidateTerm: string,
+): string {
+  return `${querySourceLabel(querySignal.source)}:${querySignal.term} -> ${
+    candidateSourceLabel(candidateSource)
+  }:${candidateTerm}`;
+}
+
+function querySourceLabel(source: QuerySignal["source"]): string {
+  switch (source) {
+    case "task":
+      return "task text";
+    case "specialtyHints":
+      return "specialty hint";
+    case "intent":
+      return "intent";
+    case "positiveKeywords":
+      return "positive keyword";
+    case "negativeKeywords":
+      return "negative keyword";
+    case "requiredAny":
+      return "required-any";
+    case "requiredAll":
+      return "required-all";
+    case "domain":
+      return "domain";
+    case "outputNeed":
+      return "output need";
+    default:
+      return source;
+  }
+}
+
+function candidateSourceLabel(source: RoutingSignalSource | string): string {
+  switch (source) {
+    case "skillName":
+      return "skill name";
+    case "subagentName":
+      return "subagent name";
+    case "displayName":
+      return "display name";
+    case "primarySpecialty":
+      return "primary specialty";
+    case "specialtyTags":
+      return "specialty tag";
+    case "skillContext.whenToUse":
+      return "skill context";
+    case "skillContext.examplePrompts":
+      return "skill context";
+    case "skillContext.usageNotes":
+      return "skill context";
+    case "skillContext.negativeRouting.doNotUseWhen":
+      return "negative route";
+    case "negativeRouting.doNotUseWhen":
+      return "negative route";
+    default:
+      return source;
+  }
+}
+
+function summaryMatchedSignals(fieldScores: FieldScore[]): string[] {
+  return [
+    ...new Set(
+      fieldScores.flatMap((field) =>
+        field.signalBreakdown.map((signal) =>
+          signal.candidateTerm ??
+            signal.term
+        )
+      ),
+    ),
+  ];
+}
+
+function uniqueMatchedSignalStrings(signals: string[]): string[] {
+  return [...new Set(signals)];
 }
 
 function toExcludedCandidate(
@@ -1035,6 +1268,10 @@ function explanationSummary(
 
 function fieldLabel(field: string): string {
   switch (field) {
+    case "skillName":
+      return "skill name";
+    case "subagentName":
+      return "subagent name";
     case "routing.intents":
       return "routing intent";
     case "routing.positiveKeywords":

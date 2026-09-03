@@ -836,6 +836,11 @@ export interface MatchSignal {
   term: string;
   source: RoutingSignalSource | string;
   weight: number;
+  queryTerm?: string;
+  querySource?: RoutingSignalSource | string;
+  candidateTerm?: string;
+  candidateSource?: string;
+  matchKind?: "exact" | "prefix";
 }
 
 export interface MatchScoreBreakdown {

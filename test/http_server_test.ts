@@ -597,6 +597,73 @@ Deno.test("HTTP MCP handler calls check_catalog_health", async () => {
   }
 });
 
+Deno.test("HTTP MCP handler calls find_matching_skill with structured routing input", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const handler = createHttpMcpHandler({
+      runtimeFactory: () =>
+        Promise.resolve({
+          service,
+          close: () => {},
+        }),
+    });
+    const sessionId = await initializeSession(handler);
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      scope: "workspace",
+      skillName: "pr-feedback-evaluator",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "PR Feedback Evaluator",
+      primarySpecialty: "pull request feedback triage",
+      specialtyTags: ["pull-request", "feedback", "reviewer-comment"],
+      routing: {
+        intents: ["evaluate_feedback"],
+        positiveKeywords: ["received-feedback", "reviewer-comment"],
+        requiredAny: ["received-feedback"],
+      },
+    });
+
+    const response = await postMcp(handler, sessionId, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "find_matching_skill",
+        arguments: {
+          workspace: "LOR-MCP",
+          task: "Is this PR comment still valid?",
+          intent: "evaluate_feedback",
+          positiveKeywords: ["received feedback", "review comment"],
+          requiredAny: ["received feedback"],
+          debug: true,
+        },
+      },
+    });
+    const body = await response.json();
+    const data = body.result.structuredContent.data;
+
+    assertEquals(response.status, 200);
+    assertEquals(body.result.structuredContent.status, "ok");
+    assertEquals(data.skills[0].entryKey, "pr-feedback-evaluator");
+    assertEquals(data.querySignals.includes("evaluate-feedback"), true);
+    assert(
+      data.skills[0].matchedSignals.some((signal: string) =>
+        signal === "intent:evaluate-feedback -> intent:evaluate-feedback"
+      ),
+    );
+    assertEquals(
+      data.skills[0].explanation.signalBreakdown.some((
+        signal: { querySource?: string; candidateSource?: string },
+      ) =>
+        signal.querySource === "intent" && signal.candidateSource === "intent"
+      ),
+      true,
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("HTTP MCP handler calls get_workspace_diagnostics", async () => {
   const { repo, service } = await createCatalogService();
   try {
