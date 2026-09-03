@@ -840,7 +840,13 @@ export interface MatchSignal {
   querySource?: RoutingSignalSource | string;
   candidateTerm?: string;
   candidateSource?: string;
-  matchKind?: "exact" | "prefix";
+  matchKind?:
+    | "alias"
+    | "exact"
+    | "negative-route"
+    | "phrase"
+    | "prefix"
+    | "token";
 }
 
 export interface MatchScoreBreakdown {

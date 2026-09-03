@@ -13,6 +13,7 @@ import type {
 
 interface QuerySignal {
   term: string;
+  termKind: "alias" | "phrase" | "token";
   source:
     | RoutingSignalSource
     | "task"
@@ -63,8 +64,10 @@ const MINIMUM_SCORE = 3;
 const PREFERRED_SKILL_BOOST = 20;
 
 const DEFAULT_FIELD_WEIGHTS: Record<string, number> = {
+  entryKey: 30,
   skillName: 30,
   subagentName: 30,
+  displayNameExact: 24,
   "routing.intents": 25,
   "routing.requiredAll": 18,
   "routing.requiredAny": 16,
@@ -137,27 +140,83 @@ const STOP_WORDS = new Set([
 ]);
 
 const NEGATIVE_ROUTING_GENERIC_TERMS = new Set([
+  "actionable",
+  "already",
+  "branch",
   "comment",
+  "comment-validity",
   "comments",
+  "existing",
+  "existing-feedback",
+  "existing-review-comments",
   "feedback",
+  "fix",
+  "github-pr",
+  "issue",
+  "pr-comments",
+  "pr-feedback",
   "pull",
   "pull-request",
+  "pull-request-comments",
+  "pull-request-feedback",
+  "push",
   "review",
   "reviewer",
   "reviewer-comment",
+  "reviewer-feedback",
+  "unresolved-review-threads",
+  "valid",
+]);
+
+const LOW_VALUE_TOKEN_TERMS = new Set([
+  "active",
+  "branch",
+  "check",
+  "comment",
+  "comments",
+  "current",
+  "feedback",
+  "fix",
+  "issue",
+  "list",
+  "pull",
+  "push",
+  "review",
+  "reviewer",
+  "valid",
 ]);
 
 const ALIASES: ReadonlyArray<[RegExp, string]> = [
-  [/\bpr\b/g, "pull-request"],
-  [/\bpull\s+request\b/g, "pull-request"],
+  [/\bpr\s+feedback\s+evaluator\b/g, "pr-feedback-evaluator"],
+  [/\bpr\s+feedback\b/g, "pr-feedback"],
+  [/\bpr\s+comments?\b/g, "pr-comments"],
+  [/\bpull\s+request\s+feedback\b/g, "pr-feedback"],
+  [/\bpull\s+request\s+comments?\b/g, "pr-comments"],
+  [/\bgithub\s+pr\b/g, "github-pr"],
+  [/\bgithub\s+pull\s+request\b/g, "github-pr"],
+  [/\breview\s+threads?\b/g, "reviewer-thread"],
   [/\breview\s+comments?\b/g, "reviewer-comment"],
+  [/\breviewer\s+feedback\b/g, "reviewer-feedback"],
+  [/\breviewer'?s\s+feedback\b/g, "reviewer-feedback"],
   [/\breviewer\s+comments?\b/g, "reviewer-comment"],
-  [/\bexisting\s+feedback\b/g, "existing-feedback"],
+  [/\breceived\s+pr\s+feedback\b/g, "received-feedback"],
   [/\breceived\s+feedback\b/g, "received-feedback"],
-  [/\bunresolved\s+threads?\b/g, "unresolved-thread"],
-  [/\bstill\s+valid\b/g, "comment-validity"],
+  [/\bexisting\s+feedback\b/g, "existing-feedback"],
+  [/\bexisting\s+review\s+comments?\b/g, "existing-review-comments"],
+  [/\bunresolved\s+review\s+threads?\b/g, "unresolved-review-threads"],
+  [/\bunresolved\s+pr\s+comments?\b/g, "unresolved-review-threads"],
+  [/\bunresolved\s+threads?\b/g, "unresolved-review-threads"],
+  [/\bstill\s+valid\b/g, "still-valid comment-validity"],
+  [/\balready\s+fixed\b/g, "already-fixed"],
+  [/\bhow\s+to\s+fix\b/g, "how-to-fix"],
+  [/\bease\s+of\s+fix\b/g, "ease-of-fix"],
+  [/\bissue\s+impact\b/g, "issue-impact"],
+  [/\bfix\s+or\s+defer\b/g, "fix-or-defer"],
+  [/\bactionable\s+feedback\b/g, "actionable-feedback"],
   [/\bfresh\s+review\b/g, "fresh-review"],
   [/\bcode\s+review\b/g, "review-code"],
+  [/\bpr\b/g, "pull-request"],
+  [/\bpull\s+request\b/g, "pull-request"],
 ];
 
 export function findCatalogMatches(
@@ -190,13 +249,20 @@ export function findCatalogMatches(
     candidates.push(scored);
   }
 
+  const reroutedCandidates = applyInsteadUseRerouting(candidates);
+  if (request.debug) {
+    excludedCandidates.push(...reroutedCandidates.excluded);
+  }
+  const routableCandidates = reroutedCandidates.candidates;
+
   const agents = rank(
-    candidates.filter((entry) => entry.entryType === "agent"),
+    routableCandidates.filter((entry) => entry.entryType === "agent"),
   );
-  const skills = rank(candidates.filter((entry) => entry.entryType === "skill"))
-    .slice(0, 5);
+  const skills = rank(
+    routableCandidates.filter((entry) => entry.entryType === "skill"),
+  ).slice(0, 5);
   const subagents = rank(
-    candidates.filter((entry) => entry.entryType === "subagent"),
+    routableCandidates.filter((entry) => entry.entryType === "subagent"),
   ).slice(0, 3);
   const ambiguousAgents = topAgentsAreAmbiguous(agents, query.positiveTerms);
 
@@ -474,33 +540,136 @@ function compactSkillContext(
   return Object.keys(compact).length > 0 ? compact : undefined;
 }
 
+function applyInsteadUseRerouting(
+  candidates: ScoredMatchCandidate[],
+): { candidates: ScoredMatchCandidate[]; excluded: ExcludedCandidate[] } {
+  const excludedKeys = new Set<string>();
+  const excluded: ExcludedCandidate[] = [];
+
+  for (const candidate of candidates) {
+    if (!candidate.explanation.demotedByNegativeRouting) {
+      continue;
+    }
+    if (hasExplicitIdentityMatch(candidate)) {
+      continue;
+    }
+    const insteadUseTerms = normalizeTerms(
+      candidate.negativeRouting?.insteadUse,
+    )
+      .terms
+      .filter((term) => term.includes("-"));
+    if (insteadUseTerms.length === 0) {
+      continue;
+    }
+
+    const target = candidates.find((other) =>
+      other.entryKey !== candidate.entryKey &&
+      candidateIdentifierTerms(other).some((term) =>
+        insteadUseTerms.includes(term)
+      )
+    );
+    if (!target) {
+      continue;
+    }
+
+    excludedKeys.add(candidate.entryKey);
+    excluded.push({
+      scope: candidate.scope,
+      entryType: candidate.entryType,
+      entryKey: candidate.entryKey,
+      displayName: candidate.displayName,
+      projectName: candidate.projectName,
+      primarySpecialty: candidate.primarySpecialty,
+      specialtyTags: candidate.specialtyTags,
+      excludedBy: ["negativeRouting.insteadUse"],
+      matchedSignals: candidate.matchedSignals,
+      negativeSignals: candidate.explanation.negativeSignals ?? [],
+      score: candidate.score,
+    });
+  }
+
+  return {
+    candidates: candidates.filter((candidate) =>
+      !excludedKeys.has(candidate.entryKey)
+    ),
+    excluded,
+  };
+}
+
+function hasExplicitIdentityMatch(candidate: ScoredMatchCandidate): boolean {
+  return candidate.fieldScores.some((fieldScore) =>
+    ["entryKey", "skillName", "subagentName", "displayName"].includes(
+      fieldScore.field,
+    ) &&
+    fieldScore.signalBreakdown.some((signal) =>
+      signal.querySource === "task" &&
+      (signal.matchKind === "alias" || signal.matchKind === "phrase") &&
+      signal.queryTerm === signal.candidateTerm
+    )
+  );
+}
+
+function candidateIdentifierTerms(candidate: MatchCandidate): string[] {
+  const identifiers = [candidate.entryKey, candidate.displayName];
+  if (candidate.entryType === "skill") {
+    identifiers.push(candidate.entryKey);
+  }
+  if (candidate.entryType === "subagent") {
+    identifiers.push(candidate.entryKey);
+  }
+  return [
+    ...new Set(
+      identifiers.flatMap((identifier) => normalizeIdentityTerms(identifier)),
+    ),
+  ];
+}
+
 function scoreIdentityFields(
   entry: CatalogEntry,
   query: NormalizedQuery,
 ): FieldScore[] {
+  const routing = entryRouting(entry);
+  const scores: Array<FieldScore | undefined> = [
+    scoreIdentityField(
+      "entryKey",
+      "entryKey",
+      entry.entryKey,
+      query.positiveSignals,
+      fieldWeight(routing, "entryKey"),
+    ),
+    scoreIdentityField(
+      "displayName",
+      "displayName",
+      entry.displayName,
+      query.positiveSignals,
+      fieldWeight(routing, "displayNameExact"),
+    ),
+  ];
   if (entry.entryType === "skill") {
-    return [
+    scores.push(
       scoreIdentityField(
         "skillName",
         "skillName",
         entry.skillName,
         query.positiveSignals,
-        fieldWeight(entry.routing, "skillName"),
+        fieldWeight(routing, "skillName"),
       ),
-    ].filter((score): score is FieldScore => score !== undefined);
+    );
+    return scores.filter((score): score is FieldScore => score !== undefined);
   }
   if (entry.entryType === "subagent") {
-    return [
+    scores.push(
       scoreIdentityField(
         "subagentName",
         "subagentName",
         entry.name,
         query.positiveSignals,
-        fieldWeight(entry.routing, "subagentName"),
+        fieldWeight(routing, "subagentName"),
       ),
-    ].filter((score): score is FieldScore => score !== undefined);
+    );
+    return scores.filter((score): score is FieldScore => score !== undefined);
   }
-  return [];
+  return scores.filter((score): score is FieldScore => score !== undefined);
 }
 
 function scoreIdentityField(
@@ -510,15 +679,18 @@ function scoreIdentityField(
   querySignals: QuerySignal[],
   weight: number,
 ): FieldScore | undefined {
-  const terms = normalizeTerms([value]).terms;
-  const hasCompoundIdentifier = terms.some((term) => term.includes("-"));
-  const fieldTerms = hasCompoundIdentifier
-    ? terms.filter((term) => term.includes("-"))
-    : terms;
-  const identitySignals = hasCompoundIdentifier
-    ? querySignals.filter((signal) => signal.term.includes("-"))
-    : querySignals;
-  return scoreFieldTerms(field, source, fieldTerms, identitySignals, weight);
+  const fieldTerms = normalizeIdentityTerms(value);
+  const identitySignals = querySignals.filter((signal) =>
+    signal.term.includes("-")
+  );
+  return scoreFieldTerms(
+    field,
+    source,
+    fieldTerms,
+    identitySignals,
+    weight,
+    { allowPrefix: false },
+  );
 }
 
 function scoreRoutingFields(
@@ -634,30 +806,61 @@ function scoreFieldTerms(
   fieldTerms: readonly string[],
   querySignals: QuerySignal[],
   weight: number,
+  options: { allowPrefix?: boolean } = {},
 ): FieldScore | undefined {
   let score = 0;
   const signals: string[] = [];
   const signalBreakdown: MatchSignal[] = [];
 
   for (const querySignal of querySignals) {
+    let bestMatch:
+      | {
+        term: string;
+        score: number;
+        matchKind: MatchSignal["matchKind"];
+      }
+      | undefined;
     for (const fieldTerm of fieldTerms) {
-      const tokenScore = scoreToken(querySignal.term, fieldTerm, weight);
+      const tokenScore = scoreToken(
+        querySignal.term,
+        fieldTerm,
+        weight,
+        options.allowPrefix ?? true,
+      );
       if (tokenScore > 0) {
-        score += tokenScore;
-        signals.push(formatMatchedSignal(querySignal, source, fieldTerm));
-        signalBreakdown.push({
-          term: fieldTerm,
-          source,
-          weight: tokenScore,
-          queryTerm: querySignal.term,
-          querySource: querySignal.source,
-          candidateTerm: fieldTerm,
-          candidateSource: source,
-          matchKind: querySignal.term === fieldTerm ? "exact" : "prefix",
-        });
-        break;
+        const matchKind = resolveMatchKind(querySignal, fieldTerm, source);
+        if (
+          !bestMatch ||
+          tokenScore > bestMatch.score ||
+          (tokenScore === bestMatch.score &&
+            fieldTerm.length > bestMatch.term.length)
+        ) {
+          bestMatch = { term: fieldTerm, score: tokenScore, matchKind };
+        }
       }
     }
+    if (!bestMatch) {
+      continue;
+    }
+    score += bestMatch.score;
+    signals.push(
+      formatMatchedSignal(
+        querySignal,
+        source,
+        bestMatch.term,
+        bestMatch.matchKind,
+      ),
+    );
+    signalBreakdown.push({
+      term: bestMatch.term,
+      source,
+      weight: bestMatch.score,
+      queryTerm: querySignal.term,
+      querySource: querySignal.source,
+      candidateTerm: bestMatch.term,
+      candidateSource: source,
+      matchKind: bestMatch.matchKind,
+    });
   }
 
   return score > 0
@@ -675,9 +878,25 @@ function scoreToken(
   queryToken: string,
   fieldToken: string,
   weight: number,
+  allowPrefix = true,
 ): number {
   if (queryToken === fieldToken) {
+    if (!queryToken.includes("-") && LOW_VALUE_TOKEN_TERMS.has(queryToken)) {
+      return Math.max(1, Math.floor(weight * 0.25));
+    }
     return weight;
+  }
+  if (queryToken.includes("-") !== fieldToken.includes("-")) {
+    return 0;
+  }
+  if (!allowPrefix) {
+    return 0;
+  }
+  if (
+    LOW_VALUE_TOKEN_TERMS.has(queryToken) ||
+    LOW_VALUE_TOKEN_TERMS.has(fieldToken)
+  ) {
+    return 0;
   }
   if (
     queryToken.length >= 6 &&
@@ -947,25 +1166,46 @@ function signalsFrom(
   values: readonly string[] | undefined,
   ignoredSignals: string[],
 ): QuerySignal[] {
-  const normalized = normalizeTerms(values);
+  const normalized = normalizeSignalTerms(values);
   ignoredSignals.push(...normalized.ignored);
-  return normalized.terms.map((term) => ({ term, source }));
+  return normalized.signals.map((signal) => ({ ...signal, source }));
 }
 
 function normalizeTerms(
   values: readonly string[] | undefined,
 ): { terms: string[]; ignored: string[] } {
-  const terms: string[] = [];
+  const normalized = normalizeSignalTerms(values);
+  return {
+    terms: normalized.signals.map((signal) => signal.term),
+    ignored: normalized.ignored,
+  };
+}
+
+function normalizeSignalTerms(
+  values: readonly string[] | undefined,
+): {
+  signals: Array<Pick<QuerySignal, "term" | "termKind">>;
+  ignored: string[];
+} {
+  const signals: Array<Pick<QuerySignal, "term" | "termKind">> = [];
   const ignored: string[] = [];
 
   for (const value of values ?? []) {
-    const normalized = applyAliases(normalizeForComparison(value));
+    const comparable = normalizeForComparison(value);
+    const aliasTerms = collectAliasTerms(comparable);
+    for (const aliasTerm of aliasTerms) {
+      if (!STOP_WORDS.has(aliasTerm)) {
+        signals.push({ term: aliasTerm, termKind: "alias" });
+      }
+    }
+
+    const normalized = applyAliases(comparable);
     const compoundMatches = normalized.match(/[a-z0-9]+(?:[-_][a-z0-9]+)+/g) ??
       [];
     for (const compoundMatch of compoundMatches) {
       const compound = compoundMatch.replace(/_/g, "-");
       if (!STOP_WORDS.has(compound)) {
-        terms.push(compound);
+        signals.push({ term: compound, termKind: "phrase" });
       }
     }
 
@@ -977,14 +1217,22 @@ function normalizeTerms(
         ignored.push(token);
         continue;
       }
-      terms.push(token);
+      signals.push({ term: token, termKind: "token" });
     }
   }
 
   return {
-    terms: [...new Set(terms)],
+    signals: uniqueTermSignals(signals),
     ignored: [...new Set(ignored)],
   };
+}
+
+function normalizeIdentityTerms(value: string): string[] {
+  const normalized = applyAliases(normalizeForComparison(value));
+  const compoundMatches = normalized.match(/[a-z0-9]+(?:[-_][a-z0-9]+)+/g) ??
+    [];
+  return [...new Set(compoundMatches.map((match) => match.replace(/_/g, "-")))]
+    .sort((a, b) => b.length - a.length);
 }
 
 function normalizeForComparison(value: string): string {
@@ -1000,6 +1248,25 @@ function applyAliases(value: string): string {
     normalized = normalized.replace(pattern, replacement);
   }
   return normalized;
+}
+
+function collectAliasTerms(value: string): string[] {
+  const terms: string[] = [];
+  for (const [pattern, replacement] of ALIASES) {
+    pattern.lastIndex = 0;
+    if (pattern.test(value)) {
+      terms.push(...normalizeAliasReplacement(replacement));
+    }
+    pattern.lastIndex = 0;
+  }
+  return [...new Set(terms)];
+}
+
+function normalizeAliasReplacement(replacement: string): string[] {
+  return replacement
+    .split(/\s+/)
+    .map((term) => term.replace(/_/g, "-").trim())
+    .filter((term) => term.length > 0);
 }
 
 function optionalValue(value: string | undefined): string[] | undefined {
@@ -1129,6 +1396,33 @@ function uniqueSignals(signals: MatchSignal[]): MatchSignal[] {
   });
 }
 
+function uniqueTermSignals(
+  signals: Array<Pick<QuerySignal, "term" | "termKind">>,
+): Array<Pick<QuerySignal, "term" | "termKind">> {
+  const byTerm = new Map<string, Pick<QuerySignal, "term" | "termKind">>();
+  for (const signal of signals) {
+    const existing = byTerm.get(signal.term);
+    if (
+      !existing ||
+      termKindPriority(signal.termKind) > termKindPriority(existing.termKind)
+    ) {
+      byTerm.set(signal.term, signal);
+    }
+  }
+  return [...byTerm.values()];
+}
+
+function termKindPriority(kind: QuerySignal["termKind"]): number {
+  switch (kind) {
+    case "alias":
+      return 3;
+    case "phrase":
+      return 2;
+    case "token":
+      return 1;
+  }
+}
+
 function toSignals(
   terms: readonly string[],
   source: RoutingSignalSource | string,
@@ -1143,7 +1437,7 @@ function toSignals(
     querySource,
     candidateTerm: term,
     candidateSource: source,
-    matchKind: "exact",
+    matchKind: isNegativeRouteSource(source) ? "negative-route" : "exact",
   }));
 }
 
@@ -1151,10 +1445,35 @@ function formatMatchedSignal(
   querySignal: QuerySignal,
   candidateSource: RoutingSignalSource | string,
   candidateTerm: string,
+  matchKind: MatchSignal["matchKind"],
 ): string {
   return `${querySourceLabel(querySignal.source)}:${querySignal.term} -> ${
     candidateSourceLabel(candidateSource)
-  }:${candidateTerm}`;
+  }:${candidateTerm} [${matchKind}]`;
+}
+
+function resolveMatchKind(
+  querySignal: QuerySignal,
+  candidateTerm: string,
+  candidateSource: RoutingSignalSource | string,
+): MatchSignal["matchKind"] {
+  if (isNegativeRouteSource(candidateSource)) {
+    return "negative-route";
+  }
+  if (querySignal.term !== candidateTerm) {
+    return "prefix";
+  }
+  if (querySignal.termKind === "alias") {
+    return "alias";
+  }
+  return querySignal.term.includes("-") ? "phrase" : "token";
+}
+
+function isNegativeRouteSource(source: RoutingSignalSource | string): boolean {
+  return source === "skillContext.negativeRouting.doNotUseWhen" ||
+    source === "negativeRouting.doNotUseWhen" ||
+    source === "negativeKeywords" ||
+    source === "softNegativeExamples";
 }
 
 function querySourceLabel(source: QuerySignal["source"]): string {

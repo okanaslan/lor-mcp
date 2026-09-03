@@ -648,7 +648,8 @@ Deno.test("HTTP MCP handler calls find_matching_skill with structured routing in
     assertEquals(data.querySignals.includes("evaluate-feedback"), true);
     assert(
       data.skills[0].matchedSignals.some((signal: string) =>
-        signal === "intent:evaluate-feedback -> intent:evaluate-feedback"
+        signal ===
+          "intent:evaluate-feedback -> intent:evaluate-feedback [phrase]"
       ),
     );
     assertEquals(
