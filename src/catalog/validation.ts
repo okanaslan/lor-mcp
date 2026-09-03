@@ -281,6 +281,7 @@ export function validateMatchRequest(input: MatchRequest): MatchRequest {
   return {
     workspace: requireWorkspace(input.workspace),
     task: requireString(input.task, "task"),
+    canonicalTask: input.canonicalTask?.trim() || undefined,
     projectName: input.projectName?.trim() || undefined,
     preferredType: input.preferredType === undefined
       ? undefined
@@ -289,12 +290,18 @@ export function validateMatchRequest(input: MatchRequest): MatchRequest {
       ? undefined
       : requireStringList(input.specialtyHints, "specialtyHints"),
     intent: input.intent?.trim() || undefined,
+    excludeIntents: input.excludeIntents === undefined
+      ? undefined
+      : requireRoutingStringList(input.excludeIntents, "excludeIntents"),
     positiveKeywords: input.positiveKeywords === undefined
       ? undefined
       : requireRoutingStringList(input.positiveKeywords, "positiveKeywords"),
     negativeKeywords: input.negativeKeywords === undefined
       ? undefined
       : requireRoutingStringList(input.negativeKeywords, "negativeKeywords"),
+    negativeHints: input.negativeHints === undefined
+      ? undefined
+      : requireRoutingStringList(input.negativeHints, "negativeHints"),
     requiredAny: input.requiredAny === undefined
       ? undefined
       : requireRoutingStringList(input.requiredAny, "requiredAny"),
@@ -307,6 +314,15 @@ export function validateMatchRequest(input: MatchRequest): MatchRequest {
     preferredSkills: input.preferredSkills === undefined
       ? undefined
       : requireRoutingStringList(input.preferredSkills, "preferredSkills"),
+    excludedEntryKeys: input.excludedEntryKeys === undefined
+      ? undefined
+      : requireRoutingStringList(input.excludedEntryKeys, "excludedEntryKeys"),
+    preferredEntryKeys: input.preferredEntryKeys === undefined
+      ? undefined
+      : requireRoutingStringList(
+        input.preferredEntryKeys,
+        "preferredEntryKeys",
+      ),
     domain: input.domain === undefined
       ? undefined
       : requireRoutingStringList(input.domain, "domain"),
@@ -1097,6 +1113,7 @@ function hasSkillMetadataFields(metadata: SkillMetadataUpdate): boolean {
 }
 
 const routingSignalSources = new Set<RoutingSignalSource>([
+  "aliases",
   "skillName",
   "subagentName",
   "displayName",
@@ -1104,7 +1121,11 @@ const routingSignalSources = new Set<RoutingSignalSource>([
   "primarySpecialty",
   "specialtyTags",
   "intent",
+  "intentFamily",
+  "positiveIntents",
+  "excludedIntents",
   "positiveKeywords",
+  "negativeIntents",
   "domain",
   "outputNeed",
   "requiredAny",
@@ -1120,16 +1141,40 @@ function validateRoutingMetadata(
 ): RoutingMetadata {
   const normalized: RoutingMetadata = {};
 
+  if (routing.intentFamily !== undefined) {
+    normalized.intentFamily = requireString(
+      routing.intentFamily,
+      `${fieldPrefix}.intentFamily`,
+    );
+  }
   if (routing.intents !== undefined) {
     normalized.intents = requireRoutingStringList(
       routing.intents,
       `${fieldPrefix}.intents`,
     );
   }
+  if (routing.positiveIntents !== undefined) {
+    normalized.positiveIntents = requireRoutingStringList(
+      routing.positiveIntents,
+      `${fieldPrefix}.positiveIntents`,
+    );
+  }
   if (routing.excludedIntents !== undefined) {
     normalized.excludedIntents = requireRoutingStringList(
       routing.excludedIntents,
       `${fieldPrefix}.excludedIntents`,
+    );
+  }
+  if (routing.negativeIntents !== undefined) {
+    normalized.negativeIntents = requireRoutingStringList(
+      routing.negativeIntents,
+      `${fieldPrefix}.negativeIntents`,
+    );
+  }
+  if (routing.aliases !== undefined) {
+    normalized.aliases = requireRoutingStringList(
+      routing.aliases,
+      `${fieldPrefix}.aliases`,
     );
   }
   if (routing.positiveKeywords !== undefined) {
@@ -1232,8 +1277,12 @@ function validateRoutingFieldWeights(
 }
 
 function hasRoutingMetadataFields(routing: RoutingMetadata): boolean {
-  return routing.intents !== undefined ||
+  return routing.intentFamily !== undefined ||
+    routing.intents !== undefined ||
+    routing.positiveIntents !== undefined ||
     routing.excludedIntents !== undefined ||
+    routing.negativeIntents !== undefined ||
+    routing.aliases !== undefined ||
     routing.positiveKeywords !== undefined ||
     routing.negativeKeywords !== undefined ||
     routing.requiredAny !== undefined ||

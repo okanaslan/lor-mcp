@@ -10,6 +10,7 @@ import type {
   RoutingSignalSource,
   SkillContext,
 } from "@src/catalog/types.ts";
+import { adaptMatchRequest } from "@src/catalog/routing_adapter.ts";
 
 interface QuerySignal {
   term: string;
@@ -64,14 +65,18 @@ const MINIMUM_SCORE = 3;
 const PREFERRED_SKILL_BOOST = 20;
 
 const DEFAULT_FIELD_WEIGHTS: Record<string, number> = {
+  aliases: 20,
   entryKey: 30,
   skillName: 30,
   subagentName: 30,
   displayNameExact: 24,
+  "routing.intentFamily": 28,
   "routing.intents": 25,
+  "routing.positiveIntents": 25,
   "routing.requiredAll": 18,
   "routing.requiredAny": 16,
   specialtyTags: 8,
+  intentFamily: 28,
   "routing.positiveKeywords": 12,
   "routing.domain": 10,
   "routing.outputNeed": 10,
@@ -93,21 +98,24 @@ const DEFAULT_FIELD_WEIGHTS: Record<string, number> = {
 };
 
 const ROUTING_FIELD_SOURCES: Record<
-  keyof Omit<
-    RoutingMetadata,
-    | "excludedIntents"
-    | "negativeKeywords"
-    | "softNegativeExamples"
-    | "fieldWeights"
-  >,
+  | "intents"
+  | "positiveIntents"
+  | "positiveKeywords"
+  | "requiredAny"
+  | "requiredAll"
+  | "domain"
+  | "outputNeed"
+  | "aliases",
   RoutingSignalSource
 > = {
   intents: "intent",
+  positiveIntents: "positiveIntents",
   positiveKeywords: "positiveKeywords",
   requiredAny: "requiredAny",
   requiredAll: "requiredAll",
   domain: "domain",
   outputNeed: "outputNeed",
+  aliases: "aliases",
 };
 
 const STOP_WORDS = new Set([
@@ -149,12 +157,14 @@ const NEGATIVE_ROUTING_GENERIC_TERMS = new Set([
   "existing",
   "existing-feedback",
   "existing-review-comments",
+  "evaluate",
   "feedback",
   "fix",
   "github-pr",
   "issue",
   "pr-comments",
   "pr-feedback",
+  "pr",
   "pull",
   "pull-request",
   "pull-request-comments",
@@ -172,6 +182,8 @@ const LOW_VALUE_TOKEN_TERMS = new Set([
   "active",
   "branch",
   "check",
+  "change",
+  "changes",
   "comment",
   "comments",
   "current",
@@ -179,11 +191,17 @@ const LOW_VALUE_TOKEN_TERMS = new Set([
   "fix",
   "issue",
   "list",
+  "plan",
+  "pr",
   "pull",
   "push",
   "review",
   "reviewer",
+  "test",
+  "tests",
+  "token",
   "valid",
+  "validity",
 ]);
 
 const ALIASES: ReadonlyArray<[RegExp, string]> = [
@@ -215,7 +233,6 @@ const ALIASES: ReadonlyArray<[RegExp, string]> = [
   [/\bactionable\s+feedback\b/g, "actionable-feedback"],
   [/\bfresh\s+review\b/g, "fresh-review"],
   [/\bcode\s+review\b/g, "review-code"],
-  [/\bpr\b/g, "pull-request"],
   [/\bpull\s+request\b/g, "pull-request"],
 ];
 
@@ -223,12 +240,13 @@ export function findCatalogMatches(
   entries: CatalogEntry[],
   request: MatchRequest,
 ): MatchResult {
-  const query = normalizeQuery(request);
+  const adaptedRequest = adaptMatchRequest(request);
+  const query = normalizeQuery(adaptedRequest);
   const excludedCandidates: ExcludedCandidate[] = [];
   const candidates: ScoredMatchCandidate[] = [];
 
   for (const entry of entries) {
-    const hardExclusion = hardFilterEntry(entry, request, query);
+    const hardExclusion = hardFilterEntry(entry, adaptedRequest, query);
     if (hardExclusion) {
       if (request.debug) {
         excludedCandidates.push(toExcludedCandidate(entry, hardExclusion));
@@ -236,7 +254,7 @@ export function findCatalogMatches(
       continue;
     }
 
-    const scored = scoreEntry(entry, query, request);
+    const scored = scoreEntry(entry, query, adaptedRequest);
     if (!scored) {
       continue;
     }
@@ -339,13 +357,26 @@ function hardFilterEntry(
 
   const routing = entryRouting(entry);
   if (routing) {
-    const excludedIntentMatches = matchValues(
+    const excludedIntentMatches = matchIntentValues(
       routing.excludedIntents,
       query.intentTerms,
     );
     if (excludedIntentMatches.length > 0) {
       reasons.push("routing.excludedIntents");
-      negativeSignals.push(...toSignals(excludedIntentMatches, "intent", 100));
+      negativeSignals.push(
+        ...toSignals(excludedIntentMatches, "excludedIntents", 100, "intent"),
+      );
+    }
+
+    const negativeIntentMatches = matchIntentValues(
+      routing.negativeIntents,
+      query.intentTerms,
+    );
+    if (negativeIntentMatches.length > 0) {
+      reasons.push("routing.negativeIntents");
+      negativeSignals.push(
+        ...toSignals(negativeIntentMatches, "negativeIntents", 100, "intent"),
+      );
     }
 
     if (
@@ -703,6 +734,15 @@ function scoreRoutingFields(
   }
 
   const scores: Array<FieldScore | undefined> = [];
+  scores.push(
+    scoreField(
+      "routing.intentFamily",
+      "intentFamily",
+      routing.intentFamily ?? "",
+      query.positiveSignals,
+      fieldWeight(routing, "intentFamily"),
+    ),
+  );
   for (
     const [key, source] of Object.entries(ROUTING_FIELD_SOURCES) as Array<
       [keyof typeof ROUTING_FIELD_SOURCES, RoutingSignalSource]
@@ -1306,6 +1346,40 @@ function matchValues(
   );
 }
 
+function matchIntentValues(
+  values: readonly string[] | undefined,
+  terms: readonly string[],
+): string[] {
+  const intentTerms = terms.filter((term) =>
+    term.includes("-") || !LOW_VALUE_TOKEN_TERMS.has(term)
+  );
+  if (intentTerms.length === 0) {
+    return [];
+  }
+  const termSet = new Set(intentTerms);
+  return (values ?? []).flatMap((value) =>
+    normalizeIntentTerms(value)
+      .filter((term) => termSet.has(term))
+  );
+}
+
+function normalizeIntentTerms(value: string): string[] {
+  const normalized = applyAliases(normalizeForComparison(value)).replace(
+    /_/g,
+    "-",
+  );
+  const compoundMatches = normalized.match(/[a-z0-9]+(?:-[a-z0-9]+)+/g) ?? [];
+  if (compoundMatches.length > 0) {
+    return [...new Set(compoundMatches)];
+  }
+  return normalized
+    .split(/[^a-z0-9]+/)
+    .filter((term) =>
+      term.length > 1 && !STOP_WORDS.has(term) &&
+      !LOW_VALUE_TOKEN_TERMS.has(term)
+    );
+}
+
 function strictNegativeMatches(
   values: readonly string[] | undefined,
   negativeTerms: readonly string[],
@@ -1342,7 +1416,10 @@ function positiveRoutingValues(entry: CatalogEntry): string[] {
   const routing = entryRouting(entry);
   if (routing) {
     values.push(
+      ...(routing.intentFamily ? [routing.intentFamily] : []),
       ...(routing.intents ?? []),
+      ...(routing.positiveIntents ?? []),
+      ...(routing.aliases ?? []),
       ...(routing.positiveKeywords ?? []),
       ...(routing.requiredAny ?? []),
       ...(routing.requiredAll ?? []),
@@ -1472,6 +1549,8 @@ function resolveMatchKind(
 function isNegativeRouteSource(source: RoutingSignalSource | string): boolean {
   return source === "skillContext.negativeRouting.doNotUseWhen" ||
     source === "negativeRouting.doNotUseWhen" ||
+    source === "excludedIntents" ||
+    source === "negativeIntents" ||
     source === "negativeKeywords" ||
     source === "softNegativeExamples";
 }
@@ -1503,12 +1582,20 @@ function querySourceLabel(source: QuerySignal["source"]): string {
 
 function candidateSourceLabel(source: RoutingSignalSource | string): string {
   switch (source) {
+    case "entryKey":
+      return "entry key";
+    case "aliases":
+      return "alias";
     case "skillName":
       return "skill name";
     case "subagentName":
       return "subagent name";
     case "displayName":
       return "display name";
+    case "intentFamily":
+      return "intent family";
+    case "positiveIntents":
+      return "positive intent";
     case "primarySpecialty":
       return "primary specialty";
     case "specialtyTags":
@@ -1522,6 +1609,14 @@ function candidateSourceLabel(source: RoutingSignalSource | string): string {
     case "skillContext.negativeRouting.doNotUseWhen":
       return "negative route";
     case "negativeRouting.doNotUseWhen":
+      return "negative route";
+    case "excludedIntents":
+      return "negative route";
+    case "negativeIntents":
+      return "negative route";
+    case "negativeKeywords":
+      return "negative route";
+    case "softNegativeExamples":
       return "negative route";
     default:
       return source;
@@ -1587,12 +1682,20 @@ function explanationSummary(
 
 function fieldLabel(field: string): string {
   switch (field) {
+    case "entryKey":
+      return "entry key";
     case "skillName":
       return "skill name";
     case "subagentName":
       return "subagent name";
+    case "routing.intentFamily":
+      return "routing intent family";
     case "routing.intents":
       return "routing intent";
+    case "routing.positiveIntents":
+      return "routing positive intent";
+    case "routing.aliases":
+      return "routing aliases";
     case "routing.positiveKeywords":
       return "routing keywords";
     case "routing.requiredAny":

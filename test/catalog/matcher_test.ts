@@ -1180,9 +1180,9 @@ Deno.test("findCatalogMatches routes Monegold PR comment validity prompt to feed
   assert(
     result.data.skills[0]?.explanation.signalBreakdown?.some((signal) =>
       signal.querySource === "specialtyHints" &&
-      signal.queryTerm === "pull-request-feedback" &&
+      signal.queryTerm === "pr-feedback" &&
       signal.candidateSource === "specialtyTags" &&
-      signal.candidateTerm === "pull-request-feedback"
+      signal.candidateTerm === "pr-feedback"
     ),
   );
   assert(
@@ -1356,6 +1356,152 @@ Deno.test("findCatalogMatches keeps PR feedback triage separate from neighboring
   }
 });
 
+Deno.test("findCatalogMatches adapts raw received PR feedback prompts", () => {
+  const entries = monegoldRoutingEntries();
+  const workspace =
+    "/Users/monetari/Developer/GitHub/Monetari-Team/monegold-monorepo";
+
+  const result = findCatalogMatches(entries, {
+    workspace,
+    projectName: "monegold-monorepo",
+    task:
+      "Is this PR comment still valid? List issue, impact, importance, ease of fix.",
+    debug: true,
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills[0]?.entryKey, "pr-feedback-evaluator");
+  assertEquals(
+    result.data.querySignals?.includes("received-pr-feedback-triage"),
+    true,
+  );
+  assert(
+    result.data.skills[0]?.matchedSignals.some((signal) =>
+      signal ===
+        "intent:received-pr-feedback-triage -> intent family:received-pr-feedback-triage [phrase]"
+    ),
+  );
+});
+
+Deno.test("findCatalogMatches supports structured routing API aliases", () => {
+  const entries = monegoldRoutingEntries();
+  const workspace =
+    "/Users/monetari/Developer/GitHub/Monetari-Team/monegold-monorepo";
+
+  const result = findCatalogMatches(entries, {
+    workspace,
+    projectName: "monegold-monorepo",
+    task: "Check this comment on the active branch.",
+    canonicalTask:
+      "Evaluate existing pull request reviewer feedback for validity and how to fix.",
+    intent: "received-pr-feedback-triage",
+    specialtyHints: ["comment-validity"],
+    negativeHints: ["fresh-pr-review", "commit"],
+    preferredEntryKeys: ["pr-feedback-evaluator"],
+    excludedEntryKeys: ["okan-commit-message"],
+    debug: true,
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills[0]?.entryKey, "pr-feedback-evaluator");
+  assertEquals(
+    result.data.skills.some((skill) =>
+      skill.entryKey === "okan-commit-message"
+    ),
+    false,
+  );
+  assertEquals(
+    result.data.skills[0]?.explanation.finalScoreBreakdown?.preferenceBoost,
+    20,
+  );
+  assert(
+    result.data.skills[0]?.matchedSignals.some((signal) =>
+      signal ===
+        "specialty hint:comment-validity -> positive intent:comment-validity [phrase]"
+    ),
+  );
+});
+
+Deno.test("findCatalogMatches hard-excludes negative intent families", () => {
+  const entries = monegoldRoutingEntries();
+  const workspace =
+    "/Users/monetari/Developer/GitHub/Monetari-Team/monegold-monorepo";
+
+  const result = findCatalogMatches(entries, {
+    workspace,
+    projectName: "monegold-monorepo",
+    task: "Review this PR from scratch and find branch-introduced bugs.",
+    debug: true,
+  });
+
+  assertEquals(result.status, "ok");
+  assert(
+    result.data.skills[0]?.entryKey === "code-review" ||
+      result.data.skills[0]?.entryKey === "okan-code-review",
+  );
+  assert(
+    result.data.excludedCandidates?.some((candidate) =>
+      candidate.entryKey === "pr-feedback-evaluator" &&
+      candidate.excludedBy.includes("routing.negativeIntents") &&
+      candidate.negativeSignals.some((signal) =>
+        signal.matchKind === "negative-route" &&
+        signal.candidateSource === "negativeIntents"
+      )
+    ),
+  );
+});
+
+Deno.test("findCatalogMatches routes routing-scoring plans away from generic Artillery token matches", () => {
+  const result = findCatalogMatches([
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "lor-routing-scoring",
+      skillName: "lor-routing-scoring",
+      displayName: "LOR Routing Scoring",
+      primarySpecialty:
+        "LOR skill matching, structured routing API, scoring plans, and matcher regression tests",
+      specialtyTags: ["lor", "routing", "skill-matching", "scoring"],
+      routing: {
+        intentFamily: "lor-routing-improvement",
+        positiveIntents: ["lor-routing-improvement"],
+        aliases: ["lor-routing-scoring", "skill-matcher-routing"],
+        positiveKeywords: [
+          "structured-routing",
+          "skill-matching",
+          "matched-signals",
+        ],
+      },
+    },
+    {
+      ...baseEntry,
+      entryType: "skill",
+      entryKey: "monegold-artillery-http-scenario-yaml",
+      skillName: "monegold-artillery-http-scenario-yaml",
+      displayName: "Monegold Artillery HTTP Scenario YAML",
+      primarySpecialty:
+        "Artillery HTTP scenario YAML for HMAC token auth tests and load-test plans",
+      specialtyTags: ["artillery", "http", "hmac", "token", "tests"],
+      routing: {
+        positiveKeywords: ["token", "tests", "plan"],
+        domain: ["load-testing", "artillery"],
+      },
+    },
+  ], {
+    workspace: "LOR-MCP",
+    task: "Plan improvements for LOR routing scoring.",
+    debug: true,
+  });
+
+  assertEquals(result.status, "ok");
+  assertEquals(result.data.skills[0]?.entryKey, "lor-routing-scoring");
+  assertEquals(
+    result.data.skills[0]?.entryKey ===
+      "monegold-artillery-http-scenario-yaml",
+    false,
+  );
+});
+
 function monegoldRoutingEntries(): CatalogEntry[] {
   const workspace =
     "/Users/monetari/Developer/GitHub/Monetari-Team/monegold-monorepo";
@@ -1377,6 +1523,20 @@ function monegoldRoutingEntries(): CatalogEntry[] {
         "branch-review",
         "findings",
       ],
+      routing: {
+        intentFamily: "fresh-pr-review",
+        positiveIntents: ["fresh-pr-review", "review-code"],
+        aliases: ["code-review", "fresh-review", "branch-review"],
+        negativeIntents: [
+          "received-pr-feedback-triage",
+          "comment-validity",
+        ],
+        negativeKeywords: [
+          "received-feedback",
+          "existing-review-comments",
+          "reviewer-feedback",
+        ],
+      },
       skillContext: {
         whenToUse:
           "Use when the user asks for a final code review on a pull request or branch-introduced bugs.",
@@ -1408,6 +1568,15 @@ function monegoldRoutingEntries(): CatalogEntry[] {
         "summary",
         "test-plan",
       ],
+      routing: {
+        intentFamily: "pr-description",
+        positiveIntents: ["pr-description"],
+        aliases: ["pr-body", "pull-request-description"],
+        negativeIntents: [
+          "received-pr-feedback-triage",
+          "comment-validity",
+        ],
+      },
       skillContext: {
         whenToUse:
           "Use when the user asks for a PR description, pull request summary, PR body, or reviewer-friendly summary.",
@@ -1433,6 +1602,15 @@ function monegoldRoutingEntries(): CatalogEntry[] {
       primarySpecialty:
         "Conventional commit message generation and safe local commit workflow",
       specialtyTags: ["git", "commit", "conventional-commits"],
+      routing: {
+        intentFamily: "commit",
+        positiveIntents: ["commit"],
+        aliases: ["commit-message", "conventional-commits"],
+        negativeIntents: [
+          "received-pr-feedback-triage",
+          "comment-validity",
+        ],
+      },
       skillContext: {
         whenToUse:
           "Use when the user asks for a commit message, commit description, local git commit, or committing current changes.",
@@ -1455,6 +1633,15 @@ function monegoldRoutingEntries(): CatalogEntry[] {
         "inline-comments",
         "findings",
       ],
+      routing: {
+        intentFamily: "review-comment-writing",
+        positiveIntents: ["review-comment-writing"],
+        aliases: ["copy-ready-inline-comments", "inline-review-comments"],
+        negativeIntents: [
+          "received-pr-feedback-triage",
+          "comment-validity",
+        ],
+      },
       skillContext: {
         whenToUse:
           "Use after selected code-review findings need copy-ready PR comments with exact file path, line/range, and concise comment text.",
@@ -1533,6 +1720,34 @@ function monegoldRoutingEntries(): CatalogEntry[] {
         "how-to-fix",
         "github-pr",
       ],
+      routing: {
+        intentFamily: "received-pr-feedback-triage",
+        positiveIntents: [
+          "received-pr-feedback",
+          "comment-validity",
+          "still-valid",
+          "already-fixed",
+        ],
+        negativeIntents: [
+          "fresh-pr-review",
+          "pr-description",
+          "commit",
+          "implementation-only",
+          "review-comment-writing",
+        ],
+        aliases: [
+          "pr-feedback-evaluator",
+          "received-pr-feedback-triage",
+          "reviewer-feedback-triage",
+        ],
+        positiveKeywords: [
+          "existing-review-comments",
+          "unresolved-review-threads",
+          "issue-impact",
+          "ease-of-fix",
+          "how-to-fix",
+        ],
+      },
       skillContext: {
         whenToUse:
           "Use this skill when the user asks to evaluate received PR feedback rather than perform a fresh review. Trigger on checking PR comments, unresolved review threads, copied reviewer feedback, screenshots of comments, whether an issue is still valid, whether feedback is already fixed or stale, and summaries that ask for issue, impact, importance, ease of fix, and how to fix.",

@@ -617,8 +617,12 @@ Deno.test("HTTP MCP handler calls find_matching_skill with structured routing in
       primarySpecialty: "pull request feedback triage",
       specialtyTags: ["pull-request", "feedback", "reviewer-comment"],
       routing: {
+        intentFamily: "received-pr-feedback-triage",
         intents: ["evaluate_feedback"],
+        positiveIntents: ["comment-validity"],
+        aliases: ["pr-feedback-evaluator"],
         positiveKeywords: ["received-feedback", "reviewer-comment"],
+        negativeIntents: ["fresh-pr-review", "commit"],
         requiredAny: ["received-feedback"],
       },
     });
@@ -632,9 +636,14 @@ Deno.test("HTTP MCP handler calls find_matching_skill with structured routing in
         arguments: {
           workspace: "LOR-MCP",
           task: "Is this PR comment still valid?",
+          canonicalTask:
+            "Evaluate existing pull request reviewer feedback for current validity, impact, importance, ease of fix, and how to fix.",
           intent: "evaluate_feedback",
+          excludeIntents: ["commit"],
           positiveKeywords: ["received feedback", "review comment"],
+          negativeHints: ["fresh-pr-review"],
           requiredAny: ["received feedback"],
+          preferredEntryKeys: ["pr-feedback-evaluator"],
           debug: true,
         },
       },

@@ -341,8 +341,12 @@ Deno.test("skill and subagent schemas accept valid negative routing metadata", (
 
 Deno.test("skill and subagent schemas accept structured routing metadata", () => {
   const routing = {
+    intentFamily: "received-pr-feedback-triage",
     intents: ["evaluate_feedback"],
+    positiveIntents: ["comment-validity"],
     excludedIntents: ["commit"],
+    negativeIntents: ["fresh-pr-review"],
+    aliases: ["pr-feedback-evaluator"],
     positiveKeywords: ["pr-feedback", "reviewer-comment"],
     negativeKeywords: ["fresh-review"],
     requiredAny: ["existing-feedback", "unresolved-thread"],
@@ -1012,14 +1016,19 @@ Deno.test("typed matching schemas accept task and hints", () => {
   const input = {
     workspace: "LOR-MCP",
     task: "write focused backend api tests",
+    canonicalTask: "Implement focused backend API tests.",
     intent: "implement_fix",
+    excludeIntents: ["fresh-pr-review"],
     specialtyHints: ["backend"],
     positiveKeywords: ["api-route"],
     negativeKeywords: ["fresh-review"],
+    negativeHints: ["commit"],
     requiredAny: ["backend-api"],
     requiredAll: ["code-change"],
     excludedSkills: ["pr-feedback-evaluator"],
     preferredSkills: ["okan-backend-api-slice-implementer"],
+    excludedEntryKeys: ["okan-pr-description"],
+    preferredEntryKeys: ["okan-backend-usecase-pattern"],
     domain: ["nestjs"],
     outputNeed: ["patch"],
     debug: true,

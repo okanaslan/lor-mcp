@@ -7,6 +7,7 @@ export const catalogScopeSchema = z.enum(["workspace", "global"]);
 export const agentStatusSchema = z.enum(["active", "retired"]);
 
 const routingSignalSources = [
+  "aliases",
   "skillName",
   "subagentName",
   "displayName",
@@ -14,7 +15,11 @@ const routingSignalSources = [
   "primarySpecialty",
   "specialtyTags",
   "intent",
+  "intentFamily",
+  "positiveIntents",
+  "excludedIntents",
   "positiveKeywords",
+  "negativeIntents",
   "domain",
   "outputNeed",
   "requiredAny",
@@ -38,8 +43,12 @@ const routingFieldWeightsSchema = z.object(
   path: ["fieldWeights"],
 });
 const routingMetadataSchema = z.object({
+  intentFamily: z.string().trim().min(1).max(120).optional(),
   intents: routingStringListSchema.optional(),
+  positiveIntents: routingStringListSchema.optional(),
   excludedIntents: routingStringListSchema.optional(),
+  negativeIntents: routingStringListSchema.optional(),
+  aliases: routingStringListSchema.optional(),
   positiveKeywords: routingStringListSchema.optional(),
   negativeKeywords: routingStringListSchema.optional(),
   requiredAny: routingStringListSchema.optional(),
@@ -50,8 +59,12 @@ const routingMetadataSchema = z.object({
   fieldWeights: routingFieldWeightsSchema.optional(),
 }).refine(
   (routing) =>
+    routing.intentFamily !== undefined ||
     routing.intents !== undefined ||
+    routing.positiveIntents !== undefined ||
     routing.excludedIntents !== undefined ||
+    routing.negativeIntents !== undefined ||
+    routing.aliases !== undefined ||
     routing.positiveKeywords !== undefined ||
     routing.negativeKeywords !== undefined ||
     routing.requiredAny !== undefined ||
@@ -547,15 +560,20 @@ export const generateAgentPromptInputSchema = z.object({
 export const findMatchingSkillInputSchema = z.object({
   workspace: workspaceSchema,
   task: z.string().trim().min(1),
+  canonicalTask: z.string().trim().min(1).optional(),
   projectName: z.string().trim().min(1).optional(),
   specialtyHints: z.array(z.string().trim().min(1)).optional(),
   intent: z.string().trim().min(1).max(120).optional(),
+  excludeIntents: routingStringListSchema.optional(),
   positiveKeywords: routingStringListSchema.optional(),
   negativeKeywords: routingStringListSchema.optional(),
+  negativeHints: routingStringListSchema.optional(),
   requiredAny: routingStringListSchema.optional(),
   requiredAll: routingStringListSchema.optional(),
   excludedSkills: routingStringListSchema.optional(),
   preferredSkills: routingStringListSchema.optional(),
+  excludedEntryKeys: routingStringListSchema.optional(),
+  preferredEntryKeys: routingStringListSchema.optional(),
   domain: routingStringListSchema.optional(),
   outputNeed: routingStringListSchema.optional(),
   debug: z.boolean().optional(),
@@ -564,15 +582,20 @@ export const findMatchingSkillInputSchema = z.object({
 export const findMatchingSubagentInputSchema = z.object({
   workspace: workspaceSchema,
   task: z.string().trim().min(1),
+  canonicalTask: z.string().trim().min(1).optional(),
   projectName: z.string().trim().min(1).optional(),
   specialtyHints: z.array(z.string().trim().min(1)).optional(),
   intent: z.string().trim().min(1).max(120).optional(),
+  excludeIntents: routingStringListSchema.optional(),
   positiveKeywords: routingStringListSchema.optional(),
   negativeKeywords: routingStringListSchema.optional(),
+  negativeHints: routingStringListSchema.optional(),
   requiredAny: routingStringListSchema.optional(),
   requiredAll: routingStringListSchema.optional(),
   excludedSkills: routingStringListSchema.optional(),
   preferredSkills: routingStringListSchema.optional(),
+  excludedEntryKeys: routingStringListSchema.optional(),
+  preferredEntryKeys: routingStringListSchema.optional(),
   domain: routingStringListSchema.optional(),
   outputNeed: routingStringListSchema.optional(),
   debug: z.boolean().optional(),

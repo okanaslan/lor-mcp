@@ -14,6 +14,7 @@ export type ReferenceEntryType = "agent" | "skill";
 export type UsageEntryType = "skill" | "subagent" | "note";
 export type UsageOperation = "listed" | "matched" | "detailed";
 export type RoutingSignalSource =
+  | "aliases"
   | "skillName"
   | "subagentName"
   | "displayName"
@@ -21,7 +22,11 @@ export type RoutingSignalSource =
   | "primarySpecialty"
   | "specialtyTags"
   | "intent"
+  | "intentFamily"
+  | "positiveIntents"
+  | "excludedIntents"
   | "positiveKeywords"
+  | "negativeIntents"
   | "domain"
   | "outputNeed"
   | "requiredAny"
@@ -69,8 +74,12 @@ export interface NegativeRoutingMetadata {
 }
 
 export interface RoutingMetadata {
+  intentFamily?: string;
   intents?: readonly string[];
+  positiveIntents?: readonly string[];
   excludedIntents?: readonly string[];
+  negativeIntents?: readonly string[];
+  aliases?: readonly string[];
   positiveKeywords?: readonly string[];
   negativeKeywords?: readonly string[];
   requiredAny?: readonly string[];
@@ -817,16 +826,21 @@ export interface EntryLookup {
 export interface MatchRequest {
   workspace: string;
   task: string;
+  canonicalTask?: string;
   projectName?: string;
   preferredType?: EntryType;
   specialtyHints?: string[];
   intent?: string;
+  excludeIntents?: string[];
   positiveKeywords?: string[];
   negativeKeywords?: string[];
+  negativeHints?: string[];
   requiredAny?: string[];
   requiredAll?: string[];
   excludedSkills?: string[];
   preferredSkills?: string[];
+  excludedEntryKeys?: string[];
+  preferredEntryKeys?: string[];
   domain?: string[];
   outputNeed?: string[];
   debug?: boolean;
