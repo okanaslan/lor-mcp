@@ -67,8 +67,10 @@ Implemented in the runnable local 2.0.0 server:
 - `check_catalog_health` includes skill/subagent coverage metrics, project and
   specialty coverage, coverage status, and recommended actions for improving
   task-initialization readiness.
-- Deterministic local fuzzy matching with registered skill context signals,
-  structured match explanations, and ranked skill/subagent results.
+- Deterministic local matching with structured routing metadata, normalized
+  aliases, stop-word filtering, hard exclusions before ranking, registered skill
+  context fallback signals, structured match explanations, and ranked
+  skill/subagent results.
 - Structured MCP response envelopes with output schemas and stable error codes.
 - Dispatch boundary: LOR can generate manual Codex prompts, but Codex-native
   thread tools own any actual chat creation, send, or read loop.
@@ -82,7 +84,12 @@ Implemented in the runnable local 2.0.0 server:
   routing catalog. Notes do not support global scope.
 - Usage analytics for skill, subagent, and workspace-note list/match/detail
   usage is implemented as local aggregate counters.
-- Negative routing metadata for skills and subagents is implemented so
+- Structured routing metadata for skills and subagents is implemented so
+  entries can declare intents, positive keywords, negative keywords, required
+  signals, domain, output need, and field weights. Debug matching can return
+  normalized query signals, ignored stop words, excluded candidates, and score
+  breakdowns.
+- Negative routing metadata for skills and subagents remains implemented so
   structured "do not use when" guidance can suppress or demote matches.
 - Implementation-oriented skill guidance is implemented as detail-loaded skill
   context that is preserved through detail/export/import/sync and omitted from
@@ -202,6 +209,10 @@ Latest implementation verification:
   verification remains out of scope for introduction flows.
 - [Routing Recommendation Explanation](feature-specs/routing-recommendation-explanation.md):
   Implemented for v1 inline deterministic match candidate explanations.
+- [Structured Routing Metadata](feature-specs/structured-routing-metadata.md):
+  Implemented for V2. Adds entry-level intent, positive keyword, negative
+  keyword, required signal, domain, output need, and field weight metadata for
+  deterministic skill/subagent matching, plus debug routing evidence.
 - [Conflict Handling](feature-specs/conflict-handling.md): Implemented for v1
   agents-only near-equal ambiguity handling with deterministic auto-selection
   for exact project-name and stronger primary-specialty evidence.

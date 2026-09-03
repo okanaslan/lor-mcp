@@ -29,12 +29,20 @@ export interface LorLogConfig {
 
 type Env = Record<string, string | undefined>;
 
+const CONFIG_ENV_KEYS = [
+  "LOR_DB_PATH",
+  "LOR_SKILL_ROOTS",
+  "HOME",
+] as const;
+const SERVE_ENV_KEYS = ["LOR_HOST", "LOR_PORT"] as const;
+const LOG_ENV_KEYS = ["LOR_LOG_LEVEL", "LOR_LOG_FORMAT"] as const;
+
 export interface LoadConfigOptions {
   cwd?: string;
 }
 
 export function loadConfig(
-  env: Env = readDenoEnv(),
+  env: Env = readDenoEnv(CONFIG_ENV_KEYS),
   options: LoadConfigOptions = {},
 ): LorConfig {
   const cwd = options.cwd ?? Deno.cwd();
@@ -50,7 +58,7 @@ export function loadConfig(
 }
 
 export function loadServeConfig(
-  env: Env = readDenoEnv(),
+  env: Env = readDenoEnv(SERVE_ENV_KEYS),
 ): LorServeConfig {
   const host = optionalEnv(env, "LOR_HOST") ?? "127.0.0.1";
   const portValue = optionalEnv(env, "LOR_PORT");
@@ -68,7 +76,7 @@ export function loadServeConfig(
 }
 
 export function loadLogConfig(
-  env: Env = readDenoEnv(),
+  env: Env = readDenoEnv(LOG_ENV_KEYS),
 ): LorLogConfig {
   const level = optionalEnv(env, "LOR_LOG_LEVEL") ?? "info";
   const format = optionalEnv(env, "LOR_LOG_FORMAT") ?? "pretty";
@@ -97,15 +105,8 @@ export async function prepareConfigStorage(
   await Deno.mkdir(dirname(config.dbPath), { recursive: true });
 }
 
-function readDenoEnv(): Env {
-  return {
-    LOR_DB_PATH: Deno.env.get("LOR_DB_PATH"),
-    LOR_SKILL_ROOTS: Deno.env.get("LOR_SKILL_ROOTS"),
-    LOR_HOST: Deno.env.get("LOR_HOST"),
-    LOR_PORT: Deno.env.get("LOR_PORT"),
-    LOR_LOG_LEVEL: Deno.env.get("LOR_LOG_LEVEL"),
-    LOR_LOG_FORMAT: Deno.env.get("LOR_LOG_FORMAT"),
-  };
+function readDenoEnv(keys: readonly string[]): Env {
+  return Object.fromEntries(keys.map((key) => [key, Deno.env.get(key)]));
 }
 
 function parseSkillRoots(env: Env, cwd: string): string[] {

@@ -30,6 +30,9 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 - Usage analytics: local aggregate counters show which skills, subagents, and
   workspace notes are listed, matched, and opened in detail without storing raw
   prompts or note bodies.
+- Structured routing metadata: skills and subagents can declare intents,
+  required signals, positive and negative keywords, domains, output needs, and
+  field weights for deterministic matching.
 - Negative routing metadata: skills and subagents can carry structured "do not
   use when" guidance so matching can suppress or demote false positives.
 - Implementation guidance: selected skills can carry detail-loaded operational
@@ -180,6 +183,12 @@ Use `list_skills` and `list_subagents` when browsing by entry family.
 has it. `get_subagent_detail` returns the rendered prompt for a subagent
 profile.
 
+When a task has a clear intent, pass structured match fields such as `intent`,
+`positiveKeywords`, `negativeKeywords`, `requiredAny`, `requiredAll`, `domain`,
+or `outputNeed`. Use `debug: true` when investigating routing quality; LOR will
+return normalized query signals, ignored stop words, excluded candidates, and a
+weighted score breakdown.
+
 ### Improve Skills
 
 1. `propose_skill_update` to preview better stored skill context.
@@ -312,8 +321,10 @@ flowchart RL
 
 ### Catalog And Routing
 
-- Matching: deterministic local fuzzy scoring with structured explanations,
-  conflict reporting, and registered skill context signals.
+- Matching: deterministic local scoring with structured routing metadata,
+  normalized aliases, stop-word filtering, hard exclusions before ranking,
+  structured explanations, conflict reporting, and registered skill context
+  signals.
 - Global skills: shared skills can be introduced or promoted with
   `scope: "global"` and are included in list/match by default. New skill
   registrations default to global scope unless `scope: "workspace"` is supplied.
@@ -324,6 +335,9 @@ flowchart RL
 - Negative routing: skills and subagents can store structured exclusion
   metadata. Strong negative matches are suppressed, moderate negative matches
   are demoted, and visible demotions include negative evidence in explanations.
+- Debug routing: `debug: true` on matching calls returns normalized query
+  signals, ignored signals, excluded candidates, weighted match signals, and
+  final score breakdowns for routing-quality work.
 - Implementation guidance: skills can store detail-loaded first-inspect lists,
   implementation rules, common fix patterns, test expectations, verification,
   and handoff checklists. Matching does not score this guidance.

@@ -30,8 +30,10 @@ name are no longer registered in the normal public V2 surface.
   stable workspace slug.
 - The server must match skills from the requested workspace and shared global
   skill scope by default.
+- The server must consider structured routing metadata before broad fallback
+  text fields.
 - The server must consider project name, display name, primary specialty, and
-  specialty tags.
+  specialty tags as deterministic fallback signals.
 - The server must consider registered skill context when present, including
   `whenToUse`, `usageNotes`, and `examplePrompts`.
 - The server must not score `skillContext.constraints` in v1.
@@ -48,6 +50,14 @@ name are no longer registered in the normal public V2 surface.
 - The server must not return entries from another workspace.
 - The server may return global skill entries because they are intentionally
   shared across workspaces.
+- The server must ignore common stop words as positive match evidence.
+- The server must normalize common aliases such as PR/pull request and review
+  comments.
+- The server must apply hard filters before ranking for verification status,
+  preferred type, project name, excluded skills, excluded intents, required
+  signals, and request negative keywords.
+- The server should return debug-only routing evidence when `debug: true` is
+  supplied.
 
 ## 5. User Stories / Use Cases
 
@@ -64,6 +74,21 @@ Conceptual `CatalogMatchRequest` fields:
 - `preferredType`: optionally narrows matching to `agent`, `skill`, or
   `subagent`.
 - `specialtyHints`: optional tags or specialties supplied by the caller.
+- `intent`: optional task intent for structured matching.
+- `positiveKeywords`: optional positive routing signals.
+- `negativeKeywords`: optional negative routing signals to exclude matching
+  entries that advertise those signals.
+- `requiredAny`: optional task signals that satisfy entry `requiredAny`
+  metadata.
+- `requiredAll`: optional task signals that satisfy entry `requiredAll`
+  metadata.
+- `excludedSkills`: optional skill or subagent identifiers to hard-exclude.
+- `preferredSkills`: optional skill identifiers that should receive a ranking
+  boost.
+- `domain`: optional product, platform, stack, or workspace domain signals.
+- `outputNeed`: optional desired output shape.
+- `debug`: optional flag that includes normalized query signals, ignored
+  signals, excluded candidates, and score breakdowns.
 
 Conceptual `CatalogMatchResult` fields:
 
@@ -71,6 +96,11 @@ Conceptual `CatalogMatchResult` fields:
 - `entryKey`: identifies the matched catalog entry.
 - `matchedFields`: lists fields that contributed to the match.
 - `confidence`: describes the match strength.
+- `explanation.signalBreakdown`: debug-only weighted positive signal evidence.
+- `explanation.negativeSignals`: debug-only weighted negative signal evidence.
+- `explanation.finalScoreBreakdown`: debug-only positive, negative, preference,
+  and final score totals.
+- `excludedCandidates`: debug-only entries removed before ranking.
 
 ## 7. Error Handling
 
@@ -111,3 +141,6 @@ Conceptual `CatalogMatchResult` fields:
   keeping reachability out of scoring.
 - 2026-08-15: Remove registered-agent matching from the normal public V2
   surface; keep public matching focused on skills and subagents.
+- 2026-09-03: Implement structured skill/subagent routing metadata, hard
+  pre-ranking filters, alias normalization, stop-word filtering, and debug
+  routing evidence.

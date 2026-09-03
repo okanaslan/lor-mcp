@@ -11,10 +11,11 @@ global skill scope, registered skill context updates, and approval-gated local
 for small, scoped delegation without requiring a registered Codex agent session.
 Usage analytics adds local aggregate counters for skill, subagent, and
 workspace-note list/match/detail usage without storing raw prompts or note
-bodies. Negative routing metadata lets overlapping skills and subagents store
-explicit "do not use when" rules so matching can reduce false positives.
-Implementation guidance lets selected skills store detail-loaded operational
-instructions without adding large guidance blocks to list or match responses.
+bodies. Structured routing metadata lets overlapping skills and subagents store
+intent, keyword, required-signal, domain, output-need, and exclusion metadata so
+matching can reduce false positives. Implementation guidance lets selected
+skills store detail-loaded operational instructions without adding large
+guidance blocks to list or match responses.
 
 V2 keeps manual prompt generation available, while delegated task lifecycle
 internals and registered-agent catalog tools are hidden from the normal public
@@ -48,6 +49,8 @@ canonical workspace paths before reading or writing catalog records.
 The main user flows are:
 
 - Register skills and subagent profiles with routing metadata.
+- Use structured routing fields during matching when the task has known intent,
+  domain, required signals, negative signals, or output needs.
 - Register skills and subagent profiles globally by default, or use
   `scope: "workspace"` for workspace-local entries.
 - Promote workspace-local skills globally with `promote_skill_to_global`.
@@ -87,6 +90,8 @@ preview first, then apply with `confirm: true`.
 - Update `VERSION` and `CHANGELOG.md` when cutting a version.
 - Keep root `README.md`, this docs index, and `roadmap.md` aligned whenever the
   public MCP tool surface changes.
+- Keep structured routing docs aligned with the matcher, validation schemas, and
+  SQLite schema version whenever routing metadata changes.
 - Keep planned-tool language explicit so future docs do not imply unimplemented
   MCP tools are available.
 - Keep V2 direction notes aligned with the current public tool surface whenever
