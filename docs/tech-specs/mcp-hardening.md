@@ -55,6 +55,12 @@ Unknown outcomes require read-back or an operation receipt, not blind replay.
 - Baseline: `deno task test`: 221 passed, 0 failed.
 - Steps 1-11 implemented on `codex/mcp-system-hardening`. After step 11: 241
   tests pass; typecheck, lint, formatting and whitespace checks pass.
+- Final follow-up: `deno task test:stdio` passes with an actual server
+  subprocess, including a disposable SQLite write and an unauthorized workspace
+  rejection.
+- The final recovery review corrected the pending-receipt test to use an
+  identical payload hash and added rejection of reserved markers inside source
+  skill context. The full suite remains at 241 passing tests.
 - SDK tests exercise the real runtime through HTTP handlers: scope denial,
   revisions, pagination, receipt replay after reconnect, request cancellation,
   body limits and session expiry. They use disposable local databases.
@@ -68,3 +74,23 @@ Unknown outcomes require read-back or an operation receipt, not blind replay.
 
 See [the upgrade and recovery runbook](../runbooks/mcp-hardening.md) for
 deliberate contract changes, local-only trust assumptions and release gates.
+
+## Implementation Commits
+
+| Step | Commit    | Scope                                             |
+| ---- | --------- | ------------------------------------------------- |
+| 1    | `576aa07` | Baseline and compatibility contract               |
+| 2    | `b8bbe89` | Tool responsibilities and annotations             |
+| 3    | `17a96d7` | Bounded inputs and typed outputs                  |
+| 4    | `2aad0af` | Actionable, correlated execution errors           |
+| 5    | `5f28d62` | Workspace/global policy and local HTTP boundaries |
+| 6    | `8d01810` | Revisions, receipts and proposal binding          |
+| 7    | `2717641` | Summary pagination and routing evidence           |
+| 8    | `20e5cfa` | Preview-bound, recoverable local file sync        |
+| 9    | `1d45387` | Bundled defaults and tool-only reads              |
+| 10   | `08105b0` | SDK boundary tests and cancellation               |
+| 11   | `9b035ec` | HTTP limits, schema 13 and operational runbook    |
+
+Separate verification commits: `0fa6588` and `a6596f5` enforce/test file-sync
+access and proposal origin; `2b0c152` fixes reserved markers and pending-receipt
+coverage; `4b713b3` adds the real stdio subprocess check.

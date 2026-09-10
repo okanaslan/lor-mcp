@@ -60,9 +60,11 @@ and must supply their own authorization hook; tool arguments cannot select one.
 4. Configure canonical workspaces and least-privilege flags explicitly. Keep the
    server local. Do not reuse a broad publisher configuration for an untrusted
    client. Refresh tools after reconnecting so clients see the new schemas.
-5. Run check, lint, format and tests, then verify the actual supported desktop
-   clients can initialize, list tools, load defaults, page lists and handle a
-   rejected write. Confirm a workspace-scoped write and read-back on test data.
+5. Run `deno task check`, `deno task lint`, `deno task fmt`, `deno task test`
+   and the opt-in subprocess check `deno task test:stdio`, then verify the
+   actual supported desktop clients can initialize, list tools, load defaults,
+   page lists and handle a rejected write. Confirm a workspace-scoped write and
+   read-back on test data.
 6. Start the candidate with the real database only after accepting those checks.
    Do not run old and new binaries concurrently against the same database.
 
