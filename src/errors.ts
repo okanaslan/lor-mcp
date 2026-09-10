@@ -1,4 +1,5 @@
 export type ErrorCode =
+  | "response_too_large"
   | "validation_error"
   | "session_error"
   | "setup_error"

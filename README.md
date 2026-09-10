@@ -72,6 +72,23 @@ from user-managed catalog entries and do not seed or overwrite global/workspace
 rows. Existing `list_skills` and matching tools continue to query registered
 entries only.
 
+Registered skill/subagent summaries and note listings also expose authorized
+`resourceUri` values. Their template is
+`lor://catalog/{kind}/{scope}/{workspace}/{entryKey}`, with percent-encoded
+workspace/key components. Use `resources/templates/list` to discover it, and the
+existing list/detail tools when a client does not support resources.
+`lor-agent-prompt` is a native MCP prompt backed by the same generator as
+`generate_agent_prompt`; neither starts an agent.
+
+Initialization supplies concise LOR workflow instructions. Tool schemas require
+`expectedRevision` for updates/deletes and `previewDigest` for sync applies.
+Large execution results return `status=deferred` and a short-lived result URI;
+read every page through resources or `read_result_page` before interpreting the
+original outcome. Workspace diagnostics report release, source-build and
+tool-contract identities. See the
+[hardening runbook](docs/runbooks/mcp-hardening.md) for budgets, schema 14
+migration, compatibility checks and recovery limitations.
+
 The canonical source is `skills/manifest.json` and its listed skill directories.
 When changing released package content, bump that skill's version in the catalog
 and its `SKILL.md` metadata. Ship the `skills/` directory with `src/`; keep

@@ -11,9 +11,12 @@ import {
   skillResourceUri,
 } from "@src/skills/bundled_skills.ts";
 
-export function registerBundledSkillResources(server: McpServer): void {
+export function registerBundledSkillResources(
+  server: McpServer,
+  registerTool: McpServer["registerTool"] = server.registerTool.bind(server),
+): void {
   const skills = listBundledSkills();
-  server.registerTool(
+  registerTool(
     "list_default_skills",
     {
       description:
@@ -28,7 +31,7 @@ export function registerBundledSkillResources(server: McpServer): void {
         crypto.randomUUID(),
       ),
   );
-  server.registerTool("get_default_skill", {
+  registerTool("get_default_skill", {
     description:
       "Read one bundled default skill or its listed supporting file by canonical name or alias. Use when the client cannot read MCP resources. Does not install files or access catalog rows.",
     inputSchema: z.strictObject({

@@ -135,6 +135,7 @@ Deno.test("registerWorkspaceAliasInputSchema requires workspace and alias", () =
 Deno.test("typed update schemas require an editable field", () => {
   assertEquals(
     updateSkillInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
       skillName: "backend-skill",
       scope: "global",
@@ -144,6 +145,7 @@ Deno.test("typed update schemas require an editable field", () => {
   );
   assertEquals(
     updateSubagentInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
       subagentName: "api-test-subagent",
       specialtyTags: ["api", "tests"],
@@ -152,6 +154,7 @@ Deno.test("typed update schemas require an editable field", () => {
   );
   assertEquals(
     updateSkillInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
       skillName: "backend-skill",
       specialtyTags: [],
@@ -292,6 +295,7 @@ Deno.test("skill and subagent schemas accept valid negative routing metadata", (
   );
   assertEquals(
     updateSkillInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
       skillName: "performance-audit",
       negativeRouting: {
@@ -331,6 +335,7 @@ Deno.test("skill and subagent schemas accept valid negative routing metadata", (
   );
   assertEquals(
     updateSubagentInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
       subagentName: "performance-subagent",
       negativeRouting: null,
@@ -449,6 +454,7 @@ Deno.test("negative routing schemas reject empty exclusion metadata", () => {
   );
   assertEquals(
     updateSubagentInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
       subagentName: "performance-subagent",
       negativeRouting: {
@@ -591,6 +597,7 @@ Deno.test("skill file sync schemas require proposal and confirmation", () => {
   );
   assertEquals(
     applySkillFileSyncInputSchema.safeParse({
+      previewDigest: "a".repeat(64),
       workspace: "LOR-MCP",
       skillName: "backend-skill",
       proposalId: "proposal-1",
@@ -600,6 +607,7 @@ Deno.test("skill file sync schemas require proposal and confirmation", () => {
   );
   assertEquals(
     applySkillFileSyncInputSchema.safeParse({
+      previewDigest: "a".repeat(64),
       workspace: "LOR-MCP",
       skillName: "backend-skill",
       proposalId: "proposal-1",
@@ -612,6 +620,7 @@ Deno.test("skill file sync schemas require proposal and confirmation", () => {
 Deno.test("typed remove schemas require workspace and typed key", () => {
   assertEquals(
     removeSkillInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
       skillName: "backend-skill",
     }).success,
@@ -619,6 +628,7 @@ Deno.test("typed remove schemas require workspace and typed key", () => {
   );
   assertEquals(
     removeSubagentInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
       subagentName: "api-test-subagent",
       scope: "global",
@@ -627,6 +637,7 @@ Deno.test("typed remove schemas require workspace and typed key", () => {
   );
   assertEquals(
     removeSkillInputSchema.safeParse({
+      expectedRevision: "a".repeat(64),
       workspace: "LOR-MCP",
     }).success,
     false,
@@ -774,6 +785,7 @@ Deno.test("workspace catalog sync schemas require source and target workspaces",
 Deno.test("applyWorkspaceCatalogSyncInputSchema requires confirm true", () => {
   assertEquals(
     applyWorkspaceCatalogSyncInputSchema.safeParse({
+      previewDigest: "a".repeat(64),
       sourceWorkspace: "source-workspace",
       targetWorkspace: "target-workspace",
       confirm: true,
@@ -782,6 +794,7 @@ Deno.test("applyWorkspaceCatalogSyncInputSchema requires confirm true", () => {
   );
   assertEquals(
     applyWorkspaceCatalogSyncInputSchema.safeParse({
+      previewDigest: "a".repeat(64),
       sourceWorkspace: "source-workspace",
       targetWorkspace: "target-workspace",
     }).success,
@@ -789,6 +802,7 @@ Deno.test("applyWorkspaceCatalogSyncInputSchema requires confirm true", () => {
   );
   assertEquals(
     applyWorkspaceCatalogSyncInputSchema.safeParse({
+      previewDigest: "a".repeat(64),
       sourceWorkspace: "source-workspace",
       targetWorkspace: "target-workspace",
       confirm: false,

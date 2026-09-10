@@ -988,6 +988,16 @@ export interface PrepareAgentInitializationResult {
 }
 
 export interface CatalogRepository {
+  listEntryPage(
+    workspace: string,
+    filter: ListEntriesFilter,
+    page: import("./pagination.ts").PageRequest,
+  ): Promise<import("./pagination.ts").CatalogPage<CatalogEntry>>;
+  listNotePage(
+    workspace: string,
+    tags: readonly string[] | undefined,
+    page: import("./pagination.ts").PageRequest,
+  ): Promise<import("./pagination.ts").CatalogPage<WorkspaceNoteSummary>>;
   initialize(): Promise<void>;
   createAgent(
     workspace: string,

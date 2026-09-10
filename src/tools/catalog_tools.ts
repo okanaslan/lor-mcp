@@ -1,5 +1,8 @@
 import { outputSchemaFor } from "@src/tools/output_schemas.ts";
-import { compactMatches, entrySummary, page } from "@src/tools/discovery.ts";
+import { BUILD_IDENTITY } from "@src/build.ts";
+import { fingerprint } from "@src/catalog/revision.ts";
+import { compactMatches, entrySummary } from "@src/tools/discovery.ts";
+import { catalogResourceUri } from "@src/catalog/context.ts";
 import * as z from "zod/v4";
 import { toolEffectDescription, toolPolicy } from "@src/tools/policy.ts";
 import type { McpServer } from "@mcp/server";
@@ -88,6 +91,8 @@ import {
 } from "@src/logger.ts";
 
 export interface CatalogToolOptions {
+  registerTool?: McpServer["registerTool"];
+  toolContractFingerprint?: () => string;
   runtimeFactory?: () => Promise<ToolRuntime>;
   logger?: LorLogger;
 }
@@ -96,13 +101,14 @@ export function registerCatalogTools(
   server: McpServer,
   options: CatalogToolOptions = {},
 ): void {
+  const registerTool = options.registerTool ?? server.registerTool.bind(server);
   const logger = (options.logger ?? createNoopLogger()).child({
     component: "tools",
   });
   const runtimeFactory = options.runtimeFactory ??
     (() => createDefaultRuntime({ logger }));
 
-  server.registerTool(
+  registerTool(
     "get_operation",
     {
       description:
@@ -147,7 +153,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "introduce_skill",
     {
       annotations: toolPolicy("introduce_skill"),
@@ -170,7 +176,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "introduce_subagent",
     {
       annotations: toolPolicy("introduce_subagent"),
@@ -194,7 +200,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "list_skills",
     {
       annotations: toolPolicy("list_skills"),
@@ -212,22 +218,27 @@ export function registerCatalogTools(
         runtimeFactory,
         extra.signal,
         async (runtime) => {
-          const skills = await runtime.service.listSkills(input);
-          const { items, ...pagination } = page(skills, input, {
-            tool: "list_skills",
-            workspace: input.workspace,
-            scope: input.scope,
-            projectName: input.projectName,
-          }, (entry) => `${entry.scope}:${entry.entryKey}`);
+          const { items, ...pagination } = await runtime.service
+            .listCatalogPage({
+              entryType: "skill",
+              workspace: input.workspace,
+              scope: input.scope,
+              projectName: input.projectName,
+            }, input);
           return okResult(
-            { skills: items.map(entrySummary), ...pagination },
-            `Returned ${items.length} of ${skills.length} skills. Use get_skill_detail for instructions.`,
+            {
+              skills: items.map((entry) =>
+                entrySummary(entry, input.workspace)
+              ),
+              ...pagination,
+            },
+            `Returned ${items.length} of ${pagination.total} skills. Use get_skill_detail for instructions.`,
           );
         },
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "list_subagents",
     {
       annotations: toolPolicy("list_subagents"),
@@ -245,22 +256,27 @@ export function registerCatalogTools(
         runtimeFactory,
         extra.signal,
         async (runtime) => {
-          const subagents = await runtime.service.listSubagents(input);
-          const { items, ...pagination } = page(subagents, input, {
-            tool: "list_subagents",
-            workspace: input.workspace,
-            scope: input.scope,
-            projectName: input.projectName,
-          }, (entry) => `${entry.scope}:${entry.entryKey}`);
+          const { items, ...pagination } = await runtime.service
+            .listCatalogPage({
+              entryType: "subagent",
+              workspace: input.workspace,
+              scope: input.scope,
+              projectName: input.projectName,
+            }, input);
           return okResult(
-            { subagents: items.map(entrySummary), ...pagination },
-            `Returned ${items.length} of ${subagents.length} subagents. Use get_subagent_detail for the prompt.`,
+            {
+              subagents: items.map((entry) =>
+                entrySummary(entry, input.workspace)
+              ),
+              ...pagination,
+            },
+            `Returned ${items.length} of ${pagination.total} subagents. Use get_subagent_detail for the prompt.`,
           );
         },
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "clear_workspace_skills",
     {
       annotations: toolPolicy("clear_workspace_skills"),
@@ -284,7 +300,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "clear_workspace_subagents",
     {
       annotations: toolPolicy("clear_workspace_subagents"),
@@ -311,7 +327,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "register_workspace_alias",
     {
       annotations: toolPolicy("register_workspace_alias"),
@@ -337,7 +353,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "promote_skill_to_global",
     {
       annotations: toolPolicy("promote_skill_to_global"),
@@ -364,7 +380,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "get_skill_detail",
     {
       annotations: toolPolicy("get_skill_detail"),
@@ -392,7 +408,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "get_subagent_detail",
     {
       annotations: toolPolicy("get_subagent_detail"),
@@ -421,7 +437,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "update_skill",
     {
       annotations: toolPolicy("update_skill"),
@@ -444,7 +460,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "update_subagent",
     {
       annotations: toolPolicy("update_subagent"),
@@ -468,7 +484,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "propose_skill_update",
     {
       annotations: toolPolicy("propose_skill_update"),
@@ -495,7 +511,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "apply_skill_update",
     {
       annotations: toolPolicy("apply_skill_update"),
@@ -522,7 +538,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "preview_skill_file_sync",
     {
       annotations: toolPolicy("preview_skill_file_sync"),
@@ -549,7 +565,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "apply_skill_file_sync",
     {
       annotations: toolPolicy("apply_skill_file_sync"),
@@ -578,7 +594,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "remove_skill",
     {
       annotations: toolPolicy("remove_skill"),
@@ -601,7 +617,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "remove_subagent",
     {
       annotations: toolPolicy("remove_subagent"),
@@ -625,7 +641,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "export_catalog",
     {
       annotations: toolPolicy("export_catalog"),
@@ -642,33 +658,16 @@ export function registerCatalogTools(
         runtimeFactory,
         extra.signal,
         async (runtime) => {
-          const catalog = await runtime.service.exportCatalog(input);
-          const { items, ...pagination } = page(
-            catalog.entries,
-            input,
-            {
-              tool: "export_catalog",
-              workspace: catalog.workspace,
-              filters: catalog.filters,
-            },
-            (entry) =>
-              `${entry.entryType}:${
-                entry.entryType === "skill"
-                  ? entry.skillName
-                  : entry.entryType === "subagent"
-                  ? entry.name
-                  : entry.codexSessionId
-              }`,
-          );
+          const catalog = await runtime.service.exportCatalogPage(input, input);
           return okResult(
-            { ...catalog, entries: items, ...pagination },
-            `Exported ${items.length} of ${pagination.total} catalog entries. Follow nextCursor for remaining pages.`,
+            catalog,
+            `Exported ${catalog.entries.length} of ${catalog.total} catalog entries. Follow nextCursor for remaining pages.`,
           );
         },
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "import_catalog",
     {
       annotations: toolPolicy("import_catalog"),
@@ -694,7 +693,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "preview_workspace_catalog_sync",
     {
       annotations: toolPolicy("preview_workspace_catalog_sync"),
@@ -726,7 +725,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "apply_workspace_catalog_sync",
     {
       annotations: toolPolicy("apply_workspace_catalog_sync"),
@@ -756,7 +755,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "check_catalog_health",
     {
       annotations: toolPolicy("check_catalog_health"),
@@ -783,7 +782,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "get_workspace_diagnostics",
     {
       annotations: toolPolicy("get_workspace_diagnostics"),
@@ -803,14 +802,22 @@ export function registerCatalogTools(
         async (runtime) => {
           const report = await runtime.service.getWorkspaceDiagnostics(input);
           return okResult(
-            report,
+            {
+              ...report,
+              runtimeStatus: {
+                ...report.runtimeStatus,
+                ...BUILD_IDENTITY,
+                toolContractFingerprint: options.toolContractFingerprint?.() ??
+                  fingerprint([]),
+              },
+            },
             `Resolved workspace ${report.resolvedWorkspace}.`,
           );
         },
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "get_usage_analytics",
     {
       annotations: toolPolicy("get_usage_analytics"),
@@ -837,7 +844,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "remember_workspace_note",
     {
       annotations: toolPolicy("remember_workspace_note"),
@@ -861,7 +868,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "list_workspace_notes",
     {
       annotations: toolPolicy("list_workspace_notes"),
@@ -879,21 +886,27 @@ export function registerCatalogTools(
         runtimeFactory,
         extra.signal,
         async (runtime) => {
-          const result = await runtime.service.listWorkspaceNotes(input);
-          const { items, ...pagination } = page(result.notes, input, {
-            tool: "list_workspace_notes",
-            workspace: result.workspace,
-            tags: input.tags,
-          }, (note) => note.noteId);
+          const result = await runtime.service.listWorkspaceNotePage(input);
           return okResult(
-            { ...result, notes: items, ...pagination },
-            `Returned ${items.length} of ${result.notes.length} workspace notes.`,
+            {
+              ...result,
+              notes: result.notes.map((note) => ({
+                ...note,
+                resourceUri: catalogResourceUri(
+                  "note",
+                  input.workspace,
+                  "workspace",
+                  note.noteId,
+                ),
+              })),
+            },
+            `Returned ${result.notes.length} of ${result.total} workspace notes.`,
           );
         },
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "find_matching_workspace_note",
     {
       annotations: toolPolicy("find_matching_workspace_note"),
@@ -932,7 +945,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "get_workspace_note",
     {
       annotations: toolPolicy("get_workspace_note"),
@@ -955,7 +968,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "remove_workspace_note",
     {
       annotations: toolPolicy("remove_workspace_note"),
@@ -978,7 +991,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "generate_agent_prompt",
     {
       annotations: toolPolicy("generate_agent_prompt"),
@@ -997,7 +1010,7 @@ export function registerCatalogTools(
       }),
   );
 
-  server.registerTool(
+  registerTool(
     "find_matching_skill",
     {
       annotations: toolPolicy("find_matching_skill"),
@@ -1021,7 +1034,7 @@ export function registerCatalogTools(
       ),
   );
 
-  server.registerTool(
+  registerTool(
     "find_matching_subagent",
     {
       annotations: toolPolicy("find_matching_subagent"),

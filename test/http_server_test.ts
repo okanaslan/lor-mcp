@@ -91,6 +91,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "find_matching_subagent",
       "list_default_skills",
       "get_default_skill",
+      "read_result_page",
     ],
   );
 });
@@ -271,6 +272,8 @@ Deno.test("HTTP MCP handler calls preview_skill_file_sync and apply_skill_file_s
       params: {
         name: "apply_skill_file_sync",
         arguments: {
+          previewDigest:
+            previewBody.result.structuredContent.data.previewDigest,
           workspace: "LOR-MCP",
           skillName: "backend-skill",
           proposalId: proposal.proposal.proposalId,
@@ -363,6 +366,10 @@ Deno.test("HTTP MCP handler calls remove_skill", async () => {
       params: {
         name: "remove_skill",
         arguments: {
+          expectedRevision: (await service.getSkillDetail({
+            workspace: "LOR-MCP",
+            skillName: "backend-skill",
+          }))!.revision,
           workspace: "LOR-MCP",
           skillName: "backend-skill",
         },
@@ -495,6 +502,8 @@ Deno.test("HTTP MCP handler calls workspace catalog sync tools", async () => {
       params: {
         name: "apply_workspace_catalog_sync",
         arguments: {
+          previewDigest:
+            previewBody.result.structuredContent.data.previewDigest,
           sourceWorkspace: "source-workspace",
           targetWorkspace: "target-workspace",
           confirm: true,

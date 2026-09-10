@@ -1,4 +1,10 @@
 import type { Database } from "@db/sqlite";
+import {
+  type CatalogPage,
+  type PageRequest,
+  paginationState,
+} from "@src/catalog/pagination.ts";
+import type { WorkspaceNoteSummary } from "@src/catalog/types.ts";
 import type {
   AgentCatalogEntry,
   AgentReachability,
@@ -176,7 +182,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         const current = this.#db.prepare(
           "SELECT MAX(version) AS version FROM schema_migrations",
         ).get<{ version: number }>();
-        if ((current?.version ?? 0) > 13) {
+        if ((current?.version ?? 0) > 14) {
           throw new LorError(
             "setup_error",
             "Catalog schema is newer than this server. Use a compatible release.",
@@ -209,7 +215,27 @@ export class SqliteCatalogRepository implements CatalogRepository {
         createdAt TEXT NOT NULL, PRIMARY KEY (workspace, operationKey)
       )`);
         backfillWorkspaceAliases(db);
-        recordSchemaVersion(db, 13);
+        db.exec(
+          "CREATE TABLE IF NOT EXISTS catalog_generation (id INTEGER PRIMARY KEY CHECK (id = 1), token TEXT NOT NULL)",
+        );
+        db.exec(
+          "INSERT OR IGNORE INTO catalog_generation VALUES (1, lower(hex(randomblob(16))))",
+        );
+        for (
+          const table of [
+            "introduced_agents",
+            "introduced_skills",
+            "introduced_subagents",
+            "workspace_notes",
+          ]
+        ) {
+          for (const action of ["INSERT", "UPDATE", "DELETE"]) {
+            db.exec(`CREATE TRIGGER IF NOT EXISTS generation_${table}_${action}
+              AFTER ${action} ON ${table} BEGIN
+              UPDATE catalog_generation SET token = lower(hex(randomblob(16))) WHERE id = 1; END`);
+          }
+        }
+        recordSchemaVersion(db, 14);
       });
       migrate();
     } catch (error) {
@@ -557,6 +583,143 @@ export class SqliteCatalogRepository implements CatalogRepository {
     } catch (error) {
       throw mapStorageError(error);
     }
+  }
+
+  listEntryPage(
+    workspace: string,
+    filter: ListEntriesFilter,
+    input: PageRequest,
+  ): Promise<CatalogPage<CatalogEntry>> {
+    const parts: string[] = [];
+    const params: string[] = [];
+    const tables = [
+      ["agent", "introduced_agents", "codexSessionId"],
+      ["skill", "introduced_skills", "skillName"],
+      ["subagent", "introduced_subagents", "name"],
+    ] as const;
+    for (const [kind, table, key] of tables) {
+      if (filter.entryType && filter.entryType !== kind) continue;
+      if (kind === "agent" && filter.scope === "global") continue;
+      const workspaces = kind === "agent"
+        ? [workspace]
+        : kind === "skill"
+        ? skillListStorageWorkspaces(workspace, filter.scope)
+        : subagentListStorageWorkspaces(workspace, filter.scope);
+      parts.push(`SELECT '${kind}' AS entryType, ${key} AS entryKey, workspace,
+        '${kind}:' || printf('%020d', rowid) AS cursorKey
+        FROM ${table} WHERE workspace IN (${placeholders(workspaces)})${
+        filter.projectName ? " AND projectName = ?" : ""
+      }`);
+      params.push(...workspaces);
+      if (filter.projectName) params.push(filter.projectName);
+    }
+    if (!parts.length) return Promise.resolve({ items: [], total: 0 });
+    const db = this.requireDb();
+    const read = db.transaction(() => {
+      const selected = this.readPage<
+        {
+          entryType: "agent" | "skill" | "subagent";
+          entryKey: string;
+          workspace: string;
+          cursorKey: string;
+        }
+      >(
+        parts.join(" UNION ALL "),
+        params,
+        input,
+        { workspace, filter, kind: "entries" },
+      );
+      return {
+        ...selected,
+        items: selected.items.map((row) =>
+          this.getEntrySync(workspace, {
+            workspace,
+            entryType: row.entryType,
+            entryKey: row.entryKey,
+            scope: row.workspace === GLOBAL_SKILL_WORKSPACE ||
+                row.workspace === GLOBAL_SUBAGENT_WORKSPACE
+              ? "global"
+              : "workspace",
+          })!
+        ),
+      };
+    });
+    return Promise.resolve(read());
+  }
+
+  listNotePage(
+    workspace: string,
+    tags: readonly string[] | undefined,
+    input: PageRequest,
+  ): Promise<CatalogPage<WorkspaceNoteSummary>> {
+    const params = [workspace, ...(tags ?? [])];
+    const tagSql = (tags ?? []).map(() =>
+      " AND EXISTS (SELECT 1 FROM json_each(tagsJson) WHERE value = ?)"
+    ).join("");
+    const sql =
+      `SELECT noteId, workspace, title, tagsJson, createdAt, updatedAt,
+      printf('%020d', rowid) AS cursorKey FROM workspace_notes WHERE workspace = ?${tagSql}`;
+    const read = this.requireDb().transaction(() => {
+      const selected = this.readPage<
+        Omit<WorkspaceNoteRow, "body"> & { cursorKey: string }
+      >(
+        sql,
+        params,
+        input,
+        { workspace, tags, kind: "notes" },
+      );
+      return {
+        ...selected,
+        items: selected.items.map((row) => ({
+          noteId: row.noteId,
+          workspace: row.workspace,
+          title: row.title,
+          tags: JSON.parse(row.tagsJson) as string[],
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        })),
+      };
+    });
+    return Promise.resolve(read());
+  }
+
+  private readPage<T extends { cursorKey: string }>(
+    sql: string,
+    params: string[],
+    input: PageRequest,
+    context: unknown,
+  ): CatalogPage<T> {
+    const db = this.requireDb();
+    const generation = db.prepare<{ token: string }>(
+      "SELECT token FROM catalog_generation WHERE id = 1",
+    ).get()!.token;
+    const state = paginationState(input, context, generation);
+    if (
+      state.after &&
+      !db.prepare(`SELECT 1 FROM (${sql}) WHERE cursorKey = ?`).get(
+        ...params,
+        state.after,
+      )
+    ) {
+      throw new LorError(
+        "invalid_cursor",
+        "Cursor position is invalid. Restart listing.",
+      );
+    }
+    const total =
+      db.prepare<{ total: number }>(`SELECT COUNT(*) AS total FROM (${sql})`)
+        .get(...params)!.total;
+    const rows = db.prepare<T>(
+      `SELECT * FROM (${sql}) WHERE cursorKey > ? ORDER BY cursorKey LIMIT ?`,
+    ).all(...params, state.after, state.limit + 1);
+    const items = rows.slice(0, state.limit);
+    return {
+      items,
+      total,
+      nextCursor: rows.length > state.limit
+        ? state.cursor(items.at(-1)!.cursorKey)
+        : undefined,
+    };
   }
 
   listEntries(

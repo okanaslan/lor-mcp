@@ -212,6 +212,74 @@ export class CatalogService {
     );
   }
 
+  async listCatalogPage(
+    filter: ListEntriesFilter,
+    input: import("./pagination.ts").PageRequest,
+  ) {
+    const workspace = await this.resolveWorkspace(filter.workspace);
+    validateListScope(filter.entryType, filter.scope);
+    const result = await this.#repository.listEntryPage(workspace, {
+      ...filter,
+      workspace,
+    }, input);
+    await this.recordUsage(
+      result.items.filter((entry) => entry.entryType !== "agent").map((entry) =>
+        usageFromCatalogEntry(workspace, entry, "listed")
+      ),
+    );
+    return result;
+  }
+
+  async exportCatalogPage(
+    filter: CatalogExportFilter,
+    input: import("./pagination.ts").PageRequest,
+  ) {
+    const validated = validateCatalogExportFilter(filter);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const { items, ...pagination } = await this.#repository.listEntryPage(
+      workspace,
+      {
+        workspace,
+        entryType: validated.entryType,
+        projectName: validated.projectName,
+        scope: "workspace",
+      },
+      input,
+    );
+    return {
+      version: 1 as const,
+      exportedAt: this.#now(),
+      workspace,
+      filters: {
+        entryType: validated.entryType,
+        projectName: validated.projectName,
+      },
+      entries: items.map(toExportEntry),
+      ...pagination,
+    };
+  }
+
+  async listWorkspaceNotePage(
+    input: ListWorkspaceNotesInput & import("./pagination.ts").PageRequest,
+  ) {
+    const validated = validateListWorkspaceNotes(input);
+    const workspace = await this.resolveWorkspace(validated.workspace);
+    const { items, ...pagination } = await this.#repository.listNotePage(
+      workspace,
+      validated.tags,
+      input,
+    );
+    await this.recordUsage(
+      items.map((note) => usageFromWorkspaceNote(workspace, note, "listed")),
+    );
+    return {
+      workspace,
+      filters: { tags: validated.tags },
+      notes: items,
+      ...pagination,
+    };
+  }
+
   async listSkills(
     filter: Omit<ListEntriesFilter, "entryType">,
   ): Promise<SkillCatalogEntry[]> {
@@ -1004,6 +1072,7 @@ export class CatalogService {
 
     return {
       ...preview,
+      previewDigest: fingerprint(preview),
       summary: {
         ...preview.summary,
         copiedSkills: copiedSkills.length,
@@ -1913,7 +1982,7 @@ function usageFromMatchCandidate(
 
 function usageFromWorkspaceNote(
   workspace: string,
-  note: WorkspaceNote,
+  note: Pick<WorkspaceNote, "noteId">,
   operation: UsageOperation,
 ): UsageCounterIncrement {
   return {

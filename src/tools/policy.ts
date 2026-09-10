@@ -1,4 +1,5 @@
 export const READ_TOOLS = new Set([
+  "read_result_page",
   "list_default_skills",
   "get_default_skill",
   "get_operation",

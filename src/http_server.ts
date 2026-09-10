@@ -3,6 +3,7 @@ import { isInitializeRequest } from "@mcp/types";
 import type { CatalogToolOptions } from "@src/tools/catalog_tools.ts";
 import { createServer } from "@src/server.ts";
 import { createNoopLogger } from "@src/logger.ts";
+import { ResultPages } from "@src/tools/result_pages.ts";
 
 const MCP_PATH = "/mcp";
 
@@ -28,6 +29,7 @@ export function createHttpMcpHandler(
   const sessionIdleMs = options.sessionIdleMs ?? 30 * 60 * 1000;
   const requestBodyTimeoutMs = options.requestBodyTimeoutMs ?? 15_000;
   const now = options.now ?? Date.now;
+  const resultPages = new ResultPages(now);
   let initializing = 0;
   for (
     const value of [
@@ -220,7 +222,7 @@ export function createHttpMcpHandler(
       }
     };
 
-    const server = createServer(options);
+    const server = createServer(options, resultPages);
     try {
       await server.connect(transport);
       return logResponse(

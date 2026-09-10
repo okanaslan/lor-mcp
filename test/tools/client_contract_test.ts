@@ -90,13 +90,16 @@ Deno.test("SDK client exercises real runtime authorization, revisions, paginatio
     assertEquals(created.status, "ok");
     const revision = created.data!.revision;
     assertEquals(
-      (await call("update_skill", {
-        workspace: "allowed",
-        scope: "workspace",
-        skillName: "test-skill",
-        displayName: "Missing precondition",
-      })).error?.code,
-      "revision_conflict",
+      (await client!.callTool({
+        name: "update_skill",
+        arguments: {
+          workspace: "allowed",
+          scope: "workspace",
+          skillName: "test-skill",
+          displayName: "Missing precondition",
+        },
+      })).isError,
+      true,
     );
     const update = {
       workspace: "allowed",

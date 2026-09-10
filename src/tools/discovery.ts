@@ -1,6 +1,7 @@
 import { fingerprint } from "@src/catalog/revision.ts";
 import type { CatalogEntry, MatchData } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
+import { catalogResourceUri } from "@src/catalog/context.ts";
 
 export interface PageInput {
   cursor?: string;
@@ -47,7 +48,7 @@ export function page<T>(
   };
 }
 
-export function entrySummary(entry: CatalogEntry) {
+export function entrySummary(entry: CatalogEntry, workspace = entry.workspace) {
   return {
     workspace: entry.workspace,
     scope: entry.scope,
@@ -58,6 +59,14 @@ export function entrySummary(entry: CatalogEntry) {
     primarySpecialty: entry.primarySpecialty,
     specialtyTags: entry.specialtyTags,
     revision: entry.revision,
+    resourceUri: entry.entryType !== "agent"
+      ? catalogResourceUri(
+        entry.entryType,
+        workspace,
+        entry.scope,
+        entry.entryKey,
+      )
+      : undefined,
   };
 }
 

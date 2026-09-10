@@ -32,8 +32,14 @@ and must supply their own authorization hook; tool arguments cannot select one.
   identical filters and limit until absent. Cursors bind the snapshot and
   filters; catalog changes invalidate them. Each exported page is independently
   importable; a single page is not a complete backup. Pause catalog writes for a
-  consistent multi-page export. SQLite queries currently materialize candidates
-  before paging, so response bounds are not a database-scale optimization.
+  consistent multi-page export. List/export queries now select pages in SQLite
+  before decoding full entry payloads. Note listing filters tags in SQL and does
+  not load bodies. Counts and SQL ordering may still scan matching keys;
+  matcher, health and diagnostic analysis remain full-catalog operations. Schema
+  14 tracks a generation token with database triggers: catalog/note writes
+  invalidate cursors even when timestamps are unchanged. Usage counters do not.
+  Ordering is stable by entry type and internal insertion key, not display name.
+  Cursors issued before this upgrade must be discarded.
 - Lists/matches return summaries. Fetch full context through detail tools.
   `outputNeed` alone cannot establish a relevant match. Query `requiredAll` and
   `requiredAny` are eligibility constraints, not score boosts.
@@ -46,6 +52,55 @@ and must supply their own authorization hook; tool arguments cannot select one.
 - Bundled defaults are independent of catalog rows: `lor://skills/index.json`,
   or `list_default_skills` / `get_default_skill` for tool-only clients.
 
+## Context, Response Budgets And Identity
+
+Initialization includes concise server instructions. The `lor-agent-prompt`
+prompt reuses `generate_agent_prompt` and does not dispatch agents. Clients
+without prompt support can continue using the tool.
+
+List summaries include `resourceUri`. The catalog resource template is
+`lor://catalog/{kind}/{scope}/{workspace}/{entryKey}`; workspace and key are
+percent-encoded once. Kind is skill, subagent or note; notes require workspace
+scope. Global resources still carry the caller's authorized workspace, not a
+made-up global authority. Each read runs the same authorization and lookup as
+its detail tool. Notes include a content revision. Resources expose registry
+context, not authority to override user instructions.
+
+Tool execution results are capped at 256 KiB of serialized UTF-8 JSON, including
+the compatibility text copy. Oversized outcomes return `status=deferred` with
+`data.resultResource`: URI, byte length, revision, expiry. This is not a success
+claim about the underlying operation. Read all pages using `resources/read` or
+`read_result_page` (snapshotId and offset from the URI), concatenate their text,
+then parse the original envelope. Never parse individual chunks as complete
+documents. Offsets are UTF-16 character positions, not byte positions.
+
+Snapshots expire after five minutes, capacity eviction, or server restart. Their
+16 MiB serialized retention budget includes original inputs and is shared across
+HTTP sessions (one store per stdio server). Each page reauthorizes the original
+target and operation. Result paging never repeats the operation or changes
+durable receipt behavior. Larger-than-budget results return
+`response_too_large`; a write may already have completed. Read back state before
+retrying, and reduce filters/limit for large reads. Do not expose or log
+retained payloads. This execution-result cap is not a cap on MCP tool-schema
+discovery or on the database's stored entry sizes.
+
+Workspace diagnostics include releaseVersion, buildId, buildIdSource and
+toolContractFingerprint. The build ID hashes the source/config snapshot at
+module load; it is not a signed artifact identity or an authorization
+credential. Source-less packaging reports unavailable explicitly. The tool
+fingerprint covers registered names, descriptions, schemas and annotations.
+Compare both values after restarting; refreshing model-visible tool definitions
+remains a host action.
+
+### Client Acceptance Matrix
+
+| Client path          | Automated evidence                                                                                      | Remaining release check                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| SDK Streamable HTTP  | Wire schemas, resources/prompts, access denial, SQLite paging, large-result reconstruction, reconnect   | Actual desktop host loading and refresh                                      |
+| SDK stdio subprocess | Two fresh processes; compare advertised contracts/build; read/write/retry and resource/prompt discovery | Actual desktop host loading and refresh                                      |
+| Codex desktop        | Not covered by SDK tests                                                                                | Reconnect; verify required inputs, current build, resources or tool fallback |
+| Other desktop hosts  | Not claimed tested                                                                                      | Record host/version, transport, discovery, fallback and denied-write results |
+
 ## Upgrade Procedure
 
 1. Stop all writers and the old server. Record its build and trusted env
@@ -55,8 +110,9 @@ and must supply their own authorization hook; tool arguments cannot select one.
    API. A paginated catalog export omits proposals, receipts and usage counters
    and is not a full operational backup.
 3. Test the candidate against a **copy** of the database and an isolated skill
-   root. Initialization atomically applies additive schema 13: proposal bindings
-   and operation receipts. A newer unknown schema is rejected before migration.
+   root. Initialization atomically applies schema 14: the prior proposal/receipt
+   tables plus catalog-generation tracking. A newer unknown schema is rejected
+   before migration. No live database should be upgraded merely to run tests.
 4. Configure canonical workspaces and least-privilege flags explicitly. Keep the
    server local. Do not reuse a broad publisher configuration for an untrusted
    client. Refresh tools after reconnecting so clients see the new schemas.
@@ -136,8 +192,8 @@ active tool calls are not evicted. Expired sessions return 404 and require a new
 initialize. Over-capacity returns 503, oversized bodies 413, stalled bodies 408,
 malformed JSON a parse error. Trusted embedders may override the limits through
 `HttpMcpOptions`. These limits do not replace a remote authentication/rate-limit
-gateway. Large diagnostic/detail responses remain bounded by stored content, not
-a global response-byte cap.
+gateway. Large tool execution results use the response budget and result pages
+described above; underlying analysis can still inspect the full catalog.
 
 ## Rollback And Remaining Release Gates
 
