@@ -1,3 +1,4 @@
+import { toolEffectDescription, toolPolicy } from "@src/tools/policy.ts";
 import type { McpServer } from "@mcp/server";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
 import {
@@ -101,7 +102,9 @@ export function registerCatalogTools(
   server.registerTool(
     "introduce_skill",
     {
-      description: "Introduce an existing Codex skill to the catalog.",
+      annotations: toolPolicy("introduce_skill"),
+      description: "Introduce an existing Codex skill to the catalog." +
+        toolEffectDescription("introduce_skill"),
       inputSchema: introduceSkillInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -121,8 +124,10 @@ export function registerCatalogTools(
   server.registerTool(
     "introduce_subagent",
     {
+      annotations: toolPolicy("introduce_subagent"),
       description:
-        "Introduce a reusable subagent prompt profile to the catalog.",
+        "Introduce a reusable subagent prompt profile to the catalog." +
+        toolEffectDescription("introduce_subagent"),
       inputSchema: introduceSubagentInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -142,8 +147,10 @@ export function registerCatalogTools(
   server.registerTool(
     "list_skills",
     {
+      annotations: toolPolicy("list_skills"),
       description:
-        "List introduced skills visible to a workspace, including global skills by default.",
+        "List introduced skills visible to a workspace, including global skills by default." +
+        toolEffectDescription("list_skills"),
       inputSchema: listSkillsInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -163,8 +170,10 @@ export function registerCatalogTools(
   server.registerTool(
     "list_subagents",
     {
+      annotations: toolPolicy("list_subagents"),
       description:
-        "List introduced reusable subagent prompt profiles visible to a workspace.",
+        "List introduced reusable subagent prompt profiles visible to a workspace." +
+        toolEffectDescription("list_subagents"),
       inputSchema: listSubagentsInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -187,8 +196,10 @@ export function registerCatalogTools(
   server.registerTool(
     "clear_workspace_skills",
     {
+      annotations: toolPolicy("clear_workspace_skills"),
       description:
-        "Clear introduced workspace-local skills from one workspace after explicit confirmation.",
+        "Clear introduced workspace-local skills from one workspace after explicit confirmation." +
+        toolEffectDescription("clear_workspace_skills"),
       inputSchema: clearWorkspaceSkillsInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -208,8 +219,10 @@ export function registerCatalogTools(
   server.registerTool(
     "clear_workspace_subagents",
     {
+      annotations: toolPolicy("clear_workspace_subagents"),
       description:
-        "Clear introduced workspace-local subagent prompt profiles from one workspace after explicit confirmation.",
+        "Clear introduced workspace-local subagent prompt profiles from one workspace after explicit confirmation." +
+        toolEffectDescription("clear_workspace_subagents"),
       inputSchema: clearWorkspaceSubagentsInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -232,7 +245,9 @@ export function registerCatalogTools(
   server.registerTool(
     "register_workspace_alias",
     {
-      description: "Register an alternate name for a workspace catalog.",
+      annotations: toolPolicy("register_workspace_alias"),
+      description: "Register an alternate name for a workspace catalog." +
+        toolEffectDescription("register_workspace_alias"),
       inputSchema: registerWorkspaceAliasInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -255,16 +270,12 @@ export function registerCatalogTools(
   server.registerTool(
     "promote_skill_to_global",
     {
+      annotations: toolPolicy("promote_skill_to_global"),
       description:
-        "Copy one workspace skill into global skill scope without removing the source skill.",
+        "Copy one workspace skill into global skill scope without removing the source skill." +
+        toolEffectDescription("promote_skill_to_global"),
       inputSchema: promoteSkillToGlobalInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
     },
     (input: PromoteSkillToGlobalToolInput) =>
       withLoggedRuntime(
@@ -285,7 +296,9 @@ export function registerCatalogTools(
   server.registerTool(
     "get_skill_detail",
     {
-      description: "Get full metadata for one introduced skill.",
+      annotations: toolPolicy("get_skill_detail"),
+      description: "Get full metadata for one introduced skill." +
+        toolEffectDescription("get_skill_detail"),
       inputSchema: getSkillDetailInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -310,8 +323,10 @@ export function registerCatalogTools(
   server.registerTool(
     "get_subagent_detail",
     {
+      annotations: toolPolicy("get_subagent_detail"),
       description:
-        "Get full metadata and rendered prompt for one introduced subagent profile.",
+        "Get full metadata and rendered prompt for one introduced subagent profile." +
+        toolEffectDescription("get_subagent_detail"),
       inputSchema: getSubagentDetailInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -336,7 +351,9 @@ export function registerCatalogTools(
   server.registerTool(
     "update_skill",
     {
-      description: "Update editable metadata for one introduced skill.",
+      annotations: toolPolicy("update_skill"),
+      description: "Update editable metadata for one introduced skill." +
+        toolEffectDescription("update_skill"),
       inputSchema: updateSkillInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -356,8 +373,10 @@ export function registerCatalogTools(
   server.registerTool(
     "update_subagent",
     {
+      annotations: toolPolicy("update_subagent"),
       description:
-        "Update editable metadata for one introduced subagent prompt profile.",
+        "Update editable metadata for one introduced subagent prompt profile." +
+        toolEffectDescription("update_subagent"),
       inputSchema: updateSubagentInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -377,16 +396,12 @@ export function registerCatalogTools(
   server.registerTool(
     "propose_skill_update",
     {
+      annotations: toolPolicy("propose_skill_update"),
       description:
-        "Propose an approval-gated update to stored context for a registered skill.",
+        "Propose an approval-gated update to stored context for a registered skill." +
+        toolEffectDescription("propose_skill_update"),
       inputSchema: proposeSkillUpdateInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
     },
     (input: ProposeSkillUpdateToolInput) =>
       withLoggedRuntime(
@@ -407,16 +422,12 @@ export function registerCatalogTools(
   server.registerTool(
     "apply_skill_update",
     {
+      annotations: toolPolicy("apply_skill_update"),
       description:
-        "Apply a pending registered skill update proposal after explicit confirmation.",
+        "Apply a pending registered skill update proposal after explicit confirmation." +
+        toolEffectDescription("apply_skill_update"),
       inputSchema: applySkillUpdateInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
     },
     (input: ApplySkillUpdateToolInput) =>
       withLoggedRuntime(
@@ -437,16 +448,12 @@ export function registerCatalogTools(
   server.registerTool(
     "preview_skill_file_sync",
     {
+      annotations: toolPolicy("preview_skill_file_sync"),
       description:
-        "Preview writing approved registered skill context into a local SKILL.md managed section.",
+        "Preview writing approved registered skill context into a local SKILL.md managed section." +
+        toolEffectDescription("preview_skill_file_sync"),
       inputSchema: previewSkillFileSyncInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
     },
     (input: PreviewSkillFileSyncToolInput) =>
       withLoggedRuntime(
@@ -467,16 +474,12 @@ export function registerCatalogTools(
   server.registerTool(
     "apply_skill_file_sync",
     {
+      annotations: toolPolicy("apply_skill_file_sync"),
       description:
-        "Write approved registered skill context into a local SKILL.md managed section after explicit confirmation.",
+        "Write approved registered skill context into a local SKILL.md managed section after explicit confirmation." +
+        toolEffectDescription("apply_skill_file_sync"),
       inputSchema: applySkillFileSyncInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
     },
     (input: ApplySkillFileSyncToolInput) =>
       withLoggedRuntime(
@@ -499,7 +502,9 @@ export function registerCatalogTools(
   server.registerTool(
     "remove_skill",
     {
-      description: "Remove one introduced skill from a workspace or scope.",
+      annotations: toolPolicy("remove_skill"),
+      description: "Remove one introduced skill from a workspace or scope." +
+        toolEffectDescription("remove_skill"),
       inputSchema: removeSkillInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -519,8 +524,10 @@ export function registerCatalogTools(
   server.registerTool(
     "remove_subagent",
     {
+      annotations: toolPolicy("remove_subagent"),
       description:
-        "Remove one introduced subagent prompt profile from a workspace or scope.",
+        "Remove one introduced subagent prompt profile from a workspace or scope." +
+        toolEffectDescription("remove_subagent"),
       inputSchema: removeSubagentInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -540,7 +547,9 @@ export function registerCatalogTools(
   server.registerTool(
     "export_catalog",
     {
-      description: "Export workspace catalog entries as portable JSON data.",
+      annotations: toolPolicy("export_catalog"),
+      description: "Export workspace catalog entries as portable JSON data." +
+        toolEffectDescription("export_catalog"),
       inputSchema: exportCatalogInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -563,7 +572,9 @@ export function registerCatalogTools(
   server.registerTool(
     "import_catalog",
     {
-      description: "Import workspace catalog entries from exported JSON data.",
+      annotations: toolPolicy("import_catalog"),
+      description: "Import workspace catalog entries from exported JSON data." +
+        toolEffectDescription("import_catalog"),
       inputSchema: importCatalogInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -586,16 +597,12 @@ export function registerCatalogTools(
   server.registerTool(
     "preview_workspace_catalog_sync",
     {
+      annotations: toolPolicy("preview_workspace_catalog_sync"),
       description:
-        "Preview skill and subagent catalog sync from one workspace catalog into another.",
+        "Preview skill and subagent catalog sync from one workspace catalog into another." +
+        toolEffectDescription("preview_workspace_catalog_sync"),
       inputSchema: previewWorkspaceCatalogSyncInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
     },
     (input: PreviewWorkspaceCatalogSyncToolInput) =>
       withLoggedRuntime(
@@ -618,16 +625,12 @@ export function registerCatalogTools(
   server.registerTool(
     "apply_workspace_catalog_sync",
     {
+      annotations: toolPolicy("apply_workspace_catalog_sync"),
       description:
-        "Copy previewed skill and subagent catalog entries into a target workspace after explicit confirmation.",
+        "Copy previewed skill and subagent catalog entries into a target workspace after explicit confirmation." +
+        toolEffectDescription("apply_workspace_catalog_sync"),
       inputSchema: applyWorkspaceCatalogSyncInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
     },
     (input: ApplyWorkspaceCatalogSyncToolInput) =>
       withLoggedRuntime(
@@ -648,8 +651,10 @@ export function registerCatalogTools(
   server.registerTool(
     "check_catalog_health",
     {
+      annotations: toolPolicy("check_catalog_health"),
       description:
-        "Report workspace catalog health from stored verification metadata.",
+        "Report workspace catalog health from stored verification metadata." +
+        toolEffectDescription("check_catalog_health"),
       inputSchema: checkCatalogHealthInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -672,16 +677,12 @@ export function registerCatalogTools(
   server.registerTool(
     "get_workspace_diagnostics",
     {
+      annotations: toolPolicy("get_workspace_diagnostics"),
       description:
-        "Report sanitized workspace resolution, alias, catalog count, and setup diagnostics.",
+        "Report sanitized workspace resolution, alias, catalog count, and setup diagnostics." +
+        toolEffectDescription("get_workspace_diagnostics"),
       inputSchema: getWorkspaceDiagnosticsInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
     },
     (input: GetWorkspaceDiagnosticsToolInput) =>
       withLoggedRuntime(
@@ -702,16 +703,12 @@ export function registerCatalogTools(
   server.registerTool(
     "get_usage_analytics",
     {
+      annotations: toolPolicy("get_usage_analytics"),
       description:
-        "Read local aggregate usage counters for skills, subagents, and workspace notes.",
+        "Read local aggregate usage counters for skills, subagents, and workspace notes." +
+        toolEffectDescription("get_usage_analytics"),
       inputSchema: getUsageAnalyticsInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
     },
     (input: GetUsageAnalyticsToolInput) =>
       withLoggedRuntime(
@@ -732,8 +729,10 @@ export function registerCatalogTools(
   server.registerTool(
     "remember_workspace_note",
     {
+      annotations: toolPolicy("remember_workspace_note"),
       description:
-        "Store a durable workspace-scoped coordination note outside the catalog.",
+        "Store a durable workspace-scoped coordination note outside the catalog." +
+        toolEffectDescription("remember_workspace_note"),
       inputSchema: rememberWorkspaceNoteInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -753,16 +752,12 @@ export function registerCatalogTools(
   server.registerTool(
     "list_workspace_notes",
     {
+      annotations: toolPolicy("list_workspace_notes"),
       description:
-        "List workspace note summaries, optionally filtered by tags.",
+        "List workspace note summaries, optionally filtered by tags." +
+        toolEffectDescription("list_workspace_notes"),
       inputSchema: listWorkspaceNotesInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
     },
     (input: ListWorkspaceNotesToolInput) =>
       withLoggedRuntime(
@@ -783,16 +778,12 @@ export function registerCatalogTools(
   server.registerTool(
     "find_matching_workspace_note",
     {
+      annotations: toolPolicy("find_matching_workspace_note"),
       description:
-        "Find matching workspace note summaries by query, optionally filtered by tags.",
+        "Find matching workspace note summaries by query, optionally filtered by tags." +
+        toolEffectDescription("find_matching_workspace_note"),
       inputSchema: findMatchingWorkspaceNoteInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
     },
     (input: FindMatchingWorkspaceNoteToolInput) =>
       withLoggedRuntime(
@@ -822,15 +813,11 @@ export function registerCatalogTools(
   server.registerTool(
     "get_workspace_note",
     {
-      description: "Get a workspace note by note id.",
+      annotations: toolPolicy("get_workspace_note"),
+      description: "Get a workspace note by note id." +
+        toolEffectDescription("get_workspace_note"),
       inputSchema: getWorkspaceNoteInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
     },
     (input: GetWorkspaceNoteToolInput) =>
       withLoggedRuntime(
@@ -848,15 +835,11 @@ export function registerCatalogTools(
   server.registerTool(
     "remove_workspace_note",
     {
-      description: "Remove a workspace note by note id.",
+      annotations: toolPolicy("remove_workspace_note"),
+      description: "Remove a workspace note by note id." +
+        toolEffectDescription("remove_workspace_note"),
       inputSchema: removeWorkspaceNoteInputSchema,
       outputSchema: toolOutputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
     },
     (input: RemoveWorkspaceNoteToolInput) =>
       withLoggedRuntime(
@@ -874,7 +857,9 @@ export function registerCatalogTools(
   server.registerTool(
     "generate_agent_prompt",
     {
-      description: "Generate a manual starter prompt for an empty Codex chat.",
+      annotations: toolPolicy("generate_agent_prompt"),
+      description: "Generate a manual starter prompt for an empty Codex chat." +
+        toolEffectDescription("generate_agent_prompt"),
       inputSchema: generateAgentPromptInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -891,7 +876,9 @@ export function registerCatalogTools(
   server.registerTool(
     "find_matching_skill",
     {
-      description: "Find matching introduced skills for a task.",
+      annotations: toolPolicy("find_matching_skill"),
+      description: "Find matching introduced skills for a task." +
+        toolEffectDescription("find_matching_skill"),
       inputSchema: findMatchingSkillInputSchema,
       outputSchema: toolOutputSchema,
     },
@@ -912,8 +899,10 @@ export function registerCatalogTools(
   server.registerTool(
     "find_matching_subagent",
     {
+      annotations: toolPolicy("find_matching_subagent"),
       description:
-        "Find matching reusable subagent prompt profiles for a task.",
+        "Find matching reusable subagent prompt profiles for a task." +
+        toolEffectDescription("find_matching_subagent"),
       inputSchema: findMatchingSubagentInputSchema,
       outputSchema: toolOutputSchema,
     },
