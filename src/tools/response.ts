@@ -82,6 +82,8 @@ function sanitizeDetails(
 
 function recoveryFor(code: ErrorCode): string {
   switch (code) {
+    case "request_cancelled":
+      return "Cancelled before execution. A new request may be submitted when intended.";
     case "revision_conflict":
     case "local_file_modified":
       return "Read the current target and prepare a new update or preview.";

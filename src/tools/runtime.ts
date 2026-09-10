@@ -1,4 +1,8 @@
-import { loadConfig, prepareConfigStorage } from "@src/config.ts";
+import {
+  loadConfig,
+  type LorConfig,
+  prepareConfigStorage,
+} from "@src/config.ts";
 import { CatalogService } from "@src/catalog/service.ts";
 import { SqliteCatalogRepository } from "@src/catalog/sqlite_repository.ts";
 import type { LorLogger } from "@src/logger.ts";
@@ -24,12 +28,13 @@ export interface ToolRuntime {
 
 export interface CreateDefaultRuntimeOptions {
   logger?: LorLogger;
+  config?: LorConfig;
 }
 
 export async function createDefaultRuntime(
   options: CreateDefaultRuntimeOptions = {},
 ): Promise<ToolRuntime> {
-  const config = loadConfig();
+  const config = options.config ?? loadConfig();
   await prepareConfigStorage(config);
   const repository = new SqliteCatalogRepository(config.dbPath);
   await repository.initialize();

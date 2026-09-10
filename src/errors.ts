@@ -12,7 +12,8 @@ export type ErrorCode =
   | "proposal_expired"
   | "invalid_cursor"
   | "local_file_modified"
-  | "idempotency_conflict";
+  | "idempotency_conflict"
+  | "request_cancelled";
 
 export class LorError extends Error {
   constructor(

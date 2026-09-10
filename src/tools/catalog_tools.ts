@@ -114,12 +114,16 @@ export function registerCatalogTools(
       }),
       outputSchema: outputSchemaFor("get_operation"),
     },
-    (input: { workspace: string; operationKey: string }) =>
+    (
+      input: { workspace: string; operationKey: string },
+      extra: { signal: AbortSignal },
+    ) =>
       withLoggedRuntime(
         "get_operation",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         (runtime) => {
           const receipt = runtime.getOperation?.(
             input.workspace,
@@ -152,12 +156,13 @@ export function registerCatalogTools(
       inputSchema: introduceSkillInputSchema,
       outputSchema: outputSchemaFor("introduce_skill"),
     },
-    (input: IntroduceSkillToolInput) =>
+    (input: IntroduceSkillToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "introduce_skill",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const entry = await runtime.service.introduceSkill(input);
           return okResult(entry, `Introduced skill ${entry.displayName}.`);
@@ -175,12 +180,13 @@ export function registerCatalogTools(
       inputSchema: introduceSubagentInputSchema,
       outputSchema: outputSchemaFor("introduce_subagent"),
     },
-    (input: IntroduceSubagentToolInput) =>
+    (input: IntroduceSubagentToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "introduce_subagent",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const entry = await runtime.service.introduceSubagent(input);
           return okResult(entry, `Introduced subagent ${entry.displayName}.`);
@@ -198,12 +204,13 @@ export function registerCatalogTools(
       inputSchema: listSkillsInputSchema,
       outputSchema: outputSchemaFor("list_skills"),
     },
-    (input: ListSkillsToolInput) =>
+    (input: ListSkillsToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "list_skills",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const skills = await runtime.service.listSkills(input);
           const { items, ...pagination } = page(skills, input, {
@@ -230,12 +237,13 @@ export function registerCatalogTools(
       inputSchema: listSubagentsInputSchema,
       outputSchema: outputSchemaFor("list_subagents"),
     },
-    (input: ListSubagentsToolInput) =>
+    (input: ListSubagentsToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "list_subagents",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const subagents = await runtime.service.listSubagents(input);
           const { items, ...pagination } = page(subagents, input, {
@@ -262,12 +270,13 @@ export function registerCatalogTools(
       inputSchema: clearWorkspaceSkillsInputSchema,
       outputSchema: outputSchemaFor("clear_workspace_skills"),
     },
-    (input: ClearWorkspaceSkillsToolInput) =>
+    (input: ClearWorkspaceSkillsToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "clear_workspace_skills",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.clearWorkspaceSkills(input);
           return okResult(result, `Cleared ${result.deletedSkills} skills.`);
@@ -285,12 +294,13 @@ export function registerCatalogTools(
       inputSchema: clearWorkspaceSubagentsInputSchema,
       outputSchema: outputSchemaFor("clear_workspace_subagents"),
     },
-    (input: ClearWorkspaceSubagentsToolInput) =>
+    (input: ClearWorkspaceSubagentsToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "clear_workspace_subagents",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.clearWorkspaceSubagents(input);
           return okResult(
@@ -310,12 +320,13 @@ export function registerCatalogTools(
       inputSchema: registerWorkspaceAliasInputSchema,
       outputSchema: outputSchemaFor("register_workspace_alias"),
     },
-    (input: RegisterWorkspaceAliasToolInput) =>
+    (input: RegisterWorkspaceAliasToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "register_workspace_alias",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.registerWorkspaceAlias(input);
           return okResult(
@@ -336,12 +347,13 @@ export function registerCatalogTools(
       inputSchema: promoteSkillToGlobalInputSchema,
       outputSchema: outputSchemaFor("promote_skill_to_global"),
     },
-    (input: PromoteSkillToGlobalToolInput) =>
+    (input: PromoteSkillToGlobalToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "promote_skill_to_global",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.promoteSkillToGlobal(input);
           return okResult(
@@ -361,12 +373,13 @@ export function registerCatalogTools(
       inputSchema: getSkillDetailInputSchema,
       outputSchema: outputSchemaFor("get_skill_detail"),
     },
-    (input: GetSkillDetailToolInput) =>
+    (input: GetSkillDetailToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "get_skill_detail",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const entry = await runtime.service.getSkillDetail(input);
           if (!entry) {
@@ -389,12 +402,13 @@ export function registerCatalogTools(
       inputSchema: getSubagentDetailInputSchema,
       outputSchema: outputSchemaFor("get_subagent_detail"),
     },
-    (input: GetSubagentDetailToolInput) =>
+    (input: GetSubagentDetailToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "get_subagent_detail",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const entry = await runtime.service.getSubagentDetail(input);
           if (!entry) {
@@ -416,12 +430,13 @@ export function registerCatalogTools(
       inputSchema: updateSkillInputSchema,
       outputSchema: outputSchemaFor("update_skill"),
     },
-    (input: UpdateSkillToolInput) =>
+    (input: UpdateSkillToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "update_skill",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const entry = await runtime.service.updateSkill(input);
           return okResult(entry, `Updated ${entry.displayName}.`);
@@ -439,12 +454,13 @@ export function registerCatalogTools(
       inputSchema: updateSubagentInputSchema,
       outputSchema: outputSchemaFor("update_subagent"),
     },
-    (input: UpdateSubagentToolInput) =>
+    (input: UpdateSubagentToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "update_subagent",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const entry = await runtime.service.updateSubagent(input);
           return okResult(entry, `Updated ${entry.displayName}.`);
@@ -462,12 +478,13 @@ export function registerCatalogTools(
       inputSchema: proposeSkillUpdateInputSchema,
       outputSchema: outputSchemaFor("propose_skill_update"),
     },
-    (input: ProposeSkillUpdateToolInput) =>
+    (input: ProposeSkillUpdateToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "propose_skill_update",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.proposeSkillUpdate(input);
           return okResult(
@@ -488,12 +505,13 @@ export function registerCatalogTools(
       inputSchema: applySkillUpdateInputSchema,
       outputSchema: outputSchemaFor("apply_skill_update"),
     },
-    (input: ApplySkillUpdateToolInput) =>
+    (input: ApplySkillUpdateToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "apply_skill_update",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.applySkillUpdate(input);
           return okResult(
@@ -514,12 +532,13 @@ export function registerCatalogTools(
       inputSchema: previewSkillFileSyncInputSchema,
       outputSchema: outputSchemaFor("preview_skill_file_sync"),
     },
-    (input: PreviewSkillFileSyncToolInput) =>
+    (input: PreviewSkillFileSyncToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "preview_skill_file_sync",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.previewSkillFileSync(input);
           return okResult(
@@ -540,12 +559,13 @@ export function registerCatalogTools(
       inputSchema: applySkillFileSyncInputSchema,
       outputSchema: outputSchemaFor("apply_skill_file_sync"),
     },
-    (input: ApplySkillFileSyncToolInput) =>
+    (input: ApplySkillFileSyncToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "apply_skill_file_sync",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.applySkillFileSync(input);
           return okResult(
@@ -567,12 +587,13 @@ export function registerCatalogTools(
       inputSchema: removeSkillInputSchema,
       outputSchema: outputSchemaFor("remove_skill"),
     },
-    (input: RemoveSkillToolInput) =>
+    (input: RemoveSkillToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "remove_skill",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.removeSkill(input);
           return okResult(result, `Removed skill ${result.entryKey}.`);
@@ -590,12 +611,13 @@ export function registerCatalogTools(
       inputSchema: removeSubagentInputSchema,
       outputSchema: outputSchemaFor("remove_subagent"),
     },
-    (input: RemoveSubagentToolInput) =>
+    (input: RemoveSubagentToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "remove_subagent",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.removeSubagent(input);
           return okResult(result, `Removed subagent ${result.entryKey}.`);
@@ -612,12 +634,13 @@ export function registerCatalogTools(
       inputSchema: exportCatalogInputSchema,
       outputSchema: outputSchemaFor("export_catalog"),
     },
-    (input: ExportCatalogToolInput) =>
+    (input: ExportCatalogToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "export_catalog",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const catalog = await runtime.service.exportCatalog(input);
           return okResult(
@@ -637,12 +660,13 @@ export function registerCatalogTools(
       inputSchema: importCatalogInputSchema,
       outputSchema: outputSchemaFor("import_catalog"),
     },
-    (input: ImportCatalogToolInput) =>
+    (input: ImportCatalogToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "import_catalog",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.importCatalog(input);
           return okResult(
@@ -663,12 +687,16 @@ export function registerCatalogTools(
       inputSchema: previewWorkspaceCatalogSyncInputSchema,
       outputSchema: outputSchemaFor("preview_workspace_catalog_sync"),
     },
-    (input: PreviewWorkspaceCatalogSyncToolInput) =>
+    (
+      input: PreviewWorkspaceCatalogSyncToolInput,
+      extra: { signal: AbortSignal },
+    ) =>
       withLoggedRuntime(
         "preview_workspace_catalog_sync",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const preview = await runtime.service.previewWorkspaceCatalogSync(
             input,
@@ -691,12 +719,16 @@ export function registerCatalogTools(
       inputSchema: applyWorkspaceCatalogSyncInputSchema,
       outputSchema: outputSchemaFor("apply_workspace_catalog_sync"),
     },
-    (input: ApplyWorkspaceCatalogSyncToolInput) =>
+    (
+      input: ApplyWorkspaceCatalogSyncToolInput,
+      extra: { signal: AbortSignal },
+    ) =>
       withLoggedRuntime(
         "apply_workspace_catalog_sync",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.applyWorkspaceCatalogSync(input);
           return okResult(
@@ -717,12 +749,13 @@ export function registerCatalogTools(
       inputSchema: checkCatalogHealthInputSchema,
       outputSchema: outputSchemaFor("check_catalog_health"),
     },
-    (input: CheckCatalogHealthToolInput) =>
+    (input: CheckCatalogHealthToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "check_catalog_health",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const report = await runtime.service.checkCatalogHealth(input);
           return okResult(
@@ -743,12 +776,13 @@ export function registerCatalogTools(
       inputSchema: getWorkspaceDiagnosticsInputSchema,
       outputSchema: outputSchemaFor("get_workspace_diagnostics"),
     },
-    (input: GetWorkspaceDiagnosticsToolInput) =>
+    (input: GetWorkspaceDiagnosticsToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "get_workspace_diagnostics",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const report = await runtime.service.getWorkspaceDiagnostics(input);
           return okResult(
@@ -769,12 +803,13 @@ export function registerCatalogTools(
       inputSchema: getUsageAnalyticsInputSchema,
       outputSchema: outputSchemaFor("get_usage_analytics"),
     },
-    (input: GetUsageAnalyticsToolInput) =>
+    (input: GetUsageAnalyticsToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "get_usage_analytics",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const report = await runtime.service.getUsageAnalytics(input);
           return okResult(
@@ -795,12 +830,13 @@ export function registerCatalogTools(
       inputSchema: rememberWorkspaceNoteInputSchema,
       outputSchema: outputSchemaFor("remember_workspace_note"),
     },
-    (input: RememberWorkspaceNoteToolInput) =>
+    (input: RememberWorkspaceNoteToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "remember_workspace_note",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const note = await runtime.service.rememberWorkspaceNote(input);
           return okResult(note, `Remembered workspace note ${note.noteId}.`);
@@ -818,12 +854,13 @@ export function registerCatalogTools(
       inputSchema: listWorkspaceNotesInputSchema,
       outputSchema: outputSchemaFor("list_workspace_notes"),
     },
-    (input: ListWorkspaceNotesToolInput) =>
+    (input: ListWorkspaceNotesToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "list_workspace_notes",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.listWorkspaceNotes(input);
           const { items, ...pagination } = page(result.notes, input, {
@@ -849,12 +886,16 @@ export function registerCatalogTools(
       inputSchema: findMatchingWorkspaceNoteInputSchema,
       outputSchema: outputSchemaFor("find_matching_workspace_note"),
     },
-    (input: FindMatchingWorkspaceNoteToolInput) =>
+    (
+      input: FindMatchingWorkspaceNoteToolInput,
+      extra: { signal: AbortSignal },
+    ) =>
       withLoggedRuntime(
         "find_matching_workspace_note",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.findMatchingWorkspaceNotes(
             input,
@@ -883,12 +924,13 @@ export function registerCatalogTools(
       inputSchema: getWorkspaceNoteInputSchema,
       outputSchema: outputSchemaFor("get_workspace_note"),
     },
-    (input: GetWorkspaceNoteToolInput) =>
+    (input: GetWorkspaceNoteToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "get_workspace_note",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const note = await runtime.service.getWorkspaceNote(input);
           return okResult(note, `Fetched workspace note ${note.noteId}.`);
@@ -905,12 +947,13 @@ export function registerCatalogTools(
       inputSchema: removeWorkspaceNoteInputSchema,
       outputSchema: outputSchemaFor("remove_workspace_note"),
     },
-    (input: RemoveWorkspaceNoteToolInput) =>
+    (input: RemoveWorkspaceNoteToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "remove_workspace_note",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) => {
           const result = await runtime.service.removeWorkspaceNote(input);
           return okResult(result, `Removed workspace note ${result.noteId}.`);
@@ -946,12 +989,13 @@ export function registerCatalogTools(
       inputSchema: findMatchingSkillInputSchema,
       outputSchema: outputSchemaFor("find_matching_skill"),
     },
-    (input: FindMatchingSkillToolInput) =>
+    (input: FindMatchingSkillToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "find_matching_skill",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) =>
           matchToolResult(
             await runtime.service.findMatchingSkills(input),
@@ -970,12 +1014,13 @@ export function registerCatalogTools(
       inputSchema: findMatchingSubagentInputSchema,
       outputSchema: outputSchemaFor("find_matching_subagent"),
     },
-    (input: FindMatchingSubagentToolInput) =>
+    (input: FindMatchingSubagentToolInput, extra: { signal: AbortSignal }) =>
       withLoggedRuntime(
         "find_matching_subagent",
         input,
         logger,
         runtimeFactory,
+        extra.signal,
         async (runtime) =>
           matchToolResult(
             await runtime.service.findMatchingSubagents(input),
@@ -1024,12 +1069,25 @@ async function withLoggedRuntime(
   input: unknown,
   logger: LorLogger,
   runtimeFactory: () => Promise<ToolRuntime>,
+  signal: AbortSignal,
   handler: (runtime: ToolRuntime) => Promise<ToolResult> | ToolResult,
 ): Promise<ToolResult> {
   const startedAt = performance.now();
   const result = correlateResult(
     await withRuntime(runtimeFactory, async (runtime) => {
+      if (signal.aborted) {
+        throw new LorError(
+          "request_cancelled",
+          "Request cancelled before execution.",
+        );
+      }
       await runtime.authorize?.(toolName, input);
+      if (signal.aborted) {
+        throw new LorError(
+          "request_cancelled",
+          "Request cancelled before execution.",
+        );
+      }
       return runtime.execute
         ? await runtime.execute(
           toolName,
