@@ -22,7 +22,7 @@ export function textContent(text: string): ContentBlock {
 
 export function okResult(data: unknown, text: string): ToolResult {
   return {
-    structuredContent: { status: "ok", data },
+    structuredContent: { status: "ok", data: JSON.parse(JSON.stringify(data)) },
     content: [textContent(text)],
   };
 }
@@ -33,7 +33,7 @@ export function statusResult(
   text: string,
 ): ToolResult {
   return {
-    structuredContent: { status, data },
+    structuredContent: { status, data: JSON.parse(JSON.stringify(data)) },
     content: [textContent(text)],
   };
 }

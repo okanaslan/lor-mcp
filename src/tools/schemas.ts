@@ -1,4 +1,6 @@
 import * as z from "zod/v4";
+const boundedArray = <T extends z.ZodType>(schema: T) =>
+  z.array(schema).max(128);
 
 export const entryTypeSchema = z.enum(["agent", "skill", "subagent"]);
 const healthEntryTypeSchema = z.enum(["agent", "skill"]);
@@ -28,10 +30,10 @@ const routingSignalSources = [
   "usageNotes",
   "bodyText",
 ] as const;
-const routingStringListSchema = z.array(
-  z.string().trim().min(1).max(120),
+const routingStringListSchema = boundedArray(
+  z.string().max(16000).trim().min(1).max(120),
 ).min(1);
-const routingFieldWeightsSchema = z.object(
+const routingFieldWeightsSchema = z.strictObject(
   Object.fromEntries(
     routingSignalSources.map((source) => [
       source,
@@ -42,8 +44,8 @@ const routingFieldWeightsSchema = z.object(
   message: "fieldWeights must include at least one source.",
   path: ["fieldWeights"],
 });
-const routingMetadataSchema = z.object({
-  intentFamily: z.string().trim().min(1).max(120).optional(),
+const routingMetadataSchema = z.strictObject({
+  intentFamily: z.string().max(16000).trim().min(1).max(120).optional(),
   intents: routingStringListSchema.optional(),
   positiveIntents: routingStringListSchema.optional(),
   excludedIntents: routingStringListSchema.optional(),
@@ -79,34 +81,45 @@ const routingMetadataSchema = z.object({
   },
 );
 
-export const handoffSchema = z.object({
-  whenToUse: z.string().trim().min(1),
-  handoffPromptTemplate: z.string().trim().min(1),
-  requiredContext: z.array(z.string().trim().min(1)),
-  expectedOutput: z.string().trim().min(1),
-  constraints: z.array(z.string().trim().min(1)),
+export const handoffSchema = z.strictObject({
+  whenToUse: z.string().max(16000).trim().min(1),
+  handoffPromptTemplate: z.string().max(16000).trim().min(1),
+  requiredContext: boundedArray(z.string().max(16000).trim().min(1)),
+  expectedOutput: z.string().max(16000).trim().min(1),
+  constraints: boundedArray(z.string().max(16000).trim().min(1)),
 });
 
-export const workspaceSchema = z.string().trim().min(1);
+export const workspaceSchema = z.string().max(16000).trim().min(1);
 
-const negativeRoutingSchema = z.object({
-  doNotUseWhen: z.array(z.string().trim().min(1).max(240)).min(1),
-  insteadUse: z.array(z.string().trim().min(1)).min(1).optional(),
-  notes: z.string().trim().min(1).max(1000).optional(),
-});
-
-const implementationGuidanceSchema = z.object({
-  firstInspect: z.array(z.string().trim().min(1).max(500)).min(1).optional(),
-  implementationRules: z.array(z.string().trim().min(1).max(500)).min(1)
+const negativeRoutingSchema = z.strictObject({
+  doNotUseWhen: boundedArray(z.string().max(16000).trim().min(1).max(240)).min(
+    1,
+  ),
+  insteadUse: boundedArray(z.string().max(16000).trim().min(1)).min(1)
     .optional(),
-  commonFixPatterns: z.array(z.object({
-    problem: z.string().trim().min(1).max(500),
-    approach: z.string().trim().min(1).max(500),
-    antiPattern: z.string().trim().min(1).max(500).optional(),
+  notes: z.string().max(16000).trim().min(1).max(1000).optional(),
+});
+
+const implementationGuidanceSchema = z.strictObject({
+  firstInspect: boundedArray(z.string().max(16000).trim().min(1).max(500)).min(
+    1,
+  ).optional(),
+  implementationRules: boundedArray(
+    z.string().max(16000).trim().min(1).max(500),
+  ).min(1)
+    .optional(),
+  commonFixPatterns: boundedArray(z.strictObject({
+    problem: z.string().max(16000).trim().min(1).max(500),
+    approach: z.string().max(16000).trim().min(1).max(500),
+    antiPattern: z.string().max(16000).trim().min(1).max(500).optional(),
   })).min(1).optional(),
-  testsToAdd: z.array(z.string().trim().min(1).max(500)).min(1).optional(),
-  verification: z.array(z.string().trim().min(1).max(500)).min(1).optional(),
-  handoffChecklist: z.array(z.string().trim().min(1).max(500)).min(1)
+  testsToAdd: boundedArray(z.string().max(16000).trim().min(1).max(500)).min(1)
+    .optional(),
+  verification: boundedArray(z.string().max(16000).trim().min(1).max(500)).min(
+    1,
+  ).optional(),
+  handoffChecklist: boundedArray(z.string().max(16000).trim().min(1).max(500))
+    .min(1)
     .optional(),
 }).refine(
   (guidance) =>
@@ -122,20 +135,22 @@ const implementationGuidanceSchema = z.object({
   },
 );
 
-export const introduceSkillInputSchema = z.object({
+export const introduceSkillInputSchema = z.strictObject({
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
-  skillName: z.string().trim().min(1),
-  projectName: z.string().trim().min(1),
-  displayName: z.string().trim().min(1),
-  primarySpecialty: z.string().trim().min(1),
-  specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  skillName: z.string().max(16000).trim().min(1),
+  projectName: z.string().max(16000).trim().min(1),
+  displayName: z.string().max(16000).trim().min(1),
+  primarySpecialty: z.string().max(16000).trim().min(1),
+  specialtyTags: boundedArray(z.string().max(16000).trim().min(1)).min(1),
   routing: routingMetadataSchema.optional(),
-  skillContext: z.object({
-    whenToUse: z.string().trim().min(1).optional(),
-    usageNotes: z.string().trim().min(1).optional(),
-    constraints: z.array(z.string().trim().min(1)).min(1).optional(),
-    examplePrompts: z.array(z.string().trim().min(1)).min(1).optional(),
+  skillContext: z.strictObject({
+    whenToUse: z.string().max(16000).trim().min(1).optional(),
+    usageNotes: z.string().max(16000).trim().min(1).optional(),
+    constraints: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+      .optional(),
+    examplePrompts: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+      .optional(),
     negativeRouting: negativeRoutingSchema.optional(),
     implementationGuidance: implementationGuidanceSchema.optional(),
   }).refine(
@@ -153,11 +168,11 @@ export const introduceSkillInputSchema = z.object({
   ).optional(),
 });
 
-const catalogReferenceSchema = z.object({
+const catalogReferenceSchema = z.strictObject({
   entryType: z.enum(["agent", "skill"]),
-  name: z.string().trim().min(1),
+  name: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
-  entryKey: z.string().trim().min(1).optional(),
+  entryKey: z.string().max(16000).trim().min(1).optional(),
   required: z.boolean().optional(),
 }).refine(
   (input) => !(input.entryType === "agent" && input.scope === "global"),
@@ -167,80 +182,82 @@ const catalogReferenceSchema = z.object({
   },
 );
 
-export const introduceSubagentInputSchema = z.object({
+export const introduceSubagentInputSchema = z.strictObject({
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
-  name: z.string().trim().min(1),
-  projectName: z.string().trim().min(1),
-  displayName: z.string().trim().min(1),
-  purpose: z.string().trim().min(1),
-  limitedScope: z.string().trim().min(1),
-  primarySpecialty: z.string().trim().min(1),
-  specialtyTags: z.array(z.string().trim().min(1)).min(1),
-  agentReferences: z.array(
+  name: z.string().max(16000).trim().min(1),
+  projectName: z.string().max(16000).trim().min(1),
+  displayName: z.string().max(16000).trim().min(1),
+  purpose: z.string().max(16000).trim().min(1),
+  limitedScope: z.string().max(16000).trim().min(1),
+  primarySpecialty: z.string().max(16000).trim().min(1),
+  specialtyTags: boundedArray(z.string().max(16000).trim().min(1)).min(1),
+  agentReferences: boundedArray(
     catalogReferenceSchema.refine((input) => input.entryType === "agent", {
       message: "agentReferences must contain agent references.",
       path: ["entryType"],
     }),
   ).optional(),
-  skillReferences: z.array(
+  skillReferences: boundedArray(
     catalogReferenceSchema.refine((input) => input.entryType === "skill", {
       message: "skillReferences must contain skill references.",
       path: ["entryType"],
     }),
   ).optional(),
-  promptTemplate: z.string().trim().min(1).optional(),
-  constraints: z.array(z.string().trim().min(1)).min(1).optional(),
-  expectedOutput: z.string().trim().min(1).optional(),
+  promptTemplate: z.string().max(16000).trim().min(1).optional(),
+  constraints: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+    .optional(),
+  expectedOutput: z.string().max(16000).trim().min(1).optional(),
   negativeRouting: negativeRoutingSchema.optional(),
   routing: routingMetadataSchema.optional(),
 });
 
-export const listSkillsInputSchema = z.object({
+export const listSkillsInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  projectName: z.string().trim().min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
   scope: catalogScopeSchema.optional(),
 });
 
-export const listSubagentsInputSchema = z.object({
+export const listSubagentsInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  projectName: z.string().trim().min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
   scope: catalogScopeSchema.optional(),
 });
 
-export const clearWorkspaceSkillsInputSchema = z.object({
+export const clearWorkspaceSkillsInputSchema = z.strictObject({
   workspace: workspaceSchema,
   confirm: z.literal(true),
 });
 
-export const clearWorkspaceSubagentsInputSchema = z.object({
+export const clearWorkspaceSubagentsInputSchema = z.strictObject({
   workspace: workspaceSchema,
   confirm: z.literal(true),
 });
 
-export const registerWorkspaceAliasInputSchema = z.object({
+export const registerWorkspaceAliasInputSchema = z.strictObject({
   workspace: workspaceSchema,
   alias: workspaceSchema,
   confirm: z.literal(true).optional(),
 });
 
-export const getSkillDetailInputSchema = z.object({
+export const getSkillDetailInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  skillName: z.string().trim().min(1),
+  skillName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
 });
 
-export const getSubagentDetailInputSchema = z.object({
+export const getSubagentDetailInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  subagentName: z.string().trim().min(1),
+  subagentName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
 });
 
 const commonMetadataUpdateFields = {
-  projectName: z.string().trim().min(1).optional(),
-  displayName: z.string().trim().min(1).optional(),
-  primarySpecialty: z.string().trim().min(1).optional(),
-  specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
+  displayName: z.string().max(16000).trim().min(1).optional(),
+  primarySpecialty: z.string().max(16000).trim().min(1).optional(),
+  specialtyTags: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+    .optional(),
   negativeRouting: negativeRoutingSchema.nullable().optional(),
   routing: routingMetadataSchema.nullable().optional(),
 };
@@ -263,9 +280,9 @@ function hasCommonMetadataUpdate(
     input.routing !== undefined;
 }
 
-export const updateSkillInputSchema = z.object({
+export const updateSkillInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  skillName: z.string().trim().min(1),
+  skillName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
   ...commonMetadataUpdateFields,
 }).refine(hasCommonMetadataUpdate, {
@@ -273,9 +290,9 @@ export const updateSkillInputSchema = z.object({
   path: ["update"],
 });
 
-export const updateSubagentInputSchema = z.object({
+export const updateSubagentInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  subagentName: z.string().trim().min(1),
+  subagentName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
   ...commonMetadataUpdateFields,
 }).refine(hasCommonMetadataUpdate, {
@@ -283,16 +300,18 @@ export const updateSubagentInputSchema = z.object({
   path: ["update"],
 });
 
-export const promoteSkillToGlobalInputSchema = z.object({
+export const promoteSkillToGlobalInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  skillName: z.string().trim().min(1),
+  skillName: z.string().max(16000).trim().min(1),
 });
 
-const skillContextSchema = z.object({
-  whenToUse: z.string().trim().min(1).optional(),
-  usageNotes: z.string().trim().min(1).optional(),
-  constraints: z.array(z.string().trim().min(1)).min(1).optional(),
-  examplePrompts: z.array(z.string().trim().min(1)).min(1).optional(),
+const skillContextSchema = z.strictObject({
+  whenToUse: z.string().max(16000).trim().min(1).optional(),
+  usageNotes: z.string().max(16000).trim().min(1).optional(),
+  constraints: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+    .optional(),
+  examplePrompts: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+    .optional(),
   negativeRouting: negativeRoutingSchema.nullable().optional(),
   implementationGuidance: implementationGuidanceSchema.nullable().optional(),
 }).refine(
@@ -309,11 +328,12 @@ const skillContextSchema = z.object({
   },
 );
 
-const skillMetadataUpdateSchema = z.object({
-  projectName: z.string().trim().min(1).optional(),
-  displayName: z.string().trim().min(1).optional(),
-  primarySpecialty: z.string().trim().min(1).optional(),
-  specialtyTags: z.array(z.string().trim().min(1)).min(1).optional(),
+const skillMetadataUpdateSchema = z.strictObject({
+  projectName: z.string().max(16000).trim().min(1).optional(),
+  displayName: z.string().max(16000).trim().min(1).optional(),
+  primarySpecialty: z.string().max(16000).trim().min(1).optional(),
+  specialtyTags: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+    .optional(),
 }).refine(
   (metadata) =>
     metadata.projectName !== undefined ||
@@ -326,11 +346,11 @@ const skillMetadataUpdateSchema = z.object({
   },
 );
 
-export const proposeSkillUpdateInputSchema = z.object({
+export const proposeSkillUpdateInputSchema = z.strictObject({
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
-  skillName: z.string().trim().min(1),
-  reason: z.string().trim().min(1),
+  skillName: z.string().max(16000).trim().min(1),
+  reason: z.string().max(16000).trim().min(1),
   skillContext: skillContextSchema.optional(),
   metadata: skillMetadataUpdateSchema.optional(),
   routing: routingMetadataSchema.nullable().optional(),
@@ -346,18 +366,18 @@ export const proposeSkillUpdateInputSchema = z.object({
   },
 );
 
-export const applySkillUpdateInputSchema = z.object({
+export const applySkillUpdateInputSchema = z.strictObject({
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
-  proposalId: z.string().trim().min(1),
+  proposalId: z.string().max(16000).trim().min(1),
   confirm: z.literal(true),
 });
 
-export const previewSkillFileSyncInputSchema = z.object({
+export const previewSkillFileSyncInputSchema = z.strictObject({
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
-  skillName: z.string().trim().min(1),
-  proposalId: z.string().trim().min(1),
+  skillName: z.string().max(16000).trim().min(1),
+  proposalId: z.string().max(16000).trim().min(1),
 });
 
 export const applySkillFileSyncInputSchema = previewSkillFileSyncInputSchema
@@ -365,95 +385,95 @@ export const applySkillFileSyncInputSchema = previewSkillFileSyncInputSchema
     confirm: z.literal(true),
   });
 
-export const removeSkillInputSchema = z.object({
+export const removeSkillInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  skillName: z.string().trim().min(1),
+  skillName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
 });
 
-export const removeSubagentInputSchema = z.object({
+export const removeSubagentInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  subagentName: z.string().trim().min(1),
+  subagentName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
 });
 
-export const exportCatalogInputSchema = z.object({
+export const exportCatalogInputSchema = z.strictObject({
   workspace: workspaceSchema,
   entryType: entryTypeSchema.optional(),
-  projectName: z.string().trim().min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
 });
 
 const verificationStatusSchema = z.enum(["verified", "unverified", "unknown"]);
 
-const exportAgentEntrySchema = z.object({
+const exportAgentEntrySchema = z.strictObject({
   entryType: z.literal("agent"),
-  codexSessionId: z.string().trim().min(1),
+  codexSessionId: z.string().max(16000).trim().min(1),
   agentStatus: agentStatusSchema.optional(),
-  retiredAt: z.string().trim().min(1).optional(),
-  retirementReason: z.string().trim().min(1).optional(),
-  replacedByAgentEntryKey: z.string().trim().min(1).optional(),
-  replacesAgentEntryKey: z.string().trim().min(1).optional(),
-  projectName: z.string().trim().min(1),
-  displayName: z.string().trim().min(1),
-  primarySpecialty: z.string().trim().min(1),
-  specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  retiredAt: z.string().max(16000).trim().min(1).optional(),
+  retirementReason: z.string().max(16000).trim().min(1).optional(),
+  replacedByAgentEntryKey: z.string().max(16000).trim().min(1).optional(),
+  replacesAgentEntryKey: z.string().max(16000).trim().min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1),
+  displayName: z.string().max(16000).trim().min(1),
+  primarySpecialty: z.string().max(16000).trim().min(1),
+  specialtyTags: boundedArray(z.string().max(16000).trim().min(1)).min(1),
   handoff: handoffSchema.optional(),
   verificationStatus: verificationStatusSchema,
-  verificationSource: z.string().trim().min(1),
-  verifiedAt: z.string().trim().min(1),
-  verificationMessage: z.string().trim().min(1).optional(),
+  verificationSource: z.string().max(16000).trim().min(1),
+  verifiedAt: z.string().max(16000).trim().min(1),
+  verificationMessage: z.string().max(16000).trim().min(1).optional(),
 });
 
-const exportSkillEntrySchema = z.object({
+const exportSkillEntrySchema = z.strictObject({
   entryType: z.literal("skill"),
-  skillName: z.string().trim().min(1),
-  projectName: z.string().trim().min(1),
-  displayName: z.string().trim().min(1),
-  primarySpecialty: z.string().trim().min(1),
-  specialtyTags: z.array(z.string().trim().min(1)).min(1),
+  skillName: z.string().max(16000).trim().min(1),
+  projectName: z.string().max(16000).trim().min(1),
+  displayName: z.string().max(16000).trim().min(1),
+  primarySpecialty: z.string().max(16000).trim().min(1),
+  specialtyTags: boundedArray(z.string().max(16000).trim().min(1)).min(1),
   verificationStatus: verificationStatusSchema,
-  verificationSource: z.string().trim().min(1),
-  verifiedAt: z.string().trim().min(1),
-  verificationMessage: z.string().trim().min(1).optional(),
+  verificationSource: z.string().max(16000).trim().min(1),
+  verifiedAt: z.string().max(16000).trim().min(1),
+  verificationMessage: z.string().max(16000).trim().min(1).optional(),
   skillContext: skillContextSchema.optional(),
   routing: routingMetadataSchema.optional(),
 });
 
-const exportSubagentEntrySchema = z.object({
+const exportSubagentEntrySchema = z.strictObject({
   entryType: z.literal("subagent"),
-  name: z.string().trim().min(1),
-  projectName: z.string().trim().min(1),
-  displayName: z.string().trim().min(1),
-  purpose: z.string().trim().min(1),
-  limitedScope: z.string().trim().min(1),
-  primarySpecialty: z.string().trim().min(1),
-  specialtyTags: z.array(z.string().trim().min(1)).min(1),
-  agentReferences: z.array(catalogReferenceSchema),
-  skillReferences: z.array(catalogReferenceSchema),
-  unresolvedReferences: z.array(catalogReferenceSchema),
-  promptTemplate: z.string().trim().min(1).optional(),
-  constraints: z.array(z.string().trim().min(1)),
-  expectedOutput: z.string().trim().min(1),
+  name: z.string().max(16000).trim().min(1),
+  projectName: z.string().max(16000).trim().min(1),
+  displayName: z.string().max(16000).trim().min(1),
+  purpose: z.string().max(16000).trim().min(1),
+  limitedScope: z.string().max(16000).trim().min(1),
+  primarySpecialty: z.string().max(16000).trim().min(1),
+  specialtyTags: boundedArray(z.string().max(16000).trim().min(1)).min(1),
+  agentReferences: boundedArray(catalogReferenceSchema),
+  skillReferences: boundedArray(catalogReferenceSchema),
+  unresolvedReferences: boundedArray(catalogReferenceSchema),
+  promptTemplate: z.string().max(16000).trim().min(1).optional(),
+  constraints: boundedArray(z.string().max(16000).trim().min(1)),
+  expectedOutput: z.string().max(16000).trim().min(1),
   negativeRouting: negativeRoutingSchema.optional(),
   routing: routingMetadataSchema.optional(),
   verificationStatus: verificationStatusSchema,
-  verificationSource: z.string().trim().min(1),
-  verifiedAt: z.string().trim().min(1),
-  verificationMessage: z.string().trim().min(1).optional(),
+  verificationSource: z.string().max(16000).trim().min(1),
+  verifiedAt: z.string().max(16000).trim().min(1),
+  verificationMessage: z.string().max(16000).trim().min(1).optional(),
 });
 
-export const importCatalogInputSchema = z.object({
+export const importCatalogInputSchema = z.strictObject({
   workspace: workspaceSchema,
   conflictStrategy: z.enum(["skip", "fail"]).optional(),
-  catalog: z.object({
+  catalog: z.strictObject({
     version: z.literal(1),
-    exportedAt: z.string().trim().min(1),
-    workspace: z.string().trim().min(1),
-    filters: z.object({
+    exportedAt: z.string().max(16000).trim().min(1),
+    workspace: z.string().max(16000).trim().min(1),
+    filters: z.strictObject({
       entryType: entryTypeSchema.optional(),
-      projectName: z.string().trim().min(1).optional(),
+      projectName: z.string().max(16000).trim().min(1).optional(),
     }),
-    entries: z.array(z.discriminatedUnion("entryType", [
+    entries: boundedArray(z.discriminatedUnion("entryType", [
       exportAgentEntrySchema,
       exportSkillEntrySchema,
       exportSubagentEntrySchema,
@@ -461,13 +481,16 @@ export const importCatalogInputSchema = z.object({
   }),
 });
 
-const workspaceCatalogSyncBaseInputSchema = z.object({
+const workspaceCatalogSyncBaseInputSchema = z.strictObject({
   sourceWorkspace: workspaceSchema,
   targetWorkspace: workspaceSchema,
-  projectName: z.string().trim().min(1).optional(),
-  skillNames: z.array(z.string().trim().min(1)).min(1).optional(),
-  subagentNames: z.array(z.string().trim().min(1)).min(1).optional(),
-  agentPromptRoles: z.array(z.string().trim().min(1)).min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
+  skillNames: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+    .optional(),
+  subagentNames: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+    .optional(),
+  agentPromptRoles: boundedArray(z.string().max(16000).trim().min(1)).min(1)
+    .optional(),
 });
 
 export const previewWorkspaceCatalogSyncInputSchema =
@@ -478,11 +501,11 @@ export const applyWorkspaceCatalogSyncInputSchema =
     confirm: z.literal(true),
   });
 
-export const checkCatalogHealthInputSchema = z.object({
+export const checkCatalogHealthInputSchema = z.strictObject({
   workspace: workspaceSchema,
   entryType: healthEntryTypeSchema.optional(),
-  projectName: z.string().trim().min(1).optional(),
-  entryKey: z.string().trim().min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
+  entryKey: z.string().max(16000).trim().min(1).optional(),
   scope: catalogScopeSchema.optional(),
 }).refine(
   (input) => input.entryKey === undefined || input.entryType !== undefined,
@@ -498,16 +521,16 @@ export const checkCatalogHealthInputSchema = z.object({
   },
 );
 
-export const getWorkspaceDiagnosticsInputSchema = z.object({
+export const getWorkspaceDiagnosticsInputSchema = z.strictObject({
   workspace: workspaceSchema,
 });
 
-export const getUsageAnalyticsInputSchema = z.object({
+export const getUsageAnalyticsInputSchema = z.strictObject({
   workspace: workspaceSchema,
   entryType: usageEntryTypeSchema.optional(),
   scope: catalogScopeSchema.optional(),
-  entryKey: z.string().trim().min(1).optional(),
-  projectName: z.string().trim().min(1).optional(),
+  entryKey: z.string().max(16000).trim().min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
 }).refine(
   (input) => !(input.entryType === "note" && input.scope === "global"),
   {
@@ -522,48 +545,48 @@ export const getUsageAnalyticsInputSchema = z.object({
   },
 );
 
-export const rememberWorkspaceNoteInputSchema = z.object({
+export const rememberWorkspaceNoteInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  title: z.string().trim().min(1),
-  body: z.string().trim().min(1),
-  tags: z.array(z.string().trim().min(1)).optional(),
+  title: z.string().max(16000).trim().min(1),
+  body: z.string().max(16000).trim().min(1),
+  tags: boundedArray(z.string().max(16000).trim().min(1)).optional(),
 });
 
-export const listWorkspaceNotesInputSchema = z.object({
+export const listWorkspaceNotesInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  tags: z.array(z.string().trim().min(1)).optional(),
+  tags: boundedArray(z.string().max(16000).trim().min(1)).optional(),
 });
 
-export const findMatchingWorkspaceNoteInputSchema = z.object({
+export const findMatchingWorkspaceNoteInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  query: z.string().trim().min(1),
-  tags: z.array(z.string().trim().min(1)).optional(),
+  query: z.string().max(16000).trim().min(1),
+  tags: boundedArray(z.string().max(16000).trim().min(1)).optional(),
   limit: z.number().int().min(1).max(20).optional(),
 });
 
-export const getWorkspaceNoteInputSchema = z.object({
+export const getWorkspaceNoteInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  noteId: z.string().trim().min(1),
+  noteId: z.string().max(16000).trim().min(1),
 });
 
 export const removeWorkspaceNoteInputSchema = getWorkspaceNoteInputSchema;
 
-export const generateAgentPromptInputSchema = z.object({
+export const generateAgentPromptInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  role: z.string().trim().min(1),
-  projectName: z.string().trim().min(1).optional(),
-  task: z.string().trim().min(1).optional(),
-  context: z.string().trim().min(1).optional(),
-  constraints: z.string().trim().min(1).optional(),
+  role: z.string().max(16000).trim().min(1),
+  projectName: z.string().max(16000).trim().min(1).optional(),
+  task: z.string().max(16000).trim().min(1).optional(),
+  context: z.string().max(16000).trim().min(1).optional(),
+  constraints: z.string().max(16000).trim().min(1).optional(),
 });
 
-export const findMatchingSkillInputSchema = z.object({
+export const findMatchingSkillInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  task: z.string().trim().min(1),
-  canonicalTask: z.string().trim().min(1).optional(),
-  projectName: z.string().trim().min(1).optional(),
-  specialtyHints: z.array(z.string().trim().min(1)).optional(),
-  intent: z.string().trim().min(1).max(120).optional(),
+  task: z.string().max(16000).trim().min(1),
+  canonicalTask: z.string().max(16000).trim().min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
+  specialtyHints: boundedArray(z.string().max(16000).trim().min(1)).optional(),
+  intent: z.string().max(16000).trim().min(1).max(120).optional(),
   excludeIntents: routingStringListSchema.optional(),
   positiveKeywords: routingStringListSchema.optional(),
   negativeKeywords: routingStringListSchema.optional(),
@@ -579,13 +602,13 @@ export const findMatchingSkillInputSchema = z.object({
   debug: z.boolean().optional(),
 });
 
-export const findMatchingSubagentInputSchema = z.object({
+export const findMatchingSubagentInputSchema = z.strictObject({
   workspace: workspaceSchema,
-  task: z.string().trim().min(1),
-  canonicalTask: z.string().trim().min(1).optional(),
-  projectName: z.string().trim().min(1).optional(),
-  specialtyHints: z.array(z.string().trim().min(1)).optional(),
-  intent: z.string().trim().min(1).max(120).optional(),
+  task: z.string().max(16000).trim().min(1),
+  canonicalTask: z.string().max(16000).trim().min(1).optional(),
+  projectName: z.string().max(16000).trim().min(1).optional(),
+  specialtyHints: boundedArray(z.string().max(16000).trim().min(1)).optional(),
+  intent: z.string().max(16000).trim().min(1).max(120).optional(),
   excludeIntents: routingStringListSchema.optional(),
   positiveKeywords: routingStringListSchema.optional(),
   negativeKeywords: routingStringListSchema.optional(),
@@ -684,9 +707,9 @@ export type FindMatchingSubagentToolInput = z.infer<
 export const toolOutputSchema = {
   status: z.enum(["ok", "no_match", "conflict", "error"]),
   data: z.unknown().optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    details: z.record(z.string(), z.unknown()).optional(),
+  error: z.strictObject({
+    code: z.string().max(16000),
+    message: z.string().max(16000),
+    details: z.record(z.string().max(16000), z.unknown()).optional(),
   }).optional(),
 };

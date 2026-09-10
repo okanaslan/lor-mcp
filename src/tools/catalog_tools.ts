@@ -1,3 +1,4 @@
+import { outputSchemaFor } from "@src/tools/output_schemas.ts";
 import { toolEffectDescription, toolPolicy } from "@src/tools/policy.ts";
 import type { McpServer } from "@mcp/server";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
@@ -64,7 +65,6 @@ import {
   type RemoveSubagentToolInput,
   removeWorkspaceNoteInputSchema,
   type RemoveWorkspaceNoteToolInput,
-  toolOutputSchema,
   updateSkillInputSchema,
   type UpdateSkillToolInput,
   updateSubagentInputSchema,
@@ -106,7 +106,7 @@ export function registerCatalogTools(
       description: "Introduce an existing Codex skill to the catalog." +
         toolEffectDescription("introduce_skill"),
       inputSchema: introduceSkillInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("introduce_skill"),
     },
     (input: IntroduceSkillToolInput) =>
       withLoggedRuntime(
@@ -129,7 +129,7 @@ export function registerCatalogTools(
         "Introduce a reusable subagent prompt profile to the catalog." +
         toolEffectDescription("introduce_subagent"),
       inputSchema: introduceSubagentInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("introduce_subagent"),
     },
     (input: IntroduceSubagentToolInput) =>
       withLoggedRuntime(
@@ -152,7 +152,7 @@ export function registerCatalogTools(
         "List introduced skills visible to a workspace, including global skills by default." +
         toolEffectDescription("list_skills"),
       inputSchema: listSkillsInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("list_skills"),
     },
     (input: ListSkillsToolInput) =>
       withLoggedRuntime(
@@ -175,7 +175,7 @@ export function registerCatalogTools(
         "List introduced reusable subagent prompt profiles visible to a workspace." +
         toolEffectDescription("list_subagents"),
       inputSchema: listSubagentsInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("list_subagents"),
     },
     (input: ListSubagentsToolInput) =>
       withLoggedRuntime(
@@ -201,7 +201,7 @@ export function registerCatalogTools(
         "Clear introduced workspace-local skills from one workspace after explicit confirmation." +
         toolEffectDescription("clear_workspace_skills"),
       inputSchema: clearWorkspaceSkillsInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("clear_workspace_skills"),
     },
     (input: ClearWorkspaceSkillsToolInput) =>
       withLoggedRuntime(
@@ -224,7 +224,7 @@ export function registerCatalogTools(
         "Clear introduced workspace-local subagent prompt profiles from one workspace after explicit confirmation." +
         toolEffectDescription("clear_workspace_subagents"),
       inputSchema: clearWorkspaceSubagentsInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("clear_workspace_subagents"),
     },
     (input: ClearWorkspaceSubagentsToolInput) =>
       withLoggedRuntime(
@@ -249,7 +249,7 @@ export function registerCatalogTools(
       description: "Register an alternate name for a workspace catalog." +
         toolEffectDescription("register_workspace_alias"),
       inputSchema: registerWorkspaceAliasInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("register_workspace_alias"),
     },
     (input: RegisterWorkspaceAliasToolInput) =>
       withLoggedRuntime(
@@ -275,7 +275,7 @@ export function registerCatalogTools(
         "Copy one workspace skill into global skill scope without removing the source skill." +
         toolEffectDescription("promote_skill_to_global"),
       inputSchema: promoteSkillToGlobalInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("promote_skill_to_global"),
     },
     (input: PromoteSkillToGlobalToolInput) =>
       withLoggedRuntime(
@@ -300,7 +300,7 @@ export function registerCatalogTools(
       description: "Get full metadata for one introduced skill." +
         toolEffectDescription("get_skill_detail"),
       inputSchema: getSkillDetailInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("get_skill_detail"),
     },
     (input: GetSkillDetailToolInput) =>
       withLoggedRuntime(
@@ -328,7 +328,7 @@ export function registerCatalogTools(
         "Get full metadata and rendered prompt for one introduced subagent profile." +
         toolEffectDescription("get_subagent_detail"),
       inputSchema: getSubagentDetailInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("get_subagent_detail"),
     },
     (input: GetSubagentDetailToolInput) =>
       withLoggedRuntime(
@@ -355,7 +355,7 @@ export function registerCatalogTools(
       description: "Update editable metadata for one introduced skill." +
         toolEffectDescription("update_skill"),
       inputSchema: updateSkillInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("update_skill"),
     },
     (input: UpdateSkillToolInput) =>
       withLoggedRuntime(
@@ -378,7 +378,7 @@ export function registerCatalogTools(
         "Update editable metadata for one introduced subagent prompt profile." +
         toolEffectDescription("update_subagent"),
       inputSchema: updateSubagentInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("update_subagent"),
     },
     (input: UpdateSubagentToolInput) =>
       withLoggedRuntime(
@@ -401,7 +401,7 @@ export function registerCatalogTools(
         "Propose an approval-gated update to stored context for a registered skill." +
         toolEffectDescription("propose_skill_update"),
       inputSchema: proposeSkillUpdateInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("propose_skill_update"),
     },
     (input: ProposeSkillUpdateToolInput) =>
       withLoggedRuntime(
@@ -427,7 +427,7 @@ export function registerCatalogTools(
         "Apply a pending registered skill update proposal after explicit confirmation." +
         toolEffectDescription("apply_skill_update"),
       inputSchema: applySkillUpdateInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("apply_skill_update"),
     },
     (input: ApplySkillUpdateToolInput) =>
       withLoggedRuntime(
@@ -453,7 +453,7 @@ export function registerCatalogTools(
         "Preview writing approved registered skill context into a local SKILL.md managed section." +
         toolEffectDescription("preview_skill_file_sync"),
       inputSchema: previewSkillFileSyncInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("preview_skill_file_sync"),
     },
     (input: PreviewSkillFileSyncToolInput) =>
       withLoggedRuntime(
@@ -479,7 +479,7 @@ export function registerCatalogTools(
         "Write approved registered skill context into a local SKILL.md managed section after explicit confirmation." +
         toolEffectDescription("apply_skill_file_sync"),
       inputSchema: applySkillFileSyncInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("apply_skill_file_sync"),
     },
     (input: ApplySkillFileSyncToolInput) =>
       withLoggedRuntime(
@@ -506,7 +506,7 @@ export function registerCatalogTools(
       description: "Remove one introduced skill from a workspace or scope." +
         toolEffectDescription("remove_skill"),
       inputSchema: removeSkillInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("remove_skill"),
     },
     (input: RemoveSkillToolInput) =>
       withLoggedRuntime(
@@ -529,7 +529,7 @@ export function registerCatalogTools(
         "Remove one introduced subagent prompt profile from a workspace or scope." +
         toolEffectDescription("remove_subagent"),
       inputSchema: removeSubagentInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("remove_subagent"),
     },
     (input: RemoveSubagentToolInput) =>
       withLoggedRuntime(
@@ -551,7 +551,7 @@ export function registerCatalogTools(
       description: "Export workspace catalog entries as portable JSON data." +
         toolEffectDescription("export_catalog"),
       inputSchema: exportCatalogInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("export_catalog"),
     },
     (input: ExportCatalogToolInput) =>
       withLoggedRuntime(
@@ -576,7 +576,7 @@ export function registerCatalogTools(
       description: "Import workspace catalog entries from exported JSON data." +
         toolEffectDescription("import_catalog"),
       inputSchema: importCatalogInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("import_catalog"),
     },
     (input: ImportCatalogToolInput) =>
       withLoggedRuntime(
@@ -602,7 +602,7 @@ export function registerCatalogTools(
         "Preview skill and subagent catalog sync from one workspace catalog into another." +
         toolEffectDescription("preview_workspace_catalog_sync"),
       inputSchema: previewWorkspaceCatalogSyncInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("preview_workspace_catalog_sync"),
     },
     (input: PreviewWorkspaceCatalogSyncToolInput) =>
       withLoggedRuntime(
@@ -630,7 +630,7 @@ export function registerCatalogTools(
         "Copy previewed skill and subagent catalog entries into a target workspace after explicit confirmation." +
         toolEffectDescription("apply_workspace_catalog_sync"),
       inputSchema: applyWorkspaceCatalogSyncInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("apply_workspace_catalog_sync"),
     },
     (input: ApplyWorkspaceCatalogSyncToolInput) =>
       withLoggedRuntime(
@@ -656,7 +656,7 @@ export function registerCatalogTools(
         "Report workspace catalog health from stored verification metadata." +
         toolEffectDescription("check_catalog_health"),
       inputSchema: checkCatalogHealthInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("check_catalog_health"),
     },
     (input: CheckCatalogHealthToolInput) =>
       withLoggedRuntime(
@@ -682,7 +682,7 @@ export function registerCatalogTools(
         "Report sanitized workspace resolution, alias, catalog count, and setup diagnostics." +
         toolEffectDescription("get_workspace_diagnostics"),
       inputSchema: getWorkspaceDiagnosticsInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("get_workspace_diagnostics"),
     },
     (input: GetWorkspaceDiagnosticsToolInput) =>
       withLoggedRuntime(
@@ -708,7 +708,7 @@ export function registerCatalogTools(
         "Read local aggregate usage counters for skills, subagents, and workspace notes." +
         toolEffectDescription("get_usage_analytics"),
       inputSchema: getUsageAnalyticsInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("get_usage_analytics"),
     },
     (input: GetUsageAnalyticsToolInput) =>
       withLoggedRuntime(
@@ -734,7 +734,7 @@ export function registerCatalogTools(
         "Store a durable workspace-scoped coordination note outside the catalog." +
         toolEffectDescription("remember_workspace_note"),
       inputSchema: rememberWorkspaceNoteInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("remember_workspace_note"),
     },
     (input: RememberWorkspaceNoteToolInput) =>
       withLoggedRuntime(
@@ -757,7 +757,7 @@ export function registerCatalogTools(
         "List workspace note summaries, optionally filtered by tags." +
         toolEffectDescription("list_workspace_notes"),
       inputSchema: listWorkspaceNotesInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("list_workspace_notes"),
     },
     (input: ListWorkspaceNotesToolInput) =>
       withLoggedRuntime(
@@ -783,7 +783,7 @@ export function registerCatalogTools(
         "Find matching workspace note summaries by query, optionally filtered by tags." +
         toolEffectDescription("find_matching_workspace_note"),
       inputSchema: findMatchingWorkspaceNoteInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("find_matching_workspace_note"),
     },
     (input: FindMatchingWorkspaceNoteToolInput) =>
       withLoggedRuntime(
@@ -817,7 +817,7 @@ export function registerCatalogTools(
       description: "Get a workspace note by note id." +
         toolEffectDescription("get_workspace_note"),
       inputSchema: getWorkspaceNoteInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("get_workspace_note"),
     },
     (input: GetWorkspaceNoteToolInput) =>
       withLoggedRuntime(
@@ -839,7 +839,7 @@ export function registerCatalogTools(
       description: "Remove a workspace note by note id." +
         toolEffectDescription("remove_workspace_note"),
       inputSchema: removeWorkspaceNoteInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("remove_workspace_note"),
     },
     (input: RemoveWorkspaceNoteToolInput) =>
       withLoggedRuntime(
@@ -861,7 +861,7 @@ export function registerCatalogTools(
       description: "Generate a manual starter prompt for an empty Codex chat." +
         toolEffectDescription("generate_agent_prompt"),
       inputSchema: generateAgentPromptInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("generate_agent_prompt"),
     },
     (input: GenerateAgentPromptToolInput) =>
       withLoggedToolErrors("generate_agent_prompt", input, logger, () => {
@@ -880,7 +880,7 @@ export function registerCatalogTools(
       description: "Find matching introduced skills for a task." +
         toolEffectDescription("find_matching_skill"),
       inputSchema: findMatchingSkillInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("find_matching_skill"),
     },
     (input: FindMatchingSkillToolInput) =>
       withLoggedRuntime(
@@ -904,7 +904,7 @@ export function registerCatalogTools(
         "Find matching reusable subagent prompt profiles for a task." +
         toolEffectDescription("find_matching_subagent"),
       inputSchema: findMatchingSubagentInputSchema,
-      outputSchema: toolOutputSchema,
+      outputSchema: outputSchemaFor("find_matching_subagent"),
     },
     (input: FindMatchingSubagentToolInput) =>
       withLoggedRuntime(
