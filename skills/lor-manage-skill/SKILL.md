@@ -3,7 +3,7 @@ name: lor-manage-skill
 description: Create, register, or update a reusable skill in LOR, including duplicate checks, scope selection, routing metadata, and read-back verification. Use when the task is maintaining a LOR skill entry, not executing that skill or saving a workspace note.
 compatibility: Requires access to LOR MCP catalog tools. Local skill authoring also requires filesystem access on the intended machine.
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Manage A LOR Skill

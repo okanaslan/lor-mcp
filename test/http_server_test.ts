@@ -89,6 +89,8 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
       "generate_agent_prompt",
       "find_matching_skill",
       "find_matching_subagent",
+      "list_default_skills",
+      "get_default_skill",
     ],
   );
 });

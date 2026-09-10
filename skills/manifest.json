@@ -3,7 +3,7 @@
   "skills": [
     {
       "name": "lor-manage-skill",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Create, register, or update a reusable skill in LOR, including duplicate checks, scope selection, routing metadata, and read-back verification.",
       "aliases": ["lor-add-skill", "lor-update-skill"],
       "files": [
@@ -11,6 +11,20 @@
         "references/registration-and-updates.md",
         "references/routing-and-validation.md"
       ]
+    },
+    {
+      "name": "lor-find-context",
+      "version": "1.0.0",
+      "description": "Find and load relevant LOR skills, subagent profiles and workspace notes without changing the registry.",
+      "aliases": ["lor-search-context"],
+      "files": ["SKILL.md"]
+    },
+    {
+      "name": "lor-manage-note",
+      "version": "1.0.0",
+      "description": "Save or remove requested durable workspace notes with duplicate checks, evidence and read-back verification.",
+      "aliases": ["lor-add-note"],
+      "files": ["SKILL.md"]
     }
   ]
 }

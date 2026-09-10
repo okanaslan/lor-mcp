@@ -29,7 +29,9 @@ export function skillResourceUri(
 }
 
 export async function loadBundledSkill(name: string): Promise<SkillPackage> {
-  const skill = catalog.skills.find((entry) => entry.name === name);
+  const skill = catalog.skills.find((entry) =>
+    entry.name === name || entry.aliases.includes(name)
+  );
   if (!skill) throw new Error(`Unknown bundled skill: ${name}`);
   const files: Record<string, string> = {};
   const entries = [];

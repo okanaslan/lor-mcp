@@ -1,4 +1,6 @@
 export const READ_TOOLS = new Set([
+  "list_default_skills",
+  "get_default_skill",
   "get_operation",
   "list_skills",
   "list_subagents",

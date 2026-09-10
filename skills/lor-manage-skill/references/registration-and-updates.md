@@ -29,9 +29,26 @@ nested objects are deep-merged: carry forward existing routing fields when merge
 behavior is unknown, and inspect the proposal's before/after data. Changing a
 display name or adding an alias does not rename an immutable entry key.
 
+Pass the last retrieved `revision` as `expectedRevision` when updating or
+removing an entry. On `revision_conflict`, reread and reconcile; do not silently
+overwrite concurrent work. Use one `idempotencyKey` for a logical write where
+the tool supports it. On uncertain completion, use `get_operation` and read
+back; replay the identical completed request to obtain its stored result. A
+pending receipt is not permission to retry with a new key.
+
 For an instruction update, explain the proposal's actual change and follow the
 tool's confirmation contract. Read the latest entry again if the proposal
 becomes stale. Never approve a different payload under an earlier confirmation.
+
+Proposals expire after 24 hours and bind the source revision and originating
+workspace. Local file sync requires an applied proposal from the same workspace,
+host permission for local writes, and `previewDigest` from the reviewed file
+preview. A stale file preview must be regenerated; do not force an overwrite.
+The returned backup path is a recovery copy, not an invitation to delete it.
+
+Do not omit scope on writes: registration defaults to global, which requires
+explicit host policy permission. List responses are paginated summaries; follow
+`nextCursor` without changing filters, then load details for selected entries.
 
 If local source and registered context disagree, identify which source the user
 intends to update. Report drift; do not overwrite both automatically.

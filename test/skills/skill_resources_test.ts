@@ -62,8 +62,31 @@ Deno.test("MCP advertises and reads bundled resources without initializing the c
       (await rpc("resources/read", { uri: DEFAULT_SKILLS_INDEX_URI })).result
         .contents[0].text,
     );
-    assertEquals(index.skills.length, 1);
+    assertEquals(index.skills.length, 3);
     assertEquals(index.skills[0].name, "lor-manage-skill");
+    const fallback = await rpc("tools/call", {
+      name: "get_default_skill",
+      arguments: { name: "lor-add-note" },
+    });
+    assertEquals(
+      fallback.result.structuredContent.data.name,
+      "lor-manage-note",
+    );
+    assert(
+      fallback.result.structuredContent.data.content.includes(
+        "# Manage A LOR Note",
+      ),
+    );
+    const denied = await rpc("tools/call", {
+      name: "get_default_skill",
+      arguments: { name: "lor-add-note", path: "../../.env" },
+    });
+    assertEquals(denied.result.isError, true);
+    const defaults = await rpc("tools/call", {
+      name: "list_default_skills",
+      arguments: {},
+    });
+    assertEquals(defaults.result.structuredContent.data.skills.length, 3);
     assert(!JSON.stringify(index).includes("# Manage A LOR Skill"));
     const manifest = JSON.parse(
       (await rpc("resources/read", { uri: index.skills[0].manifestUri })).result

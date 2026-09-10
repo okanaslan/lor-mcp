@@ -99,6 +99,25 @@ const report = z.object({ workspace: text, summary: jsonObject }).catchall(
 );
 
 const outputs: Record<string, z.ZodType> = {
+  list_default_skills: z.object({
+    skills: z.array(
+      z.object({
+        name: text,
+        version: text,
+        description: text,
+        aliases: z.array(text),
+        manifestUri: text,
+        entrypointUri: text,
+        files: z.array(text),
+      }),
+    ),
+  }),
+  get_default_skill: z.object({
+    name: text,
+    version: text,
+    path: text,
+    content: text,
+  }),
   get_operation: z.object({
     operationKey: text,
     status: z.enum(["pending", "completed"]),
