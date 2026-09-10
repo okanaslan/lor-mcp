@@ -60,3 +60,28 @@ Deno.test("local configuration rejects unsafe exposure and invalid permission fl
     "true or false",
   );
 });
+
+Deno.test("local file permission does not grant global catalog reads", async () => {
+  const localOnly = { ...policy, localFiles: true, globalRead: false };
+  for (const name of ["preview_skill_file_sync", "apply_skill_file_sync"]) {
+    await authorizeOperation(localOnly, resolve, name, {
+      workspace: "allowed",
+      scope: "workspace",
+    });
+    await assertRejects(
+      () =>
+        authorizeOperation(localOnly, resolve, name, {
+          workspace: "allowed",
+          scope: "global",
+        }),
+      Error,
+      "access_denied",
+    );
+    await assertRejects(
+      () =>
+        authorizeOperation(localOnly, resolve, name, { workspace: "allowed" }),
+      Error,
+      "access_denied",
+    );
+  }
+});

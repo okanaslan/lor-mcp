@@ -71,3 +71,35 @@ Deno.test("a proposal cannot apply over a newer entry revision", async () => {
     repo.close();
   }
 });
+
+Deno.test("global proposal file sync is bound to its originating workspace", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({ ...input, scope: "global" });
+    const { proposal } = await service.proposeSkillUpdate({
+      ...input,
+      scope: "global",
+      reason: "test",
+      skillContext: { whenToUse: "Testing" },
+    });
+    await service.applySkillUpdate({
+      workspace: "test",
+      scope: "global",
+      proposalId: proposal.proposalId,
+      confirm: true,
+    });
+    await assertRejects(
+      () =>
+        service.previewSkillFileSync({
+          workspace: "other",
+          scope: "global",
+          skillName: input.skillName,
+          proposalId: proposal.proposalId,
+        }),
+      Error,
+      "access_denied",
+    );
+  } finally {
+    repo.close();
+  }
+});

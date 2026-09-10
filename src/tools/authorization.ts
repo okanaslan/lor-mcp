@@ -50,7 +50,11 @@ export async function authorizeOperation(
     globalRequested &&
     !(READ_TOOLS.has(name) ? policy.globalRead : policy.globalWrite)
   ) deny();
-  if (name.includes("skill_file_sync") && !policy.localFiles) deny();
+  if (name.includes("skill_file_sync")) {
+    if (
+      !policy.localFiles || (fields.scope !== "workspace" && !policy.globalRead)
+    ) deny();
+  }
 }
 
 function deny(): never {

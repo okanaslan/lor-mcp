@@ -1472,6 +1472,12 @@ export class CatalogService {
         "Skill update proposal was not found.",
       );
     }
+    if (proposal.originWorkspace !== workspace) {
+      throw new LorError(
+        "access_denied",
+        "The proposal belongs to another workspace or lacks an origin binding.",
+      );
+    }
     if (proposal.skillName !== input.skillName) {
       throw new LorError(
         "validation_error",
