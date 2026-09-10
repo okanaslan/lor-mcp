@@ -1,9 +1,11 @@
 import { LorError } from "@src/errors.ts";
 import { dirname, join } from "@std/path";
+import type { AccessPolicy } from "@src/tools/authorization.ts";
 
 export interface LorConfig {
   dbPath: string;
   skillRoots: string[];
+  accessPolicy: AccessPolicy;
 }
 
 export interface LorServeConfig {
@@ -33,6 +35,11 @@ const CONFIG_ENV_KEYS = [
   "LOR_DB_PATH",
   "LOR_SKILL_ROOTS",
   "HOME",
+  "LOR_ALLOWED_WORKSPACES",
+  "LOR_GLOBAL_READ",
+  "LOR_GLOBAL_WRITE",
+  "LOR_ALLOW_LOCAL_FILES",
+  "LOR_ALLOW_ALIAS_MANAGEMENT",
 ] as const;
 const SERVE_ENV_KEYS = ["LOR_HOST", "LOR_PORT"] as const;
 const LOG_ENV_KEYS = ["LOR_LOG_LEVEL", "LOR_LOG_FORMAT"] as const;
@@ -54,6 +61,16 @@ export function loadConfig(
   return {
     dbPath,
     skillRoots,
+    accessPolicy: {
+      workspaces:
+        optionalEnv(env, "LOR_ALLOWED_WORKSPACES")?.split(",").map((s) =>
+          s.trim()
+        ).filter(Boolean) ?? [cwd],
+      globalRead: booleanEnv(env, "LOR_GLOBAL_READ", true),
+      globalWrite: booleanEnv(env, "LOR_GLOBAL_WRITE", false),
+      localFiles: booleanEnv(env, "LOR_ALLOW_LOCAL_FILES", false),
+      aliases: booleanEnv(env, "LOR_ALLOW_ALIAS_MANAGEMENT", false),
+    },
   };
 }
 
@@ -61,6 +78,13 @@ export function loadServeConfig(
   env: Env = readDenoEnv(SERVE_ENV_KEYS),
 ): LorServeConfig {
   const host = optionalEnv(env, "LOR_HOST") ?? "127.0.0.1";
+  if (!["127.0.0.1", "localhost", "::1"].includes(host)) {
+    throw new LorError(
+      "setup_error",
+      "Unauthenticated HTTP must bind to loopback.",
+      { field: "LOR_HOST" },
+    );
+  }
   const portValue = optionalEnv(env, "LOR_PORT");
   const port = portValue === undefined ? 8765 : Number(portValue);
 
@@ -131,6 +155,17 @@ function defaultSkillRoots(env: Env, cwd: string): string[] {
 function optionalEnv(env: Env, name: string): string | undefined {
   const value = env[name]?.trim();
   return value ? value : undefined;
+}
+
+function booleanEnv(env: Env, name: string, fallback: boolean): boolean {
+  const value = optionalEnv(env, name);
+  if (value === undefined) return fallback;
+  if (value !== "true" && value !== "false") {
+    throw new LorError("setup_error", `${name} must be true or false.`, {
+      field: name,
+    });
+  }
+  return value === "true";
 }
 
 function isLogLevel(value: string): value is LorLogLevel {

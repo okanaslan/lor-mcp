@@ -19,6 +19,13 @@ export function createHttpMcpHandler(
   return async (request: Request): Promise<Response> => {
     const startedAt = performance.now();
     const url = new URL(request.url);
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
+      return new Response("Forbidden host", { status: 403 });
+    }
+    const origin = request.headers.get("origin");
+    if (origin && origin !== url.origin) {
+      return new Response("Forbidden origin", { status: 403 });
+    }
     const sessionId = request.headers.get("mcp-session-id") ?? undefined;
 
     const logResponse = (response: Response): Response => {

@@ -964,7 +964,10 @@ async function withLoggedRuntime(
 ): Promise<ToolResult> {
   const startedAt = performance.now();
   const result = correlateResult(
-    await withRuntime(runtimeFactory, handler),
+    await withRuntime(runtimeFactory, async (runtime) => {
+      await runtime.authorize?.(toolName, input);
+      return await handler(runtime);
+    }),
     crypto.randomUUID(),
   );
   logToolCall(logger, toolName, input, result, startedAt);

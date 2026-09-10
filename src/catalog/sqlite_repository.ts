@@ -912,6 +912,10 @@ export class SqliteCatalogRepository implements CatalogRepository {
     return Promise.resolve(this.resolveWorkspaceSync(workspace, options.now));
   }
 
+  lookupWorkspace(workspace: string): string {
+    return this.resolveAliasTargetWorkspace(normalizeWorkspace(workspace));
+  }
+
   listWorkspaceAliases(canonicalWorkspace: string): Promise<string[]> {
     try {
       const rows = this.requireDb().prepare<{ alias: string }>(
