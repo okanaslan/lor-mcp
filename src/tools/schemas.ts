@@ -215,12 +215,16 @@ export const introduceSubagentInputSchema = z.strictObject({
 });
 
 export const listSkillsInputSchema = z.strictObject({
+  cursor: z.string().max(512).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
   workspace: workspaceSchema,
   projectName: z.string().max(16000).trim().min(1).optional(),
   scope: catalogScopeSchema.optional(),
 });
 
 export const listSubagentsInputSchema = z.strictObject({
+  cursor: z.string().max(512).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
   workspace: workspaceSchema,
   projectName: z.string().max(16000).trim().min(1).optional(),
   scope: catalogScopeSchema.optional(),
@@ -568,6 +572,8 @@ export const rememberWorkspaceNoteInputSchema = z.strictObject({
 });
 
 export const listWorkspaceNotesInputSchema = z.strictObject({
+  cursor: z.string().max(512).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
   workspace: workspaceSchema,
   tags: boundedArray(z.string().max(16000).trim().min(1)).optional(),
 });

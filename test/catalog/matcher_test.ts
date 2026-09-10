@@ -18,6 +18,43 @@ const baseEntry = {
   updatedAt: "2026-07-12T00:00:00.000Z",
 } as const;
 
+Deno.test("matcher enforces request requirements and ignores output-only overlap", () => {
+  const entries: CatalogEntry[] = [{
+    ...baseEntry,
+    entryType: "skill",
+    entryKey: "api-skill",
+    skillName: "api-skill",
+    displayName: "API Skill",
+    primarySpecialty: "backend api",
+    routing: {
+      positiveKeywords: ["backend", "api"],
+      outputNeed: ["importance", "ease"],
+    },
+  }];
+  for (
+    const requirements of [{ requiredAll: ["frontend"] }, {
+      requiredAny: ["frontend", "design"],
+    }]
+  ) {
+    assertEquals(
+      findCatalogMatches(entries, {
+        workspace: "LOR-MCP",
+        task: "backend api",
+        ...requirements,
+      }).status,
+      "no_match",
+    );
+  }
+  assertEquals(
+    findCatalogMatches(entries, {
+      workspace: "LOR-MCP",
+      task: "unrelated",
+      outputNeed: ["importance", "ease"],
+    }).status,
+    "no_match",
+  );
+});
+
 Deno.test("findCatalogMatches returns separate ranked agent and skill lists", () => {
   const entries: CatalogEntry[] = [
     {

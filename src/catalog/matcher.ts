@@ -202,6 +202,8 @@ const LOW_VALUE_TOKEN_TERMS = new Set([
   "token",
   "valid",
   "validity",
+  "importance",
+  "ease",
 ]);
 
 const ALIASES: ReadonlyArray<[RegExp, string]> = [
@@ -403,6 +405,16 @@ function hardFilterEntry(
     }
   }
 
+  const candidateTerms = new Set(
+    normalizeTerms(positiveRoutingValues(entry)).terms,
+  );
+  if (missingRequiredValues(request.requiredAll, candidateTerms).length) {
+    reasons.push("request.requiredAll");
+  }
+  if (missingRequiredAnyValue(request.requiredAny, candidateTerms).length) {
+    reasons.push("request.requiredAny");
+  }
+
   return reasons.length > 0 ? { reasons, negativeSignals } : undefined;
 }
 
@@ -458,6 +470,14 @@ function scoreEntry(
   if (positiveScore < MINIMUM_SCORE) {
     return undefined;
   }
+  const meaningfulSignals = fieldScores.flatMap((field) =>
+    field.signalBreakdown
+  ).filter((signal) =>
+    signal.querySource !== "outputNeed" &&
+    (["routing.positiveKeywords", "positiveKeywords"].includes(signal.source) ||
+      !LOW_VALUE_TOKEN_TERMS.has(signal.queryTerm ?? signal.term))
+  );
+  if (!meaningfulSignals.length) return undefined;
 
   const combinedNegative = combineNegativeScores([
     scoreNegativeRouting(entry, query.positiveSignals),
@@ -484,7 +504,17 @@ function scoreEntry(
   const matchedSignals = uniqueMatchedSignalStrings(
     fieldScores.flatMap((field) => field.signals),
   );
-  const confidence = adjustedScore >= 10 ? "high" : "medium";
+  const distinctTerms = new Set(
+    meaningfulSignals.map((signal) => signal.queryTerm ?? signal.term),
+  );
+  const exactIdentity = meaningfulSignals.some((signal) =>
+    signal.matchKind === "exact" &&
+    ["skillName", "subagentName", "aliases", "entryKey"].includes(signal.source)
+  );
+  const confidence =
+    adjustedScore >= 10 && (distinctTerms.size >= 2 || exactIdentity)
+      ? "high"
+      : "medium";
   const strongestField = [...fieldScores].sort((a, b) => b.score - a.score)[0]
     ?.field;
   const summarySignals = summaryMatchedSignals(fieldScores);

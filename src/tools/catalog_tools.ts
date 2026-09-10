@@ -1,4 +1,5 @@
 import { outputSchemaFor } from "@src/tools/output_schemas.ts";
+import { compactMatches, entrySummary, page } from "@src/tools/discovery.ts";
 import * as z from "zod/v4";
 import { toolEffectDescription, toolPolicy } from "@src/tools/policy.ts";
 import type { McpServer } from "@mcp/server";
@@ -119,7 +120,7 @@ export function registerCatalogTools(
         input,
         logger,
         runtimeFactory,
-        async (runtime) => {
+        (runtime) => {
           const receipt = runtime.getOperation?.(
             input.workspace,
             input.operationKey,
@@ -205,7 +206,16 @@ export function registerCatalogTools(
         runtimeFactory,
         async (runtime) => {
           const skills = await runtime.service.listSkills(input);
-          return okResult({ skills }, `Found ${skills.length} skills.`);
+          const { items, ...pagination } = page(skills, input, {
+            tool: "list_skills",
+            workspace: input.workspace,
+            scope: input.scope,
+            projectName: input.projectName,
+          }, (entry) => `${entry.scope}:${entry.entryKey}`);
+          return okResult(
+            { skills: items.map(entrySummary), ...pagination },
+            `Returned ${items.length} of ${skills.length} skills. Use get_skill_detail for instructions.`,
+          );
         },
       ),
   );
@@ -228,9 +238,15 @@ export function registerCatalogTools(
         runtimeFactory,
         async (runtime) => {
           const subagents = await runtime.service.listSubagents(input);
+          const { items, ...pagination } = page(subagents, input, {
+            tool: "list_subagents",
+            workspace: input.workspace,
+            scope: input.scope,
+            projectName: input.projectName,
+          }, (entry) => `${entry.scope}:${entry.entryKey}`);
           return okResult(
-            { subagents },
-            `Found ${subagents.length} subagents.`,
+            { subagents: items.map(entrySummary), ...pagination },
+            `Returned ${items.length} of ${subagents.length} subagents. Use get_subagent_detail for the prompt.`,
           );
         },
       ),
@@ -810,9 +826,14 @@ export function registerCatalogTools(
         runtimeFactory,
         async (runtime) => {
           const result = await runtime.service.listWorkspaceNotes(input);
+          const { items, ...pagination } = page(result.notes, input, {
+            tool: "list_workspace_notes",
+            workspace: result.workspace,
+            tags: input.tags,
+          }, (note) => note.noteId);
           return okResult(
-            result,
-            `Listed ${result.notes.length} workspace notes.`,
+            { ...result, notes: items, ...pagination },
+            `Returned ${items.length} of ${result.notes.length} workspace notes.`,
           );
         },
       ),
@@ -968,21 +989,22 @@ function matchToolResult(
   result: Awaited<ReturnType<ToolRuntime["service"]["findMatchingEntries"]>>,
   entryLabel: "agent" | "skill" | "subagent",
 ): ToolResult {
+  const data = compactMatches(result.data);
   if (result.status === "no_match") {
     return statusResult(
       "no_match",
-      result.data,
+      data,
       `No matching ${entryLabel}s.`,
     );
   }
   if (result.status === "conflict") {
     return statusResult(
       "conflict",
-      result.data,
+      data,
       "Multiple catalog entries matched with near-equal strength.",
     );
   }
-  return okResult(result.data, `Found matching ${entryLabel}s.`);
+  return okResult(data, `Found matching ${entryLabel}s.`);
 }
 
 function withLoggedToolErrors(
@@ -1002,14 +1024,18 @@ async function withLoggedRuntime(
   input: unknown,
   logger: LorLogger,
   runtimeFactory: () => Promise<ToolRuntime>,
-  handler: (runtime: ToolRuntime) => Promise<ToolResult>,
+  handler: (runtime: ToolRuntime) => Promise<ToolResult> | ToolResult,
 ): Promise<ToolResult> {
   const startedAt = performance.now();
   const result = correlateResult(
     await withRuntime(runtimeFactory, async (runtime) => {
       await runtime.authorize?.(toolName, input);
       return runtime.execute
-        ? await runtime.execute(toolName, input, () => handler(runtime))
+        ? await runtime.execute(
+          toolName,
+          input,
+          () => Promise.resolve(handler(runtime)),
+        )
         : await handler(runtime);
     }),
     crypto.randomUUID(),
