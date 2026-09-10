@@ -355,9 +355,11 @@ export interface SkillFileSyncInput {
 
 export interface ApplySkillFileSyncInput extends SkillFileSyncInput {
   confirm: true;
+  previewDigest?: string;
 }
 
 export interface SkillFileSyncPreview {
+  previewDigest: string;
   workspace: string;
   skillName: string;
   proposalId: string;
@@ -370,6 +372,7 @@ export interface SkillFileSyncPreview {
 
 export interface SkillFileSyncApplyResult extends SkillFileSyncPreview {
   written: boolean;
+  backupFile?: string;
 }
 
 export interface RemoveCatalogEntryResult extends EntryLookup {

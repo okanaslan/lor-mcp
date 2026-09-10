@@ -47,12 +47,14 @@ export async function createDefaultRuntime(
         input,
       );
       if (
-        name === "apply_workspace_catalog_sync" &&
+        ["apply_workspace_catalog_sync", "apply_skill_file_sync"].includes(
+          name,
+        ) &&
         !(input as { previewDigest?: string }).previewDigest
       ) {
         throw new LorError(
           "revision_conflict",
-          "Review a preview and provide previewDigest before applying catalog sync.",
+          "Review a preview and provide previewDigest before applying sync.",
           { field: "previewDigest" },
         );
       }

@@ -393,6 +393,9 @@ export const previewSkillFileSyncInputSchema = z.strictObject({
 
 export const applySkillFileSyncInputSchema = previewSkillFileSyncInputSchema
   .extend({
+    previewDigest: z.string().length(64).optional().describe(
+      "Required by the server: digest from the reviewed file-sync preview.",
+    ),
     confirm: z.literal(true),
   });
 

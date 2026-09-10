@@ -1,6 +1,7 @@
-import { join, relative } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import type { SkillCatalogEntry } from "@src/catalog/types.ts";
 import { LorError } from "@src/errors.ts";
+import { fingerprint } from "@src/catalog/revision.ts";
 
 export const LOR_SKILL_CONTEXT_BEGIN = "<!-- BEGIN LOR SKILL CONTEXT -->";
 export const LOR_SKILL_CONTEXT_END = "<!-- END LOR SKILL CONTEXT -->";
@@ -10,6 +11,7 @@ export interface LocalSkillSyncOptions {
 }
 
 export interface LocalSkillSyncPreview {
+  previewDigest: string;
   skillName: string;
   targetFile: "SKILL.md";
   sectionName: "lor-managed-skill-context";
@@ -20,6 +22,7 @@ export interface LocalSkillSyncPreview {
 
 export interface LocalSkillSyncApplyResult extends LocalSkillSyncPreview {
   written: boolean;
+  backupFile?: string;
 }
 
 export interface LocalSkillInventory {
@@ -39,11 +42,12 @@ export class LocalSkillSync {
 
   async preview(entry: SkillCatalogEntry): Promise<LocalSkillSyncPreview> {
     const skillFile = await this.resolveSkillFile(entry.skillName);
-    const current = await Deno.readTextFile(skillFile);
+    const current = await readSkillFile(skillFile);
     const renderedSection = renderSkillContextSection(entry);
     const next = upsertManagedSection(current, renderedSection);
 
     return {
+      previewDigest: fingerprint({ skillFile, current, next }),
       skillName: entry.skillName,
       targetFile: "SKILL.md",
       sectionName: "lor-managed-skill-context",
@@ -53,27 +57,109 @@ export class LocalSkillSync {
     };
   }
 
-  async apply(entry: SkillCatalogEntry): Promise<LocalSkillSyncApplyResult> {
+  async apply(
+    entry: SkillCatalogEntry,
+    expectedDigest?: string,
+  ): Promise<LocalSkillSyncApplyResult> {
     const skillFile = await this.resolveSkillFile(entry.skillName);
-    const current = await Deno.readTextFile(skillFile);
-    const renderedSection = renderSkillContextSection(entry);
-    const next = upsertManagedSection(current, renderedSection);
-    const sectionExists = hasCompleteManagedSection(current);
-    const wouldChange = next !== current;
-
-    if (wouldChange) {
-      await Deno.writeTextFile(skillFile, next);
+    const lockPath = join(dirname(skillFile), ".lor-context-sync.lock");
+    let lock: Deno.FsFile;
+    try {
+      lock = await Deno.open(lockPath, {
+        createNew: true,
+        write: true,
+        mode: 0o600,
+      });
+    } catch (error) {
+      if (error instanceof Deno.errors.AlreadyExists) {
+        throw new LorError(
+          "local_file_modified",
+          "A local sync may be running. Inspect the sync lock before retrying.",
+        );
+      }
+      throw error;
     }
+    let stagedFile: string | undefined;
+    try {
+      const current = await readSkillFile(skillFile);
+      const renderedSection = renderSkillContextSection(entry);
+      const next = upsertManagedSection(current, renderedSection);
+      const sectionExists = hasCompleteManagedSection(current);
+      const wouldChange = next !== current;
+      const previewDigest = fingerprint({ skillFile, current, next });
+      if (expectedDigest !== undefined && expectedDigest !== previewDigest) {
+        throw new LorError(
+          "local_file_modified",
+          "The file or proposed content changed. Preview again before applying.",
+        );
+      }
+      if (new TextEncoder().encode(next).length > MAX_SKILL_FILE_BYTES) {
+        throw new LorError(
+          "validation_error",
+          "Updated skill file exceeds the 1 MiB limit.",
+        );
+      }
+      let backupFile: string | undefined;
 
-    return {
-      skillName: entry.skillName,
-      targetFile: "SKILL.md",
-      sectionName: "lor-managed-skill-context",
-      sectionExists,
-      wouldChange,
-      renderedSection,
-      written: wouldChange,
-    };
+      if (wouldChange) {
+        stagedFile = await Deno.makeTempFile({
+          dir: dirname(skillFile),
+          prefix: ".lor-context-",
+        });
+        const staged = await Deno.open(stagedFile, {
+          write: true,
+          truncate: true,
+        });
+        try {
+          const bytes = new TextEncoder().encode(next);
+          let offset = 0;
+          while (offset < bytes.length) {
+            offset += await staged.write(bytes.subarray(offset));
+          }
+          await staged.sync();
+        } finally {
+          staged.close();
+        }
+        if (
+          await this.resolveSkillFile(entry.skillName) !== skillFile ||
+          await readSkillFile(skillFile) !== current
+        ) {
+          throw new LorError(
+            "local_file_modified",
+            "The destination changed while preparing the write. Preview again.",
+          );
+        }
+        backupFile = join(
+          dirname(skillFile),
+          `.lor-context-backup-${crypto.randomUUID()}.md`,
+        );
+        await Deno.writeTextFile(backupFile, current, {
+          createNew: true,
+          mode: 0o600,
+        });
+        await Deno.rename(stagedFile, skillFile);
+        stagedFile = undefined;
+      }
+
+      return {
+        previewDigest,
+        skillName: entry.skillName,
+        targetFile: "SKILL.md",
+        sectionName: "lor-managed-skill-context",
+        sectionExists,
+        wouldChange,
+        renderedSection,
+        written: wouldChange,
+        backupFile,
+      };
+    } finally {
+      try {
+        if (stagedFile) await Deno.remove(stagedFile);
+      } finally {
+        lock.close();
+        await Deno.remove(lockPath);
+      }
+    }
   }
 
   async resolveSkillFile(skillName: string): Promise<string> {
@@ -88,6 +174,16 @@ export class LocalSkillSync {
       const candidate = join(rootPath, skillName, "SKILL.md");
       const skillFile = await realPathOrUndefined(candidate);
       if (skillFile && isWithinRoot(rootPath, skillFile)) {
+        if (
+          (await Deno.lstat(root)).isSymlink ||
+          (await Deno.lstat(join(rootPath, skillName))).isSymlink ||
+          (await Deno.lstat(candidate)).isSymlink
+        ) {
+          throw new LorError(
+            "validation_error",
+            "Skill sync does not follow symlink roots, directories or files.",
+          );
+        }
         return skillFile;
       }
     }
@@ -231,7 +327,11 @@ export function upsertManagedSection(
 ): string {
   const beginIndex = current.indexOf(LOR_SKILL_CONTEXT_BEGIN);
   const endIndex = current.indexOf(LOR_SKILL_CONTEXT_END);
-  if ((beginIndex === -1) !== (endIndex === -1) || beginIndex > endIndex) {
+  if (
+    (beginIndex === -1) !== (endIndex === -1) || beginIndex > endIndex ||
+    current.split(LOR_SKILL_CONTEXT_BEGIN).length > 2 ||
+    current.split(LOR_SKILL_CONTEXT_END).length > 2
+  ) {
     throw new LorError(
       "validation_error",
       "Skill file contains an incomplete LOR managed section.",
@@ -246,6 +346,39 @@ export function upsertManagedSection(
   }
 
   return joinFileSections(current.trimEnd(), renderedSection.trimEnd(), "");
+}
+
+const MAX_SKILL_FILE_BYTES = 1024 * 1024;
+
+async function readSkillFile(path: string): Promise<string> {
+  const info = await Deno.lstat(path);
+  if (!info.isFile || info.isSymlink || info.size > MAX_SKILL_FILE_BYTES) {
+    throw new LorError(
+      "validation_error",
+      "Skill sync requires a regular file no larger than 1 MiB.",
+    );
+  }
+  const file = await Deno.open(path, { read: true });
+  try {
+    const bytes = new Uint8Array(MAX_SKILL_FILE_BYTES + 1);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = await file.read(bytes.subarray(offset));
+      if (count === null) break;
+      offset += count;
+    }
+    if (offset > MAX_SKILL_FILE_BYTES) {
+      throw new LorError(
+        "validation_error",
+        "Skill file exceeds the 1 MiB limit.",
+      );
+    }
+    return new TextDecoder("utf-8", { fatal: true }).decode(
+      bytes.subarray(0, offset),
+    );
+  } finally {
+    file.close();
+  }
 }
 
 function hasCompleteManagedSection(content: string): boolean {

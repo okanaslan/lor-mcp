@@ -706,6 +706,7 @@ export class CatalogService {
       skillName: proposal.skillName,
       proposalId: proposal.proposalId,
       targetFile: preview.targetFile,
+      previewDigest: preview.previewDigest,
       sectionName: preview.sectionName,
       sectionExists: preview.sectionExists,
       wouldChange: preview.wouldChange,
@@ -720,13 +721,15 @@ export class CatalogService {
     const { workspace, proposal, entry } = await this.resolveSkillSyncSource(
       validated,
     );
-    const result = await this.#localSkillSync.apply(entry);
+    const result = await this.#localSkillSync.apply(entry, input.previewDigest);
 
     return {
       workspace,
       skillName: proposal.skillName,
       proposalId: proposal.proposalId,
       targetFile: result.targetFile,
+      previewDigest: result.previewDigest,
+      backupFile: result.backupFile,
       sectionName: result.sectionName,
       sectionExists: result.sectionExists,
       wouldChange: result.wouldChange,

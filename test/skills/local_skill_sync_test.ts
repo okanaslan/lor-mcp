@@ -1,12 +1,72 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import {
   LocalSkillSync,
   LOR_SKILL_CONTEXT_BEGIN,
   LOR_SKILL_CONTEXT_END,
+  upsertManagedSection,
 } from "@src/skills/local_skill_sync.ts";
 import type { SkillCatalogEntry } from "@src/catalog/types.ts";
 import { FIXED_NOW } from "@test/helpers/catalog_fixtures.ts";
+
+Deno.test("LocalSkillSync binds preview to file and content and keeps a recovery copy", async () => {
+  const { root, file } = await createSkillFile("backend-skill", "Original\n");
+  try {
+    const sync = new LocalSkillSync({ skillRoots: [root] });
+    const preview = await sync.preview(skillEntry());
+    await Deno.writeTextFile(file, "User edit\n");
+    await assertRejects(
+      () => sync.apply(skillEntry(), preview.previewDigest),
+      Error,
+      "local_file_modified",
+    );
+    assertEquals(await Deno.readTextFile(file), "User edit\n");
+    const current = await sync.preview(skillEntry());
+    await assertRejects(
+      () =>
+        sync.apply(
+          skillEntry({ displayName: "Changed" }),
+          current.previewDigest,
+        ),
+      Error,
+      "local_file_modified",
+    );
+    const applied = await sync.apply(skillEntry(), current.previewDigest);
+    assertEquals(await Deno.readTextFile(applied.backupFile!), "User edit\n");
+    assertEquals(
+      (await sync.apply(
+        skillEntry(),
+        (await sync.preview(skillEntry())).previewDigest,
+      )).written,
+      false,
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("LocalSkillSync rejects symlinks, oversized files, locks and duplicate markers", async () => {
+  const { root, file } = await createSkillFile("backend-skill", "Original");
+  try {
+    const sync = new LocalSkillSync({ skillRoots: [root] });
+    await Deno.rename(file, join(root, "original.md"));
+    await Deno.symlink(join(root, "original.md"), file);
+    await assertRejects(() => sync.preview(skillEntry()), Error, "symlink");
+    await Deno.remove(file);
+    await Deno.writeTextFile(file, "x".repeat(1024 * 1024 + 1));
+    await assertRejects(() => sync.preview(skillEntry()), Error, "1 MiB");
+    await Deno.writeTextFile(file, "Original");
+    const lock = join(root, "backend-skill", ".lor-context-sync.lock");
+    await Deno.writeTextFile(lock, "");
+    await assertRejects(() => sync.apply(skillEntry()), Error, "sync lock");
+    assertEquals(await Deno.readTextFile(file), "Original");
+    const block =
+      `${LOR_SKILL_CONTEXT_BEGIN}\ncontent\n${LOR_SKILL_CONTEXT_END}`;
+    assertThrows(() => upsertManagedSection(`${block}\n${block}`, block));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
 
 Deno.test("LocalSkillSync previews managed section without mutating SKILL.md", async () => {
   const { root, file } = await createSkillFile(
