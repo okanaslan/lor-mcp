@@ -63,6 +63,14 @@ Deno.test("LocalSkillSync rejects symlinks, oversized files, locks and duplicate
     const block =
       `${LOR_SKILL_CONTEXT_BEGIN}\ncontent\n${LOR_SKILL_CONTEXT_END}`;
     assertThrows(() => upsertManagedSection(`${block}\n${block}`, block));
+    await assertRejects(
+      () =>
+        sync.preview(
+          skillEntry({ skillContext: { whenToUse: LOR_SKILL_CONTEXT_END } }),
+        ),
+      Error,
+      "reserved managed-section markers",
+    );
   } finally {
     await Deno.remove(root, { recursive: true });
   }

@@ -318,7 +318,17 @@ export function renderSkillContextSection(entry: SkillCatalogEntry): string {
   }
 
   lines.push(LOR_SKILL_CONTEXT_END);
-  return `${lines.join("\n")}\n`;
+  const rendered = `${lines.join("\n")}\n`;
+  if (
+    rendered.split(LOR_SKILL_CONTEXT_BEGIN).length !== 2 ||
+    rendered.split(LOR_SKILL_CONTEXT_END).length !== 2
+  ) {
+    throw new LorError(
+      "validation_error",
+      "Skill context contains reserved managed-section markers.",
+    );
+  }
+  return rendered;
 }
 
 export function upsertManagedSection(

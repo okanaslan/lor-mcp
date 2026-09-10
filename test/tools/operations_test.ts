@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { createCatalogService } from "@test/helpers/catalog_fixtures.ts";
 import { executeOperation } from "@src/tools/operations.ts";
 import { okResult } from "@src/tools/response.ts";
+import { fingerprint } from "@src/catalog/revision.ts";
 
 Deno.test("operation receipts replay completed writes and reject changed payloads", async () => {
   const { repo } = await createCatalogService();
@@ -41,17 +42,19 @@ Deno.test("operation receipts replay completed writes and reject changed payload
 Deno.test("pending operation after a crash cannot repeat its mutation", async () => {
   const { repo } = await createCatalogService();
   try {
-    repo.reserveOperation("test", "interrupted", "hash");
+    const input = { workspace: "test", idempotencyKey: "interrupted" };
+    repo.reserveOperation(
+      "test",
+      "interrupted",
+      fingerprint({ name: "remember_workspace_note", input }),
+    );
     await assertRejects(
       () =>
-        executeOperation(repo, "remember_workspace_note", {
-          workspace: "test",
-          idempotencyKey: "interrupted",
-        }, () => {
+        executeOperation(repo, "remember_workspace_note", input, () => {
           throw new Error("must not execute");
         }),
       Error,
-      "idempotency_conflict",
+      "pending or uncertain",
     );
     assertEquals(repo.getOperation("test", "interrupted")?.status, "pending");
   } finally {
