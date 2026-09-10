@@ -1152,7 +1152,7 @@ Deno.test("CatalogService applies and previews updates for global skills", async
       confirm: true,
     });
     const preview = await service.previewSkillFileSync({
-      workspace: "LOR-MCP",
+      workspace: "Other-Workspace",
       scope: "global",
       skillName: "backend-skill",
       proposalId: proposal.proposal.proposalId,
@@ -1164,7 +1164,7 @@ Deno.test("CatalogService applies and previews updates for global skills", async
       applied.after.skillContext?.whenToUse,
       "Use for shared backend API work.",
     );
-    assertEquals(preview.workspace, "LOR-MCP");
+    assertEquals(preview.workspace, "Other-Workspace");
     assertEquals(preview.wouldChange, true);
     assertEquals(
       preview.renderedSection.includes("Use for shared backend API work."),
