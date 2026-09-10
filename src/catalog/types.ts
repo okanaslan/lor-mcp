@@ -114,6 +114,7 @@ export interface CatalogReference {
 }
 
 export interface BaseCatalogEntry extends VerificationMetadata {
+  revision?: string;
   workspace: string;
   scope: CatalogScope;
   entryType: EntryType;
@@ -323,6 +324,9 @@ export interface ApplySkillUpdateInput {
 }
 
 export interface SkillUpdateProposal {
+  baseRevision?: string;
+  expiresAt?: string;
+  originWorkspace?: string;
   proposalId: string;
   workspace: string;
   scope: CatalogScope;
@@ -476,6 +480,7 @@ export interface WorkspaceCatalogSyncInput {
 
 export interface ApplyWorkspaceCatalogSyncInput
   extends WorkspaceCatalogSyncInput {
+  previewDigest?: string;
   confirm: true;
 }
 
@@ -512,6 +517,7 @@ export interface WorkspaceCatalogSyncAgentPrompt {
 }
 
 export interface WorkspaceCatalogSyncPreview {
+  previewDigest?: string;
   sourceWorkspace: string;
   targetWorkspace: string;
   projectName?: string;
@@ -817,6 +823,7 @@ export interface HandoffTargetAgent {
 }
 
 export interface EntryLookup {
+  expectedRevision?: string;
   workspace: string;
   entryType: EntryType;
   entryKey: string;

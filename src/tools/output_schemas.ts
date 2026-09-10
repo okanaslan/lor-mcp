@@ -9,6 +9,7 @@ const text = z.string();
 const count = z.number().int().nonnegative();
 const jsonObject = z.record(text, z.json());
 const base = {
+  revision: text.optional(),
   workspace: text,
   scope: z.enum(["workspace", "global"]),
   entryKey: text,
@@ -98,6 +99,11 @@ const report = z.object({ workspace: text, summary: jsonObject }).catchall(
 );
 
 const outputs: Record<string, z.ZodType> = {
+  get_operation: z.object({
+    operationKey: text,
+    status: z.enum(["pending", "completed"]),
+    createdAt: text,
+  }),
   introduce_skill: skill,
   get_skill_detail: skill,
   update_skill: skill,

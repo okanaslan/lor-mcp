@@ -130,6 +130,7 @@ export function validateCatalogEntryUpdate(
   input: CatalogEntryUpdate,
 ): CatalogEntryUpdate {
   const update: CatalogEntryUpdate = {
+    expectedRevision: input.expectedRevision,
     workspace: requireWorkspace(input.workspace),
     entryType: requireEntryType(input.entryType),
     entryKey: requireString(input.entryKey, "entryKey"),
@@ -211,6 +212,7 @@ export function validateRetireAgent(input: RetireAgentInput): RetireAgentInput {
 
 export function validateEntryLookup(input: EntryLookup): EntryLookup {
   return {
+    expectedRevision: input.expectedRevision,
     workspace: requireWorkspace(input.workspace),
     entryType: requireEntryType(input.entryType),
     entryKey: requireString(input.entryKey, "entryKey"),

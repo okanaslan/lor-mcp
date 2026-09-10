@@ -1,3 +1,4 @@
+import { fingerprint } from "@src/catalog/revision.ts";
 import {
   type AgentCatalogEntry,
   type ApplySkillFileSyncInput,
@@ -600,6 +601,9 @@ export class CatalogService {
       updatedAt: now,
     });
     const proposal: SkillUpdateProposal = {
+      baseRevision: existing.revision,
+      originWorkspace: workspace,
+      expiresAt: new Date(Date.parse(now) + 24 * 60 * 60 * 1000).toISOString(),
       proposalId: crypto.randomUUID(),
       workspace,
       scope: scopedLookup.scope ?? "workspace",
@@ -675,7 +679,17 @@ export class CatalogService {
       );
     }
 
-    return { proposal: applied, before: existing, after };
+    const stored = await this.#repository.getEntry(workspace, {
+      workspace,
+      entryType: "skill",
+      entryKey: proposal.skillName,
+      scope: proposal.scope,
+    });
+    return {
+      proposal: applied,
+      before: existing,
+      after: stored as SkillCatalogEntry,
+    };
   }
 
   async previewSkillFileSync(
@@ -741,7 +755,13 @@ export class CatalogService {
         { entryType: validated.entryType },
       );
     }
-    return { ...scopedLookup, removed: true };
+    return {
+      workspace,
+      entryType: scopedLookup.entryType,
+      entryKey: scopedLookup.entryKey,
+      scope: scopedLookup.scope,
+      removed: true,
+    };
   }
 
   async removeAgent(
@@ -755,24 +775,36 @@ export class CatalogService {
   }
 
   async removeSkill(
-    input: { workspace: string; skillName: string; scope?: CatalogScope },
+    input: {
+      workspace: string;
+      skillName: string;
+      scope?: CatalogScope;
+      expectedRevision?: string;
+    },
   ): Promise<RemoveCatalogEntryResult> {
     return await this.removeCatalogEntry({
       workspace: input.workspace,
       entryType: "skill",
       entryKey: input.skillName,
       scope: input.scope,
+      expectedRevision: input.expectedRevision,
     });
   }
 
   async removeSubagent(
-    input: { workspace: string; subagentName: string; scope?: CatalogScope },
+    input: {
+      workspace: string;
+      subagentName: string;
+      scope?: CatalogScope;
+      expectedRevision?: string;
+    },
   ): Promise<RemoveCatalogEntryResult> {
     return await this.removeCatalogEntry({
       workspace: input.workspace,
       entryType: "subagent",
       entryKey: input.subagentName,
       scope: input.scope,
+      expectedRevision: input.expectedRevision,
     });
   }
 
@@ -923,7 +955,8 @@ export class CatalogService {
     input: WorkspaceCatalogSyncInput,
   ): Promise<WorkspaceCatalogSyncPreview> {
     const validated = validateWorkspaceCatalogSyncInput(input);
-    return (await this.buildWorkspaceCatalogSyncPlan(validated)).preview;
+    const { preview } = await this.buildWorkspaceCatalogSyncPlan(validated);
+    return { ...preview, previewDigest: fingerprint(preview) };
   }
 
   async applyWorkspaceCatalogSync(
@@ -931,6 +964,15 @@ export class CatalogService {
   ): Promise<WorkspaceCatalogSyncApplyResult> {
     const validated = validateApplyWorkspaceCatalogSync(input);
     const { preview } = await this.buildWorkspaceCatalogSyncPlan(validated);
+    if (
+      input.previewDigest !== undefined &&
+      input.previewDigest !== fingerprint(preview)
+    ) {
+      throw new LorError(
+        "revision_conflict",
+        "Catalog sync preview changed. Review a fresh preview.",
+      );
+    }
     const importResult = await this.importCatalog({
       workspace: preview.targetWorkspace,
       conflictStrategy: "skip",

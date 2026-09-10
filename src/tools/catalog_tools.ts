@@ -1,4 +1,5 @@
 import { outputSchemaFor } from "@src/tools/output_schemas.ts";
+import * as z from "zod/v4";
 import { toolEffectDescription, toolPolicy } from "@src/tools/policy.ts";
 import type { McpServer } from "@mcp/server";
 import { generateAgentPrompt } from "@src/agent_prompts/generator.ts";
@@ -99,6 +100,47 @@ export function registerCatalogTools(
   });
   const runtimeFactory = options.runtimeFactory ??
     (() => createDefaultRuntime({ logger }));
+
+  server.registerTool(
+    "get_operation",
+    {
+      description:
+        "Read a durable operation receipt after an uncertain write. A pending receipt must not be blindly retried. Requires access to the workspace and original operation.",
+      annotations: toolPolicy("get_operation"),
+      inputSchema: z.strictObject({
+        workspace: z.string().min(1).max(16000),
+        operationKey: z.string().min(1).max(120),
+      }),
+      outputSchema: outputSchemaFor("get_operation"),
+    },
+    (input: { workspace: string; operationKey: string }) =>
+      withLoggedRuntime(
+        "get_operation",
+        input,
+        logger,
+        runtimeFactory,
+        async (runtime) => {
+          const receipt = runtime.getOperation?.(
+            input.workspace,
+            input.operationKey,
+          );
+          if (!receipt) {
+            throw new LorError(
+              "not_found",
+              "Operation receipt not found.",
+            );
+          }
+          return okResult(
+            {
+              operationKey: receipt.operationKey,
+              status: receipt.status,
+              createdAt: receipt.createdAt,
+            },
+            "Operation receipt found. Retry the original request with its original key to retrieve a completed result.",
+          );
+        },
+      ),
+  );
 
   server.registerTool(
     "introduce_skill",
@@ -966,7 +1008,9 @@ async function withLoggedRuntime(
   const result = correlateResult(
     await withRuntime(runtimeFactory, async (runtime) => {
       await runtime.authorize?.(toolName, input);
-      return await handler(runtime);
+      return runtime.execute
+        ? await runtime.execute(toolName, input, () => handler(runtime))
+        : await handler(runtime);
     }),
     crypto.randomUUID(),
   );

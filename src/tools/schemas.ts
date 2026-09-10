@@ -136,6 +136,7 @@ const implementationGuidanceSchema = z.strictObject({
 );
 
 export const introduceSkillInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
   skillName: z.string().max(16000).trim().min(1),
@@ -183,6 +184,7 @@ const catalogReferenceSchema = z.strictObject({
 );
 
 export const introduceSubagentInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
   name: z.string().max(16000).trim().min(1),
@@ -281,6 +283,8 @@ function hasCommonMetadataUpdate(
 }
 
 export const updateSkillInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
+  expectedRevision: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   workspace: workspaceSchema,
   skillName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
@@ -291,6 +295,8 @@ export const updateSkillInputSchema = z.strictObject({
 });
 
 export const updateSubagentInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
+  expectedRevision: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   workspace: workspaceSchema,
   subagentName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
@@ -367,6 +373,7 @@ export const proposeSkillUpdateInputSchema = z.strictObject({
 );
 
 export const applySkillUpdateInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
   proposalId: z.string().max(16000).trim().min(1),
@@ -386,12 +393,16 @@ export const applySkillFileSyncInputSchema = previewSkillFileSyncInputSchema
   });
 
 export const removeSkillInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
+  expectedRevision: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   workspace: workspaceSchema,
   skillName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
 });
 
 export const removeSubagentInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
+  expectedRevision: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   workspace: workspaceSchema,
   subagentName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
@@ -463,6 +474,7 @@ const exportSubagentEntrySchema = z.strictObject({
 });
 
 export const importCatalogInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
   workspace: workspaceSchema,
   conflictStrategy: z.enum(["skip", "fail"]).optional(),
   catalog: z.strictObject({
@@ -498,6 +510,8 @@ export const previewWorkspaceCatalogSyncInputSchema =
 
 export const applyWorkspaceCatalogSyncInputSchema =
   workspaceCatalogSyncBaseInputSchema.extend({
+    previewDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    idempotencyKey: z.string().min(1).max(120).optional(),
     confirm: z.literal(true),
   });
 
@@ -546,6 +560,7 @@ export const getUsageAnalyticsInputSchema = z.strictObject({
 );
 
 export const rememberWorkspaceNoteInputSchema = z.strictObject({
+  idempotencyKey: z.string().min(1).max(120).optional(),
   workspace: workspaceSchema,
   title: z.string().max(16000).trim().min(1),
   body: z.string().max(16000).trim().min(1),

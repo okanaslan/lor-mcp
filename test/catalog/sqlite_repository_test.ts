@@ -640,6 +640,14 @@ Deno.test("SqliteCatalogRepository applies skill update proposals", async () => 
   try {
     await seedSkill(repo, "workspace-a", "backend-skill");
     await repo.createSkillUpdateProposal({
+      baseRevision: (await repo.getEntry("workspace-a", {
+        workspace: "workspace-a",
+        entryType: "skill",
+        entryKey: "backend-skill",
+        scope: "workspace",
+      }))?.revision,
+      expiresAt: "2026-07-13T00:00:00.000Z",
+      originWorkspace: "workspace-a",
       proposalId: "proposal-1",
       workspace: "workspace-a",
       scope: "workspace",

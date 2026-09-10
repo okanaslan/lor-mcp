@@ -55,6 +55,7 @@ Deno.test("HTTP MCP handler initializes a session and reuses it for tools/list",
   assertEquals(
     toolsBody.result.tools.map((tool: { name: string }) => tool.name),
     [
+      "get_operation",
       "introduce_skill",
       "introduce_subagent",
       "list_skills",

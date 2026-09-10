@@ -108,6 +108,9 @@ interface SubagentRow {
 }
 
 interface SkillUpdateProposalRow {
+  baseRevision: string | null;
+  expiresAt: string | null;
+  originWorkspace: string | null;
   proposalId: string;
   workspace: string;
   skillName: string;
@@ -149,6 +152,10 @@ interface UsageCounterRow {
   lastSeenAt: string;
 }
 
+import { assertRevision, fingerprint } from "@src/catalog/revision.ts";
+import type { OperationReceipt } from "@src/tools/operations.ts";
+import type { ToolResult } from "@src/tools/response.ts";
+
 const GLOBAL_SKILL_WORKSPACE = "__lor_global_skills__";
 const GLOBAL_SUBAGENT_WORKSPACE = "__lor_global_subagents__";
 const PUBLIC_GLOBAL_WORKSPACE = "global";
@@ -172,11 +179,19 @@ export class SqliteCatalogRepository implements CatalogRepository {
       migrateAgentReachabilityColumns(this.#db);
       migrateSubagentNegativeRoutingColumn(this.#db);
       migrateRoutingMetadataColumns(this.#db);
+      for (const column of ["baseRevision", "expiresAt", "originWorkspace"]) {
+        addColumnIfMissing(this.#db, "skill_update_proposals", column, "TEXT");
+      }
       this.#db.exec(DELEGATED_TASKS_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_MESSAGES_SCHEMA_SQL);
       this.#db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
       this.#db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
       this.#db.exec(USAGE_COUNTERS_SCHEMA_SQL);
+      this.#db.exec(`CREATE TABLE IF NOT EXISTS operation_receipts (
+        workspace TEXT NOT NULL, operationKey TEXT NOT NULL,
+        payloadHash TEXT NOT NULL, status TEXT NOT NULL, result TEXT,
+        createdAt TEXT NOT NULL, PRIMARY KEY (workspace, operationKey)
+      )`);
       backfillWorkspaceAliases(this.#db);
       recordSchemaVersion(this.#db, 12);
     } catch (error) {
@@ -388,8 +403,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
       db.exec(
         `INSERT INTO skill_update_proposals (
           proposalId, workspace, skillName, reason, proposedSkillContext,
-          proposedMetadata, proposedRouting, status, createdAt, appliedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          proposedMetadata, proposedRouting, status, createdAt, appliedAt,
+          baseRevision, expiresAt, originWorkspace
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         input.proposalId,
         storageWorkspace,
         input.skillName,
@@ -404,6 +420,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
         input.status,
         input.createdAt,
         input.appliedAt ?? null,
+        input.baseRevision ?? null,
+        input.expiresAt ?? null,
+        input.originWorkspace ?? null,
       );
       return Promise.resolve({
         ...input,
@@ -458,6 +477,29 @@ export class SqliteCatalogRepository implements CatalogRepository {
       if (!proposal || proposal.status !== "pending") {
         return undefined;
       }
+
+      if (
+        !proposal.baseRevision || !proposal.expiresAt ||
+        proposal.expiresAt <= input.appliedAt
+      ) {
+        throw new LorError(
+          "proposal_expired",
+          "This proposal must be regenerated before application.",
+        );
+      }
+      if (proposal.originWorkspace !== workspace) {
+        throw new LorError(
+          "access_denied",
+          "Proposal belongs to a different workspace.",
+        );
+      }
+      const current = this.getEntrySync(workspace, {
+        workspace,
+        entryType: "skill",
+        entryKey: input.entry.skillName,
+        scope,
+      });
+      assertRevision(current?.revision, proposal.baseRevision);
 
       db.exec(
         `UPDATE introduced_skills
@@ -542,6 +584,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
       if (!existing) {
         return undefined;
       }
+      assertRevision(existing.revision, input.expectedRevision);
 
       if (input.entryType === "agent") {
         db.exec(
@@ -719,6 +762,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
       if (!existing) {
         return false;
       }
+      assertRevision(existing.revision, lookup.expectedRevision);
 
       if (lookup.entryType === "agent") {
         db.exec(
@@ -914,6 +958,41 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
   lookupWorkspace(workspace: string): string {
     return this.resolveAliasTargetWorkspace(normalizeWorkspace(workspace));
+  }
+
+  getOperation(workspace: string, key: string): OperationReceipt | undefined {
+    return this.requireDb().prepare<OperationReceipt>(
+      "SELECT * FROM operation_receipts WHERE workspace = ? AND operationKey = ?",
+    ).get(workspace, key);
+  }
+
+  reserveOperation(
+    workspace: string,
+    key: string,
+    hash: string,
+  ): OperationReceipt | undefined {
+    const db = this.requireDb();
+    return db.transaction(() => {
+      const existing = this.getOperation(workspace, key);
+      if (existing) return existing;
+      db.exec(
+        "INSERT INTO operation_receipts VALUES (?, ?, ?, 'pending', NULL, ?)",
+        workspace,
+        key,
+        hash,
+        new Date().toISOString(),
+      );
+      return undefined;
+    })();
+  }
+
+  completeOperation(workspace: string, key: string, result: ToolResult): void {
+    this.requireDb().exec(
+      "UPDATE operation_receipts SET status = 'completed', result = ? WHERE workspace = ? AND operationKey = ? AND status = 'pending'",
+      JSON.stringify(result),
+      workspace,
+      key,
+    );
   }
 
   listWorkspaceAliases(canonicalWorkspace: string): Promise<string[]> {
@@ -1277,6 +1356,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
 function mapAgentRow(row: AgentRow): AgentCatalogEntry {
   return {
+    revision: fingerprint(row),
     workspace: row.workspace,
     scope: "workspace",
     entryType: "agent",
@@ -1304,6 +1384,7 @@ function mapAgentRow(row: AgentRow): AgentCatalogEntry {
 
 function mapSkillRow(row: SkillRow): SkillCatalogEntry {
   return {
+    revision: fingerprint(row),
     workspace: publicSkillWorkspace(row.workspace),
     scope: skillScopeFromStorage(row.workspace),
     entryType: "skill",
@@ -1326,6 +1407,7 @@ function mapSkillRow(row: SkillRow): SkillCatalogEntry {
 
 function mapSubagentRow(row: SubagentRow): SubagentCatalogEntry {
   const entry = {
+    revision: fingerprint(row),
     workspace: publicSubagentWorkspace(row.workspace),
     scope: subagentScopeFromStorage(row.workspace),
     entryType: "subagent" as const,
@@ -1406,6 +1488,9 @@ function mapSkillUpdateProposalRow(
 ): SkillUpdateProposal {
   return {
     proposalId: row.proposalId,
+    baseRevision: row.baseRevision ?? undefined,
+    expiresAt: row.expiresAt ?? undefined,
+    originWorkspace: row.originWorkspace ?? undefined,
     workspace: publicSkillWorkspace(row.workspace),
     scope: skillScopeFromStorage(row.workspace),
     skillName: row.skillName,
