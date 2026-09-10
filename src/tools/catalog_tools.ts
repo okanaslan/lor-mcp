@@ -71,6 +71,7 @@ import {
   type UpdateSubagentToolInput,
 } from "@src/tools/schemas.ts";
 import {
+  correlateResult,
   errorResult,
   okResult,
   statusResult,
@@ -949,7 +950,7 @@ function withLoggedToolErrors(
   handler: () => ToolResult,
 ): ToolResult {
   const startedAt = performance.now();
-  const result = withToolErrors(handler);
+  const result = correlateResult(withToolErrors(handler), crypto.randomUUID());
   logToolCall(logger, toolName, input, result, startedAt);
   return result;
 }
@@ -962,7 +963,10 @@ async function withLoggedRuntime(
   handler: (runtime: ToolRuntime) => Promise<ToolResult>,
 ): Promise<ToolResult> {
   const startedAt = performance.now();
-  const result = await withRuntime(runtimeFactory, handler);
+  const result = correlateResult(
+    await withRuntime(runtimeFactory, handler),
+    crypto.randomUUID(),
+  );
   logToolCall(logger, toolName, input, result, startedAt);
   return result;
 }
@@ -1018,6 +1022,7 @@ function logToolCall(
   const fields: LogFields = {
     event: "mcp_tool_call",
     toolName,
+    requestId: result.structuredContent.requestId,
     status,
     durationMs: durationMs(startedAt),
     ...safeInputFields(input),

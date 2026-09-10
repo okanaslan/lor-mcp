@@ -25,6 +25,8 @@ Deno.test("errorResult sets isError and sanitizes details", () => {
     error: {
       code: "setup_error",
       message: "Missing configuration.",
+      recovery:
+        "Inspect diagnostics and read back state before retrying an uncertain write.",
       details: { field: "LOR_DB_PATH" },
     },
   });

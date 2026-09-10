@@ -6,7 +6,13 @@ export type ErrorCode =
   | "not_found"
   | "verification_failed"
   | "storage_error"
-  | "internal_error";
+  | "internal_error"
+  | "access_denied"
+  | "revision_conflict"
+  | "proposal_expired"
+  | "invalid_cursor"
+  | "local_file_modified"
+  | "idempotency_conflict";
 
 export class LorError extends Error {
   constructor(
