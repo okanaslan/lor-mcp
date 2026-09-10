@@ -42,17 +42,23 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 
 ### Bundled Default Skills
 
-LOR ships `lor-manage-skill` version 1.0.0 as an Agent Skills package. Its
+LOR ships `lor-manage-skill` version 1.1.0 as an Agent Skills package. Its
 instructions cover creating, registering, and updating skills, including scope,
 duplicates, routing, and read-back verification. `lor-add-skill` and
 `lor-update-skill` are discovery aliases, not separate MCP tools or canonical
 catalog keys.
 
+`lor-find-context` and `lor-manage-note` (both 1.0.0) cover context retrieval
+and durable workspace notes. They are generic across repositories. Clients
+without resource support can use `list_default_skills` and `get_default_skill`;
+these tools do not open the registry database. The latter accepts listed
+aliases.
+
 Both transports advertise read-only MCP resources:
 
 - `lor://skills/index.json`: compact catalog with versions, aliases, and URIs.
-- `lor://skills/lor-manage-skill/1.0.0/SKILL.md`: the skill entrypoint.
-- `lor://skills/lor-manage-skill/1.0.0/manifest.json`: file paths, byte sizes,
+- `lor://skills/lor-manage-skill/1.1.0/SKILL.md`: the skill entrypoint.
+- `lor://skills/lor-manage-skill/1.1.0/manifest.json`: file paths, byte sizes,
   and SHA-256 checksums.
 - Supporting Markdown files are separately readable at the same versioned base
   URI, for example `references/registration-and-updates.md`.
@@ -108,7 +114,7 @@ The CLI installs one selected skill at a time.
 For a skill served by another LOR instance, fetch the exact version over MCP:
 
 ```sh
-deno run --allow-read --allow-write --allow-net=127.0.0.1:8765 src/skills/cli.ts preview --root "$HOME/.codex/skills" --skill lor-manage-skill --server http://127.0.0.1:8765/mcp --version 1.0.0
+deno run --allow-read --allow-write --allow-net=127.0.0.1:8765 src/skills/cli.ts preview --root "$HOME/.codex/skills" --skill lor-manage-skill --server http://127.0.0.1:8765/mcp --version 1.1.0
 ```
 
 Apply with the same arguments, replacing `preview` with `install` and adding
@@ -119,6 +125,12 @@ local file capabilities. The server never writes to the remote client's disk,
 and installation never executes bundled scripts or registers catalog entries.
 
 ### Start The Server
+
+Read the [hardening and recovery runbook](docs/runbooks/mcp-hardening.md) before
+upgrading an existing installation. This branch introduces deliberate client
+contract changes: workspace allowlists, restricted global writes, revision and
+preview preconditions, and paginated discovery/export. The locked SDK still uses
+session-based MCP; this is not a protocol-version upgrade.
 
 Run the local HTTP MCP server:
 
@@ -158,6 +170,16 @@ and a registered `project` alias can point at the same canonical workspace. Use
 canonical workspace path.
 
 Optional server-side environment overrides:
+
+- `LOR_ALLOWED_WORKSPACES`: comma-separated canonical workspace identifiers;
+  defaults to the server working directory. Tool input does not grant access.
+- `LOR_GLOBAL_READ`: defaults to `true`; combined workspace/global searches
+  require it. Explicit workspace-only reads do not.
+- `LOR_GLOBAL_WRITE`: defaults to `false`; enable only for authorized
+  publishers.
+- `LOR_ALLOW_LOCAL_FILES`: defaults to `false`; permits managed local file sync.
+- `LOR_ALLOW_ALIAS_MANAGEMENT`: defaults to `false`; alias and destination
+  identifiers must both be allowed by the trusted policy.
 
 - `LOR_DB_PATH`: local SQLite database path.
 - `LOR_SKILL_ROOTS`: comma-separated local skill roots for approved `SKILL.md`
@@ -275,8 +297,10 @@ weighted score breakdown.
 2. `apply_skill_update` with `confirm: true` after review.
 3. `preview_skill_file_sync` when the approved context should be written into
    the local skill file.
-4. `apply_skill_file_sync` with `confirm: true` after reviewing the rendered
-   managed section.
+4. `apply_skill_file_sync` with `confirm: true` and the preview's
+   `previewDigest` after reviewing the rendered managed section. The source
+   proposal must belong to the same workspace. Local edits invalidate the
+   preview.
 
 Use `promote_skill_to_global` when a workspace skill should become available to
 other workspaces. New skill registrations default to global scope unless
@@ -409,9 +433,9 @@ flowchart RL
   `scope: "global"` and are included in list/match by default. New skill
   registrations default to global scope unless `scope: "workspace"` is supplied.
 - Subagents: reusable prompt profiles for small, scoped delegation, with
-  workspace/global scope and ready-to-use prompts returned from introduction,
-  matching, and detail flows. New subagent registrations default to global scope
-  unless `scope: "workspace"` is supplied.
+  workspace/global scope and ready-to-use prompts returned from introduction and
+  detail flows. Matching returns summaries. New registrations default to global
+  scope unless `scope: "workspace"` is supplied.
 - Negative routing: skills and subagents can store structured exclusion
   metadata. Strong negative matches are suppressed, moderate negative matches
   are demoted, and visible demotions include negative evidence in explanations.

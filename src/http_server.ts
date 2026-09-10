@@ -8,10 +8,39 @@ const MCP_PATH = "/mcp";
 
 type Transport = WebStandardStreamableHTTPServerTransport;
 
+export interface HttpMcpOptions extends CatalogToolOptions {
+  maxSessions?: number;
+  maxRequestBytes?: number;
+  sessionIdleMs?: number;
+  requestBodyTimeoutMs?: number;
+  now?: () => number;
+}
+
 export function createHttpMcpHandler(
-  options: CatalogToolOptions = {},
+  options: HttpMcpOptions = {},
 ): (request: Request) => Promise<Response> {
-  const transports = new Map<string, Transport>();
+  const transports = new Map<
+    string,
+    { transport: Transport; lastUsed: number; inFlight: number }
+  >();
+  const maxSessions = options.maxSessions ?? 64;
+  const maxRequestBytes = options.maxRequestBytes ?? 4 * 1024 * 1024;
+  const sessionIdleMs = options.sessionIdleMs ?? 30 * 60 * 1000;
+  const requestBodyTimeoutMs = options.requestBodyTimeoutMs ?? 15_000;
+  const now = options.now ?? Date.now;
+  let initializing = 0;
+  for (
+    const value of [
+      maxSessions,
+      maxRequestBytes,
+      sessionIdleMs,
+      requestBodyTimeoutMs,
+    ]
+  ) {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      throw new Error("HTTP limits must be positive safe integers.");
+    }
+  }
   const logger = (options.logger ?? createNoopLogger()).child({
     component: "http",
   });
@@ -20,10 +49,18 @@ export function createHttpMcpHandler(
     const startedAt = performance.now();
     const url = new URL(request.url);
     if (!["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
+      logger.warn(
+        { event: "http_boundary_denied", reason: "host" },
+        "Rejected non-local HTTP host.",
+      );
       return new Response("Forbidden host", { status: 403 });
     }
     const origin = request.headers.get("origin");
     if (origin && origin !== url.origin) {
+      logger.warn(
+        { event: "http_boundary_denied", reason: "origin" },
+        "Rejected cross-origin HTTP request.",
+      );
       return new Response("Forbidden origin", { status: 403 });
     }
     const sessionId = request.headers.get("mcp-session-id") ?? undefined;
@@ -47,9 +84,39 @@ export function createHttpMcpHandler(
       return logResponse(new Response("Not Found", { status: 404 }));
     }
 
+    for (const [id, session] of transports) {
+      if (!session.inFlight && now() - session.lastUsed >= sessionIdleMs) {
+        await session.transport.close();
+        logSessionClosed(id);
+      }
+    }
+    let parsedBody: unknown;
+    if (request.method === "POST") {
+      try {
+        parsedBody = await parseJsonBody(
+          request,
+          maxRequestBytes,
+          requestBodyTimeoutMs,
+        );
+      } catch (error) {
+        const status = error instanceof BodyError ? error.status : 400;
+        return logResponse(
+          jsonRpcError(
+            status,
+            status === 400 ? -32700 : -32000,
+            status === 413
+              ? "Request exceeds the body-size limit"
+              : status === 408
+              ? "Request body timed out"
+              : "Invalid JSON request",
+          ),
+        );
+      }
+    }
+
     if (sessionId) {
-      const transport = transports.get(sessionId);
-      if (!transport) {
+      const session = transports.get(sessionId);
+      if (!session) {
         logger.warn(
           {
             event: "mcp_session_unknown",
@@ -61,8 +128,12 @@ export function createHttpMcpHandler(
         );
         return logResponse(jsonRpcError(404, -32001, "Session not found"));
       }
+      session.lastUsed = now();
+      session.inFlight++;
       try {
-        return logResponse(await transport.handleRequest(request));
+        return logResponse(
+          await session.transport.handleRequest(request, { parsedBody }),
+        );
       } catch (error) {
         logger.error(
           {
@@ -76,6 +147,9 @@ export function createHttpMcpHandler(
           "HTTP MCP request failed.",
         );
         throw error;
+      } finally {
+        session.inFlight--;
+        session.lastUsed = now();
       }
     }
 
@@ -93,7 +167,6 @@ export function createHttpMcpHandler(
       );
     }
 
-    const parsedBody = await parseJsonBody(request);
     if (!isInitializeBody(parsedBody)) {
       logger.warn(
         {
@@ -108,11 +181,26 @@ export function createHttpMcpHandler(
       );
     }
 
+    if (transports.size + initializing >= maxSessions) {
+      return logResponse(
+        jsonRpcError(
+          503,
+          -32000,
+          "Session capacity reached. Close an unused session or retry later.",
+        ),
+      );
+    }
+    initializing++;
+
     const transport: Transport = new WebStandardStreamableHTTPServerTransport({
       enableJsonResponse: true,
       sessionIdGenerator: () => crypto.randomUUID(),
       onsessioninitialized: (initializedSessionId: string) => {
-        transports.set(initializedSessionId, transport);
+        transports.set(initializedSessionId, {
+          transport,
+          lastUsed: now(),
+          inFlight: 1,
+        });
         logger.info(
           {
             event: "mcp_session_created",
@@ -133,8 +221,8 @@ export function createHttpMcpHandler(
     };
 
     const server = createServer(options);
-    await server.connect(transport);
     try {
+      await server.connect(transport);
       return logResponse(
         await transport.handleRequest(request, { parsedBody }),
       );
@@ -150,6 +238,15 @@ export function createHttpMcpHandler(
         "HTTP MCP request failed.",
       );
       throw error;
+    } finally {
+      initializing--;
+      const session = transport.sessionId
+        ? transports.get(transport.sessionId)
+        : undefined;
+      if (session) {
+        session.inFlight = 0;
+        session.lastUsed = now();
+      } else await server.close();
     }
   };
 
@@ -198,11 +295,55 @@ function isInitializeBody(body: unknown): boolean {
     : isInitializeRequest(body);
 }
 
-async function parseJsonBody(request: Request): Promise<unknown> {
+class BodyError extends Error {
+  constructor(readonly status: number) {
+    super("Invalid request body");
+  }
+}
+
+async function parseJsonBody(
+  request: Request,
+  maxBytes: number,
+  timeoutMs: number,
+): Promise<unknown> {
+  const declared = request.headers.get("content-length");
+  if (declared && (!/^\d+$/.test(declared) || Number(declared) > maxBytes)) {
+    throw new BodyError(413);
+  }
+  if (!request.body) throw new BodyError(400);
+  const reader = request.body.getReader();
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await request.clone().json();
-  } catch {
-    return undefined;
+    const read = async () => {
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.length;
+        if (size > maxBytes) throw new BodyError(413);
+        chunks.push(value);
+      }
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return JSON.parse(
+        new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+      );
+    };
+    return await Promise.race([
+      read(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new BodyError(408)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
 }
 

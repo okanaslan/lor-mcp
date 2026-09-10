@@ -13,6 +13,37 @@ import {
   seedSubagent,
 } from "@test/helpers/catalog_fixtures.ts";
 
+Deno.test("repository refuses a newer schema without mutating it", async () => {
+  const { Database } = await import("@db/sqlite");
+  const root = await Deno.makeTempDir();
+  const path = join(root, "future.db");
+  const db = new Database(path);
+  db.exec(
+    "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, appliedAt TEXT NOT NULL); INSERT INTO schema_migrations VALUES (99, 'future');",
+  );
+  db.close();
+  try {
+    const repo = new SqliteCatalogRepository(path);
+    await assertRejects(
+      () => repo.initialize(),
+      Error,
+      "newer than this server",
+    );
+    const check = new Database(path);
+    try {
+      assertEquals(
+        check.prepare("SELECT name FROM sqlite_master WHERE type='table'").all()
+          .length,
+        1,
+      );
+    } finally {
+      check.close();
+    }
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
 Deno.test("SqliteCatalogRepository stores agents and skills by workspace", async () => {
   const repo = await createInitializedRepository();
   try {
@@ -1082,7 +1113,7 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     });
     const workspaceB = await repo.getUsageCounters("workspace-b", {});
 
-    assertEquals(schemaVersion, 12);
+    assertEquals(schemaVersion, 13);
     assertEquals(workspaceA.map((record) => record.entryKey), [
       "backend-skill",
       "api-test-subagent",

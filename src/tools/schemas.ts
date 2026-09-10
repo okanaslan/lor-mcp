@@ -416,6 +416,8 @@ export const removeSubagentInputSchema = z.strictObject({
 });
 
 export const exportCatalogInputSchema = z.strictObject({
+  cursor: z.string().max(512).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
   workspace: workspaceSchema,
   entryType: entryTypeSchema.optional(),
   projectName: z.string().max(16000).trim().min(1).optional(),
@@ -492,6 +494,8 @@ export const importCatalogInputSchema = z.strictObject({
       entryType: entryTypeSchema.optional(),
       projectName: z.string().max(16000).trim().min(1).optional(),
     }),
+    total: z.number().int().nonnegative().optional(),
+    nextCursor: z.string().max(512).optional(),
     entries: boundedArray(z.discriminatedUnion("entryType", [
       exportAgentEntrySchema,
       exportSkillEntrySchema,

@@ -6,6 +6,7 @@ import { createHttpMcpHandler } from "@src/http_server.ts";
 import { createDefaultRuntime } from "@src/tools/runtime.ts";
 import { loadConfig } from "@src/config.ts";
 import { outputSchemaFor } from "@src/tools/output_schemas.ts";
+import { importCatalogInputSchema } from "@src/tools/schemas.ts";
 
 Deno.test("SDK client exercises real runtime authorization, revisions, pagination and retry after reconnect", async () => {
   const root = await Deno.makeTempDir();
@@ -130,6 +131,19 @@ Deno.test("SDK client exercises real runtime authorization, revisions, paginatio
     });
     assertEquals((last.data!.skills as unknown[]).length, 1);
     assertEquals(last.data!.nextCursor, undefined);
+    const exported = await call("export_catalog", {
+      workspace: "allowed",
+      limit: 1,
+    });
+    assertEquals((exported.data!.entries as unknown[]).length, 1);
+    assertEquals(exported.data!.total, 2);
+    assertExists(exported.data!.nextCursor);
+    assert(
+      importCatalogInputSchema.safeParse({
+        workspace: "allowed",
+        catalog: exported.data,
+      }).success,
+    );
     const invalid = await client!.callTool({
       name: "list_skills",
       arguments: { workspace: "allowed", unexpected: true },
@@ -174,6 +188,80 @@ Deno.test("SDK client exercises real runtime authorization, revisions, paginatio
       await Deno.remove(root, { recursive: true });
     }
   }
+});
+
+Deno.test("HTTP bounds body size, body-read duration and live session count", async () => {
+  let now = 0;
+  const handler = createHttpMcpHandler({
+    maxSessions: 1,
+    maxRequestBytes: 512,
+    sessionIdleMs: 10,
+    requestBodyTimeoutMs: 10,
+    now: () => now,
+  });
+  const url = "http://127.0.0.1:8765/mcp";
+  const headers = {
+    "content-type": "application/json",
+    accept: "application/json, text/event-stream",
+  };
+  const initialize = () =>
+    handler(
+      new Request(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: "2025-06-18",
+            capabilities: {},
+            clientInfo: { name: "limits-test", version: "1" },
+          },
+        }),
+      }),
+    );
+  const first = await initialize();
+  assertEquals(first.status, 200);
+  const firstId = first.headers.get("mcp-session-id")!;
+  await first.json();
+  const full = await initialize();
+  assertEquals(full.status, 503);
+  await full.json();
+  const large = await handler(
+    new Request(url, { method: "POST", headers, body: "x".repeat(513) }),
+  );
+  assertEquals(large.status, 413);
+  await large.json();
+  const malformed = await handler(
+    new Request(url, { method: "POST", headers, body: "{" }),
+  );
+  assertEquals((await malformed.json()).error.code, -32700);
+  const stalled = await handler(
+    new Request(url, { method: "POST", headers, body: new ReadableStream() }),
+  );
+  assertEquals(stalled.status, 408);
+  await stalled.json();
+  now = 11;
+  const second = await initialize();
+  assertEquals(second.status, 200);
+  const secondId = second.headers.get("mcp-session-id")!;
+  await second.json();
+  const expired = await handler(
+    new Request(url, {
+      method: "DELETE",
+      headers: { "mcp-session-id": firstId },
+    }),
+  );
+  assertEquals(expired.status, 404);
+  await expired.json();
+  const deleted = await handler(
+    new Request(url, {
+      method: "DELETE",
+      headers: { "mcp-session-id": secondId },
+    }),
+  );
+  await deleted.text();
 });
 
 Deno.test("HTTP rejects cross-origin and rebinding hosts before runtime access", async () => {

@@ -2,11 +2,11 @@
 
 ## Baseline
 
-Base commit: `9121ba8`. Baseline: 221 tests pass on Deno 2.9.4.
-The server uses the locked MCP SDK 1.x, stdio and session-based Streamable HTTP.
-Existing wire tests request protocol version `2025-06-18`. The July 2026
-specification is design guidance, not a claim of implemented wire compatibility.
-Do not upgrade protocol semantics without a separately tested client migration.
+Base commit: `9121ba8`. Baseline: 221 tests pass on Deno 2.9.4. The server uses
+the locked MCP SDK 1.x, stdio and session-based Streamable HTTP. Existing wire
+tests request protocol version `2025-06-18`. The July 2026 specification is
+design guidance, not a claim of implemented wire compatibility. Do not upgrade
+protocol semantics without a separately tested client migration.
 
 ## Scope and sequence
 
@@ -28,18 +28,18 @@ create empty fix commits when verification finds no defect.
 
 ## Verified gaps and existing guarantees
 
-| Area | Baseline evidence | Action |
-| --- | --- | --- |
-| Tool contract | 33 catalog tools, shared output with unknown data | Publish precise operation contracts |
-| Input validation | Zod variants already validate import entries | Add strictness and bounds; retain variants |
-| Errors | Execution errors already set isError | Improve correlation and recovery guidance |
-| Discovery | Lists lack cursors; search includes full context | Bound summaries and paginate |
-| Access | HTTP is unauthenticated; workspace selects storage | Explicit trusted local policy; reject unsafe exposure |
-| Writes | SQLite transactions exist; no caller revision precondition | Add conflict and retry guarantees |
-| Proposals | Stored content and target, no base revision or expiry | Bind revision and lifetime |
-| Files | Installer has path/hash checks; context sync writes directly | Strengthen context sync and validate installer |
-| Skills | lor-manage-skill already bundled | Extend defaults without overwriting custom files |
-| Tests | 221 passing; SDK HTTP and resource tests exist | Expand boundaries and recovery cases |
+| Area             | Baseline evidence                                            | Action                                                |
+| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------- |
+| Tool contract    | 33 catalog tools, shared output with unknown data            | Publish precise operation contracts                   |
+| Input validation | Zod variants already validate import entries                 | Add strictness and bounds; retain variants            |
+| Errors           | Execution errors already set isError                         | Improve correlation and recovery guidance             |
+| Discovery        | Lists lack cursors; search includes full context             | Bound summaries and paginate                          |
+| Access           | HTTP is unauthenticated; workspace selects storage           | Explicit trusted local policy; reject unsafe exposure |
+| Writes           | SQLite transactions exist; no caller revision precondition   | Add conflict and retry guarantees                     |
+| Proposals        | Stored content and target, no base revision or expiry        | Bind revision and lifetime                            |
+| Files            | Installer has path/hash checks; context sync writes directly | Strengthen context sync and validate installer        |
+| Skills           | lor-manage-skill already bundled                             | Extend defaults without overwriting custom files      |
+| Tests            | 221 passing; SDK HTTP and resource tests exist               | Expand boundaries and recovery cases                  |
 
 ## Compatibility policy
 
@@ -53,5 +53,18 @@ Unknown outcomes require read-back or an operation receipt, not blind replay.
 ## Verification record
 
 - Baseline: `deno task test`: 221 passed, 0 failed.
+- Steps 1-11 implemented on `codex/mcp-system-hardening`. After step 11: 241
+  tests pass; typecheck, lint, formatting and whitespace checks pass.
+- SDK tests exercise the real runtime through HTTP handlers: scope denial,
+  revisions, pagination, receipt replay after reconnect, request cancellation,
+  body limits and session expiry. They use disposable local databases.
+- Added an explicit local-file/global-read permission correction and
+  proposal-origin compatibility test as separate verification commits.
+- The optional Python skill-authoring validator could not start because PyYAML
+  is unavailable. Deno package tests verify bundled names, versions, file lists,
+  hashes, resource reads and tool-only fallback reads.
 - Actual desktop client acceptance and production deployment require a running
   candidate server; unit and SDK tests alone cannot establish those outcomes.
+
+See [the upgrade and recovery runbook](../runbooks/mcp-hardening.md) for
+deliberate contract changes, local-only trust assumptions and release gates.

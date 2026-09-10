@@ -169,32 +169,52 @@ export class SqliteCatalogRepository implements CatalogRepository {
     try {
       const { Database } = await import("@db/sqlite");
       this.#db = new Database(this.dbPath);
+      const hasVersions = this.#db.prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'",
+      ).get();
+      if (hasVersions) {
+        const current = this.#db.prepare(
+          "SELECT MAX(version) AS version FROM schema_migrations",
+        ).get<{ version: number }>();
+        if ((current?.version ?? 0) > 13) {
+          throw new LorError(
+            "setup_error",
+            "Catalog schema is newer than this server. Use a compatible release.",
+          );
+        }
+      }
       this.#db.exec("PRAGMA foreign_keys = ON");
       this.#db.exec("PRAGMA journal_mode = WAL");
       this.#db.exec("PRAGMA synchronous = NORMAL");
-      this.#db.exec(SCHEMA_SQL);
-      migrateLegacyNamespaceColumns(this.#db);
-      migrateSkillContextColumn(this.#db);
-      migrateAgentLifecycleColumns(this.#db);
-      migrateAgentReachabilityColumns(this.#db);
-      migrateSubagentNegativeRoutingColumn(this.#db);
-      migrateRoutingMetadataColumns(this.#db);
-      for (const column of ["baseRevision", "expiresAt", "originWorkspace"]) {
-        addColumnIfMissing(this.#db, "skill_update_proposals", column, "TEXT");
-      }
-      this.#db.exec(DELEGATED_TASKS_SCHEMA_SQL);
-      this.#db.exec(DELEGATED_TASK_MESSAGES_SCHEMA_SQL);
-      this.#db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
-      this.#db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
-      this.#db.exec(USAGE_COUNTERS_SCHEMA_SQL);
-      this.#db.exec(`CREATE TABLE IF NOT EXISTS operation_receipts (
+      const db = this.#db;
+      const migrate = db.transaction(() => {
+        db.exec(SCHEMA_SQL);
+        migrateLegacyNamespaceColumns(db);
+        migrateSkillContextColumn(db);
+        migrateAgentLifecycleColumns(db);
+        migrateAgentReachabilityColumns(db);
+        migrateSubagentNegativeRoutingColumn(db);
+        migrateRoutingMetadataColumns(db);
+        for (const column of ["baseRevision", "expiresAt", "originWorkspace"]) {
+          addColumnIfMissing(db, "skill_update_proposals", column, "TEXT");
+        }
+        db.exec(DELEGATED_TASKS_SCHEMA_SQL);
+        db.exec(DELEGATED_TASK_MESSAGES_SCHEMA_SQL);
+        db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
+        db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
+        db.exec(USAGE_COUNTERS_SCHEMA_SQL);
+        db.exec(`CREATE TABLE IF NOT EXISTS operation_receipts (
         workspace TEXT NOT NULL, operationKey TEXT NOT NULL,
         payloadHash TEXT NOT NULL, status TEXT NOT NULL, result TEXT,
         createdAt TEXT NOT NULL, PRIMARY KEY (workspace, operationKey)
       )`);
-      backfillWorkspaceAliases(this.#db);
-      recordSchemaVersion(this.#db, 12);
+        backfillWorkspaceAliases(db);
+        recordSchemaVersion(db, 13);
+      });
+      migrate();
     } catch (error) {
+      this.#db?.close();
+      this.#db = undefined;
       throw mapStorageError(error);
     }
   }

@@ -643,9 +643,26 @@ export function registerCatalogTools(
         extra.signal,
         async (runtime) => {
           const catalog = await runtime.service.exportCatalog(input);
+          const { items, ...pagination } = page(
+            catalog.entries,
+            input,
+            {
+              tool: "export_catalog",
+              workspace: catalog.workspace,
+              filters: catalog.filters,
+            },
+            (entry) =>
+              `${entry.entryType}:${
+                entry.entryType === "skill"
+                  ? entry.skillName
+                  : entry.entryType === "subagent"
+                  ? entry.name
+                  : entry.codexSessionId
+              }`,
+          );
           return okResult(
-            catalog,
-            `Exported ${catalog.entries.length} catalog entries.`,
+            { ...catalog, entries: items, ...pagination },
+            `Exported ${items.length} of ${pagination.total} catalog entries. Follow nextCursor for remaining pages.`,
           );
         },
       ),
@@ -1164,17 +1181,13 @@ function logToolCall(
   }
 
   const message = "MCP tool call completed.";
-  if (errorCode === "storage_error" || errorCode === "setup_error") {
+  if (
+    ["storage_error", "setup_error", "internal_error"].includes(errorCode ?? "")
+  ) {
     logger.error(fields, message);
     return;
   }
-  if (
-    errorCode === "validation_error" ||
-    errorCode === "not_found" ||
-    errorCode === "duplicate_entry" ||
-    errorCode === "session_error" ||
-    errorCode === "verification_failed"
-  ) {
+  if (errorCode && errorCode !== "request_cancelled") {
     logger.warn(fields, message);
     return;
   }
