@@ -40,6 +40,86 @@ LOR is implemented as a runnable local 2.0.0 MCP server.
 
 ## Runtime
 
+### Bundled Default Skills
+
+LOR ships `lor-manage-skill` version 1.0.0 as an Agent Skills package. Its
+instructions cover creating, registering, and updating skills, including scope,
+duplicates, routing, and read-back verification. `lor-add-skill` and
+`lor-update-skill` are discovery aliases, not separate MCP tools or canonical
+catalog keys.
+
+Both transports advertise read-only MCP resources:
+
+- `lor://skills/index.json`: compact catalog with versions, aliases, and URIs.
+- `lor://skills/lor-manage-skill/1.0.0/SKILL.md`: the skill entrypoint.
+- `lor://skills/lor-manage-skill/1.0.0/manifest.json`: file paths, byte sizes,
+  and SHA-256 checksums.
+- Supporting Markdown files are separately readable at the same versioned base
+  URI, for example `references/registration-and-updates.md`.
+
+Use `resources/list` and `resources/read` through the connected client. Read the
+entrypoint first and supporting files only when needed. Resource availability
+does not imply every host automatically discovers or activates skills. This uses
+ordinary MCP resources; it does not advertise the draft Skills Extension.
+Bundled resources work without SQLite or a populated registry. They are separate
+from user-managed catalog entries and do not seed or overwrite global/workspace
+rows. Existing `list_skills` and matching tools continue to query registered
+entries only.
+
+The canonical source is `skills/manifest.json` and its listed skill directories.
+When changing released package content, bump that skill's version in the catalog
+and its `SKILL.md` metadata. Ship the `skills/` directory with `src/`; keep
+files UTF-8 text. The installer validates unique relative paths, checksums, a 1
+MiB per-file limit, and a 4 MiB package limit. Checksums detect inconsistent
+content; they do not establish publisher trust.
+
+### Install Into The Local Client Setup
+
+Run the installer **on the machine where the skill should be saved**. For
+example, from this checkout, using an existing local skill directory:
+
+```sh
+deno task skills list
+deno task skills preview --root "$HOME/.codex/skills" --skill lor-manage-skill
+deno task skills install --root "$HOME/.codex/skills" --skill lor-manage-skill --plan <hash-from-preview>
+```
+
+The root must be an existing absolute directory, not a symlink. Choose a
+directory supported by your host; LOR does not edit client settings or guess an
+install destination. Preview writes nothing. Apply binds the preview to the
+canonical root, package content, and current installation. Read the resulting
+verification and use the host's refresh/reload mechanism if required.
+
+The installer records `.lor-install.json` inside each installed skill. An
+identical install is a no-op. Newer versions replace only intact managed
+folders; edits, extra files, deleted files, symlinks, invalid receipts,
+same-version changes, downgrades, and unmanaged folders are conflicts. There is
+no force-overwrite mode. Resolve conflicts yourself or choose another root, then
+preview again. Installs use staging and an exclusive root lock, with restoration
+on a failed replacement. An interrupted process may leave
+`.lor-skills-install.lock` or a `.lor-skill-stage-*` directory. Confirm no
+installer is running and inspect any `previous` backup before removing
+leftovers. Do not edit a skill concurrently with installation. The lock
+coordinates installers; it is not a security boundary against processes with
+write access to the same directory. Multi-package API calls preflight all
+conflicts, but commit one package at a time; rerun preview after any failure.
+The CLI installs one selected skill at a time.
+
+For a skill served by another LOR instance, fetch the exact version over MCP:
+
+```sh
+deno run --allow-read --allow-write --allow-net=127.0.0.1:8765 src/skills/cli.ts preview --root "$HOME/.codex/skills" --skill lor-manage-skill --server http://127.0.0.1:8765/mcp --version 1.0.0
+```
+
+Apply with the same arguments, replacing `preview` with `install` and adding
+`--plan <hash-from-preview>`. Grant network permission only for the selected
+server. Remote hosts require HTTPS. The CLI supports servers without an OAuth
+flow; for authenticated connections, use the host's MCP resource access and
+local file capabilities. The server never writes to the remote client's disk,
+and installation never executes bundled scripts or registers catalog entries.
+
+### Start The Server
+
 Run the local HTTP MCP server:
 
 ```sh

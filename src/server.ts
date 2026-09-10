@@ -4,6 +4,7 @@ import {
   registerCatalogTools,
 } from "@src/tools/catalog_tools.ts";
 import { LOR_MCP_VERSION } from "@src/version.ts";
+import { registerBundledSkillResources } from "@src/skills/skill_resources.ts";
 
 export function createServer(options: CatalogToolOptions = {}): McpServer {
   const server = new McpServer({
@@ -12,6 +13,7 @@ export function createServer(options: CatalogToolOptions = {}): McpServer {
   });
 
   registerCatalogTools(server, options);
+  registerBundledSkillResources(server);
 
   return server;
 }

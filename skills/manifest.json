@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "name": "lor-manage-skill",
+      "version": "1.0.0",
+      "description": "Create, register, or update a reusable skill in LOR, including duplicate checks, scope selection, routing metadata, and read-back verification.",
+      "aliases": ["lor-add-skill", "lor-update-skill"],
+      "files": [
+        "SKILL.md",
+        "references/registration-and-updates.md",
+        "references/routing-and-validation.md"
+      ]
+    }
+  ]
+}
