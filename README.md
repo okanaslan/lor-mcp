@@ -1,495 +1,391 @@
-# Local Orchestration Router (LOR) MCP Server
+# Local Orchestration Router (LOR)
 
-Local Orchestration Router (LOR) is a local MCP server that acts as a catalog,
-prompt, and workspace-readiness layer for Codex skills and reusable subagent
-prompt profiles. It lets a configured workspace register known entries, store
-routing metadata, find relevant catalog entries for a task, generate manual
-Codex prompts, and improve registered skill context over time.
+LOR is a local MCP server for reusable skills, subagent prompt profiles, and
+workspace notes. It stores catalog metadata in SQLite, matches tasks to relevant
+context, and generates role-scoped prompts for a client to use.
 
-The current implementation is a Deno TypeScript MCP server that runs as a local
-Streamable HTTP server for Codex, with stdio kept as a compatibility and
-development fallback. Product specs, use cases, and technical decisions remain
-documented under `docs/`.
+**LOR prepares context; it does not execute agents.** A subagent profile is
+stored guidance, not a running process. LOR does not create chats, send agent
+messages, or schedule delegated work. The connected host owns those actions.
 
-## Current Status
+## Compatibility and Trust
 
-LOR is implemented as a runnable local 2.0.0 MCP server.
+| Component      | Current contract                                                                   |
+| -------------- | ---------------------------------------------------------------------------------- |
+| Application    | `3.0.0`, tracked in `VERSION` and `src/version.ts`                                 |
+| Storage        | SQLite schema `14`, migrated during database initialization                        |
+| MCP            | Locked TypeScript SDK 1.x; automated compatibility tests use protocol `2025-06-18` |
+| Transports     | Session-based Streamable HTTP; stdio fallback                                      |
+| Bundled skills | Independently versioned in `skills/manifest.json`                                  |
 
-- Runtime: Deno TypeScript.
-- Primary transport: local Streamable HTTP at `http://127.0.0.1:8765/mcp`.
-- Fallback transport: stdio through `deno task run`.
-- Storage: server-owned local SQLite database under `.lor-mcp/` by default.
-- Catalog scope: caller-supplied `workspace`, resolved through canonical
-  workspace paths and registered aliases.
-- Tool surface: type-specific skill and subagent tools, plus catalog
-  import/export, workspace sync, diagnostics, prompt generation, and workspace
-  memory. Public registered-agent catalog tools have been removed from the V2
-  surface.
-- Local context: diagnostics report `AGENTS.md` status and local Codex skill
-  alignment without rewriting local instruction files.
-- Usage analytics: local aggregate counters show which skills, subagents, and
-  workspace notes are listed, matched, and opened in detail without storing raw
-  prompts or note bodies.
-- Structured routing metadata: skills and subagents can declare intents,
-  required signals, positive and negative keywords, domains, output needs, and
-  field weights for deterministic matching.
-- Negative routing metadata: skills and subagents can carry structured "do not
-  use when" guidance so matching can suppress or demote false positives.
-- Implementation guidance: selected skills can carry detail-loaded operational
-  guidance without adding large blocks to list or match responses.
+The application version is not a protocol version. LOR does not claim the draft
+Skills Extension or newer protocol compatibility. Source version `3.0.0` also
+does not prove an already-running server has been restarted with that code.
 
-## Runtime
+The supported deployment is **local, trusted, and single-operator**. HTTP binds
+to loopback and rejects non-local hosts and cross-origin browser requests. Other
+local processes can still reach the port: these checks are not caller
+authentication. Do not expose LOR through a tunnel or reverse proxy as a remote
+multi-user service.
 
-### Bundled Default Skills
+## Architecture
 
-LOR ships `lor-manage-skill` version 1.1.0 as an Agent Skills package. Its
-instructions cover creating, registering, and updating skills, including scope,
-duplicates, routing, and read-back verification. `lor-add-skill` and
-`lor-update-skill` are discovery aliases, not separate MCP tools or canonical
-catalog keys.
-
-`lor-find-context` and `lor-manage-note` (both 1.0.0) cover context retrieval
-and durable workspace notes. They are generic across repositories. Clients
-without resource support can use `list_default_skills` and `get_default_skill`;
-these tools do not open the registry database. The latter accepts listed
-aliases.
-
-Both transports advertise read-only MCP resources:
-
-- `lor://skills/index.json`: compact catalog with versions, aliases, and URIs.
-- `lor://skills/lor-manage-skill/1.1.0/SKILL.md`: the skill entrypoint.
-- `lor://skills/lor-manage-skill/1.1.0/manifest.json`: file paths, byte sizes,
-  and SHA-256 checksums.
-- Supporting Markdown files are separately readable at the same versioned base
-  URI, for example `references/registration-and-updates.md`.
-
-Use `resources/list` and `resources/read` through the connected client. Read the
-entrypoint first and supporting files only when needed. Resource availability
-does not imply every host automatically discovers or activates skills. This uses
-ordinary MCP resources; it does not advertise the draft Skills Extension.
-Bundled resources work without SQLite or a populated registry. They are separate
-from user-managed catalog entries and do not seed or overwrite global/workspace
-rows. Existing `list_skills` and matching tools continue to query registered
-entries only.
-
-Registered skill/subagent summaries and note listings also expose authorized
-`resourceUri` values. Their template is
-`lor://catalog/{kind}/{scope}/{workspace}/{entryKey}`, with percent-encoded
-workspace/key components. Use `resources/templates/list` to discover it, and the
-existing list/detail tools when a client does not support resources.
-`lor-agent-prompt` is a native MCP prompt backed by the same generator as
-`generate_agent_prompt`; neither starts an agent.
-
-Initialization supplies concise LOR workflow instructions. Tool schemas require
-`expectedRevision` for updates/deletes and `previewDigest` for sync applies.
-Large execution results return `status=deferred` and a short-lived result URI;
-read every page through resources or `read_result_page` before interpreting the
-original outcome. Workspace diagnostics report release, source-build and
-tool-contract identities. See the
-[hardening runbook](docs/runbooks/mcp-hardening.md) for budgets, schema 14
-migration, compatibility checks and recovery limitations.
-
-The canonical source is `skills/manifest.json` and its listed skill directories.
-When changing released package content, bump that skill's version in the catalog
-and its `SKILL.md` metadata. Ship the `skills/` directory with `src/`; keep
-files UTF-8 text. The installer validates unique relative paths, checksums, a 1
-MiB per-file limit, and a 4 MiB package limit. Checksums detect inconsistent
-content; they do not establish publisher trust.
-
-### Install Into The Local Client Setup
-
-Run the installer **on the machine where the skill should be saved**. For
-example, from this checkout, using an existing local skill directory:
-
-```sh
-deno task skills list
-deno task skills preview --root "$HOME/.codex/skills" --skill lor-manage-skill
-deno task skills install --root "$HOME/.codex/skills" --skill lor-manage-skill --plan <hash-from-preview>
+```mermaid
+flowchart TD
+  Client["MCP client"] --> Transport["Streamable HTTP or stdio"]
+  Transport --> Interface["Tools, resources, and prompts"]
+  Interface --> Policy["Input validation and workspace authorization"]
+  Policy --> Catalog["Catalog services and deterministic routing"]
+  Catalog --> DB[("SQLite catalog, notes, proposals, receipts, usage")]
+  Policy --> Sync["Preview-bound local file sync"]
+  Sync --> Files["Approved skill roots"]
+  Interface --> Bundled["Read-only bundled skill resources"]
+  Interface --> Prompts["Pure role-scoped prompt generator"]
+  Installer["Local preview/install CLI"] --> Bundled
+  Installer --> Destination["Client-owned skill directory"]
 ```
 
-The root must be an existing absolute directory, not a symlink. Choose a
-directory supported by your host; LOR does not edit client settings or guess an
-install destination. Preview writes nothing. Apply binds the preview to the
-canonical root, package content, and current installation. Read the resulting
-verification and use the host's refresh/reload mechanism if required.
+Catalog operations resolve the supplied workspace and registered aliases before
+checking host-owned access policy. Workspace and global entries are separate
+scopes; a path, alias, or resource URI is not an access grant. Notes are always
+workspace-scoped and are not candidates for skill/subagent matching.
 
-The installer records `.lor-install.json` inside each installed skill. An
-identical install is a no-op. Newer versions replace only intact managed
-folders; edits, extra files, deleted files, symlinks, invalid receipts,
-same-version changes, downgrades, and unmanaged folders are conflicts. There is
-no force-overwrite mode. Resolve conflicts yourself or choose another root, then
-preview again. Installs use staging and an exclusive root lock, with restoration
-on a failed replacement. An interrupted process may leave
-`.lor-skills-install.lock` or a `.lor-skill-stage-*` directory. Confirm no
-installer is running and inspect any `previous` backup before removing
-leftovers. Do not edit a skill concurrently with installation. The lock
-coordinates installers; it is not a security boundary against processes with
-write access to the same directory. Multi-package API calls preflight all
-conflicts, but commit one package at a time; rerun preview after any failure.
-The CLI installs one selected skill at a time.
+Routing is deterministic local scoring, not an LLM call. It normalizes task
+signals and aliases, filters stop words, applies required signals and
+exclusions, then ranks candidates using structured metadata and weighted fields.
+Implementation guidance is loaded with details, not used as ranking text.
 
-For a skill served by another LOR instance, fetch the exact version over MCP:
+List and match operations return summaries. Clients fetch full instructions only
+for relevant entries. Bundled defaults and pure prompt generation do not require
+a populated catalog or open the registry database. Loading context never grants
+permission to override user instructions.
 
-```sh
-deno run --allow-read --allow-write --allow-net=127.0.0.1:8765 src/skills/cli.ts preview --root "$HOME/.codex/skills" --skill lor-manage-skill --server http://127.0.0.1:8765/mcp --version 1.1.0
-```
+## Quick Start
 
-Apply with the same arguments, replacing `preview` with `install` and adding
-`--plan <hash-from-preview>`. Grant network permission only for the selected
-server. Remote hosts require HTTPS. The CLI supports servers without an OAuth
-flow; for authenticated connections, use the host's MCP resource access and
-local file capabilities. The server never writes to the remote client's disk,
-and installation never executes bundled scripts or registers catalog entries.
+### Prerequisites
 
-### Start The Server
+- Deno 2 with the task flags used in [deno.json](deno.json).
+- An MCP client supporting Streamable HTTP or stdio.
+- A writable, operator-controlled storage directory.
+- Permission to load the SQLite driver's native library through Deno FFI.
+  Initial dependency/library resolution may require network access; use the
+  committed lockfile and do not bypass integrity checks.
 
-Read the [hardening and recovery runbook](docs/runbooks/mcp-hardening.md) before
-upgrading an existing installation. This branch introduces deliberate client
-contract changes: workspace allowlists, restricted global writes, revision and
-preview preconditions, and paginated discovery/export. The locked SDK still uses
-session-based MCP; this is not a protocol-version upgrade.
+### Start and Connect
 
-Run the local HTTP MCP server:
+Run from the LOR checkout. Replace `/absolute/path/to/project` with an existing
+project's canonical path:
 
 ```sh
-deno task serve
+LOR_ALLOWED_WORKSPACES=/absolute/path/to/project deno task serve
 ```
 
-To load local settings from `.env`, run:
+The endpoint is `http://127.0.0.1:8765/mcp`. The database defaults to
+`.lor-mcp/catalog.db` inside the server working directory, **not** the
+authorized project. Global reads are enabled; global writes, alias management,
+and local file sync remain disabled.
 
-```sh
-deno task --env-file=.env serve
-```
-
-Then connect Codex to the already-running server:
+Connect Codex to the already-running HTTP server:
 
 ```sh
 codex mcp add lor-mcp --url http://127.0.0.1:8765/mcp
 ```
 
-Equivalent Codex config:
+Alternatively, configure the host's MCP server URL. For Codex:
 
 ```toml
 [mcp_servers.lor-mcp]
 url = "http://127.0.0.1:8765/mcp"
 ```
 
-Server-owned storage defaults are used when no environment variables are set:
-
-- SQLite database: `.lor-mcp/catalog.db`.
-- Skill roots: `.temp/skills`, `~/.codex/skills`, and `~/.agents/skills`.
-
-Catalog tools require a `workspace` input supplied by the client. LOR normalizes
-path-shaped workspace values and resolves registered aliases before reading or
-writing catalog rows. For example, `/Users/me/project`, `/Users/me/project/`,
-and a registered `project` alias can point at the same canonical workspace. Use
-`register_workspace_alias` when a folder name or older slug should resolve to a
-canonical workspace path.
-
-Optional server-side environment overrides:
-
-- `LOR_ALLOWED_WORKSPACES`: comma-separated canonical workspace identifiers;
-  defaults to the server working directory. Tool input does not grant access.
-- `LOR_GLOBAL_READ`: defaults to `true`; combined workspace/global searches
-  require it. Explicit workspace-only reads do not.
-- `LOR_GLOBAL_WRITE`: defaults to `false`; enable only for authorized
-  publishers.
-- `LOR_ALLOW_LOCAL_FILES`: defaults to `false`; permits managed local file sync.
-- `LOR_ALLOW_ALIAS_MANAGEMENT`: defaults to `false`; alias and destination
-  identifiers must both be allowed by the trusted policy.
-
-- `LOR_DB_PATH`: local SQLite database path.
-- `LOR_SKILL_ROOTS`: comma-separated local skill roots for approved `SKILL.md`
-  sync. LOR resolves `skillName/SKILL.md` under these roots and does not accept
-  arbitrary skill file paths through MCP tool input.
-- `LOR_HOST`: local HTTP host, default `127.0.0.1`.
-- `LOR_PORT`: local HTTP port, default `8765`.
-- `LOR_LOG_LEVEL`: log level, default `info`.
-- `LOR_LOG_FORMAT`: log format, default `pretty`; set `json` for structured
-  machine-readable logs.
-
-Logs are written to stderr so the stdio MCP fallback can keep stdout reserved
-for protocol messages. Useful local logging commands:
+For stdio, have the host launch `deno task run` from the LOR checkout with
+`LOR_ALLOWED_WORKSPACES` set. To run it manually from that same directory:
 
 ```sh
-LOR_LOG_LEVEL=debug deno task serve
-LOR_LOG_FORMAT=json deno task serve
-deno task --env-file=.env serve
-deno task serve 2>&1 | tee /tmp/lor-mcp.log
+LOR_ALLOWED_WORKSPACES=/absolute/path/to/project deno task run
 ```
 
-Run the stdio fallback:
+Stdout is reserved for MCP messages; application logs go to stderr. For either
+transport, local dotenv settings can be loaded explicitly, for example
+`deno task --env-file=.env serve`. Keep environment files out of source control.
+See [Deno task documentation](https://docs.deno.com/runtime/reference/cli/task/)
+for task environment loading.
+
+### Verify the Connection
+
+1. Initialize the client and discover `tools/list`.
+2. Call `get_workspace_diagnostics` with the authorized `workspace`. Check its
+   resolved workspace, release version, build ID, and tool-contract fingerprint.
+3. Call `list_skills` with that workspace and `scope: "workspace"`. An empty
+   catalog is valid; an access denial means policy/configuration needs
+   attention.
+4. Call `list_default_skills`, then `get_default_skill` for `lor-find-context`.
+   These bundled reads are independent of registered catalog entries.
+
+Reconnect and refresh host discovery after an upgrade. A server cannot force the
+host to replace cached model-visible tool definitions.
+
+## Configuration
+
+These values are read by the server. Boolean flags accept `true` or `false`.
+Defaults assume the process starts in the LOR checkout.
+
+| Variable                     | Default                                                     | Purpose and implications                                                                                       |
+| ---------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `LOR_ALLOWED_WORKSPACES`     | Server working directory                                    | Comma-separated canonical workspace identifiers; request arguments cannot expand this list.                    |
+| `LOR_GLOBAL_READ`            | `true`                                                      | Allows global and combined-scope reads; explicit workspace-only reads do not need it.                          |
+| `LOR_GLOBAL_WRITE`           | `false`                                                     | Allows authorized global catalog mutations; enable only for trusted publishers.                                |
+| `LOR_ALLOW_LOCAL_FILES`      | `false`                                                     | Enables managed server-side skill file sync.                                                                   |
+| `LOR_ALLOW_ALIAS_MANAGEMENT` | `false`                                                     | Enables alias changes; alias and target identifiers must both be authorized.                                   |
+| `LOR_DB_PATH`                | `<cwd>/.lor-mcp/catalog.db`                                 | Server-owned SQLite path; protect the database and backups as private context.                                 |
+| `LOR_SKILL_ROOTS`            | `<cwd>/.temp/skills`, `~/.codex/skills`, `~/.agents/skills` | Comma-separated roots for managed file sync, not arbitrary client-selected paths. Home roots depend on `HOME`. |
+| `LOR_HOST`                   | `127.0.0.1`                                                 | HTTP only; configuration accepts loopback values `127.0.0.1`, `localhost`, or `::1`.                           |
+| `LOR_PORT`                   | `8765`                                                      | HTTP only; integer from 1 through 65535.                                                                       |
+| `LOR_LOG_LEVEL`              | `info`                                                      | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, or `silent`.                                               |
+| `LOR_LOG_FORMAT`             | `pretty`                                                    | Use `json` for structured stderr logs.                                                                         |
+
+Application policy and Deno permissions are separate layers. The tasks declare
+environment, filesystem, FFI, system, and network permissions. Setting an env
+variable does not expand those grants. In particular, the shipped HTTP task
+grants binding on `127.0.0.1`; an alternative loopback host may need matching
+runtime permissions.
+
+New skill/subagent registrations default to **global** scope. With the default
+write policy, send `scope: "workspace"` explicitly. Do not enable global writes
+just to register project-local context.
+
+## MCP Interface and Workflows
+
+Use `tools/list` for authoritative input/output schemas and annotations. The
+following table groups representative tools rather than duplicating every
+schema. Unknown fields and malformed nested values are rejected.
+
+| Area                    | Representative tools                                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Routing                 | `find_matching_skill`, `find_matching_subagent`                                                                                  |
+| Catalog reads           | `list_skills`, `list_subagents`, `get_skill_detail`, `get_subagent_detail`                                                       |
+| Catalog writes          | `introduce_skill`, `introduce_subagent`, `update_skill`, `update_subagent`, `remove_skill`, `remove_subagent`                    |
+| Skill improvement       | `propose_skill_update`, `apply_skill_update`                                                                                     |
+| File and workspace sync | `preview_skill_file_sync`, `apply_skill_file_sync`, `preview_workspace_catalog_sync`, `apply_workspace_catalog_sync`             |
+| Notes                   | `remember_workspace_note`, `list_workspace_notes`, `find_matching_workspace_note`, `get_workspace_note`, `remove_workspace_note` |
+| Maintenance             | `export_catalog`, `import_catalog`, `register_workspace_alias`                                                                   |
+| Diagnostics             | `get_workspace_diagnostics`, `check_catalog_health`, `get_usage_analytics`, `get_operation`                                      |
+| Bundled context         | `list_default_skills`, `get_default_skill`, `generate_agent_prompt`                                                              |
+| Large results           | `read_result_page`                                                                                                               |
+
+### Route and Load Context
+
+Normalize the user's intent into a concise task plus meaningful routing fields.
+Do not copy incidental words into keyword lists. These are tool arguments for
+`find_matching_skill`, not an HTTP request body:
+
+```json
+{
+  "workspace": "/absolute/path/to/project",
+  "task": "Evaluate received pull request feedback against current code",
+  "intent": "received-pr-feedback-triage",
+  "positiveKeywords": ["review-comment", "feedback-validity"],
+  "domain": ["code-review"],
+  "outputNeed": ["issue", "impact", "importance", "ease-of-fix"],
+  "debug": true
+}
+```
+
+A matching skill must exist in the catalog; this example does not promise a
+particular result. Inspect explanations or `no_match`, then load only relevant
+details. `requiredAll` and `requiredAny` are eligibility constraints, not score
+boosts. `outputNeed` alone cannot establish relevance. Use the separate note
+matcher for durable workspace knowledge.
+
+### Register and Update Explicitly
+
+`introduce_skill` registers metadata for an existing skill; it does not create
+or install the local skill package. After checking for duplicates, example
+arguments for a workspace registration are:
+
+```json
+{
+  "workspace": "/absolute/path/to/project",
+  "scope": "workspace",
+  "skillName": "api-contract-review",
+  "projectName": "example-project",
+  "displayName": "API Contract Review",
+  "primarySpecialty": "Review API compatibility",
+  "specialtyTags": ["api", "compatibility"]
+}
+```
+
+Before `update_skill`, read `get_skill_detail` for the same workspace, scope,
+and skill name. Substitute its returned `revision` for the illustrative
+64-character digest below; the all-zero digest is not a usable revision.
+
+```json
+{
+  "workspace": "/absolute/path/to/project",
+  "scope": "workspace",
+  "skillName": "api-contract-review",
+  "expectedRevision": "0000000000000000000000000000000000000000000000000000000000000000",
+  "displayName": "API Compatibility Review"
+}
+```
+
+Skill/subagent update and remove tools require `expectedRevision`. On
+`revision_conflict`, reread and reconcile. Omitted update fields stay unchanged;
+arrays and routing objects replace existing values. Only nullable fields accept
+`null` to clear them. Do not assume note removal or bulk clear uses this same
+revision contract; inspect its specific schema.
+
+For context improvements, propose and review before `apply_skill_update`.
+Proposals bind content, source revision, workspace, and expiry. File and
+workspace sync have separate preview/apply flows: pass the reviewed
+`previewDigest` and `confirm: true`. Changed inputs or targets require a fresh
+preview.
+
+### Pagination, Results, and Recovery
+
+Lists/exports default to 20 entries, with a maximum of 100. Follow `nextCursor`
+using identical filters and limit. Catalog/note mutations invalidate cursors;
+usage counters do not. On `invalid_cursor`, restart the listing. Each export
+page is independently importable, but one page is not a full export or database
+backup.
+
+Tool execution results contain `structuredContent` and a compatibility text
+copy. Interpret `status` (`ok`, `no_match`, `conflict`, `error`, or `deferred`)
+rather than treating every returned MCP result as success. Execution failures
+include `isError: true` and actionable error information; malformed protocol or
+schema requests can fail before tool execution.
+
+Serialized tool results are capped at 256 KiB, including the compatibility copy.
+For `status: "deferred"`, follow `data.resultResource.uri` with `resources/read`
+or call `read_result_page` using its snapshot ID and offset. Follow each
+`nextUri`, concatenate the page `text` values in order, and parse the original
+JSON only after the last page. Offsets are UTF-16 character positions, not
+bytes.
+
+Result snapshots expire after five minutes, capacity eviction, or restart. Their
+16 MiB retention budget includes original inputs and is shared across HTTP
+sessions. Pages reauthorize the original private operation and never repeat it.
+A `response_too_large` error or expired result does not prove a write failed.
+
+For writes supporting `idempotencyKey`, use one key per logical operation. After
+an uncertain outcome, inspect the target and `get_operation` (using that key as
+`operationKey`). Replay a completed operation only with the identical request
+and key. A pending receipt requires reconciliation, not a new retry key: receipt
+reservation, mutation, and completion are not one atomic transaction.
+Multi-entry imports/syncs can also partially succeed.
+
+### Resources and Prompts
+
+Discover static resources with `resources/list` and templates with
+`resources/templates/list`. Use returned URIs rather than constructing them.
+
+| Resource                                              | Meaning                                                                     |
+| ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| `lor://skills/index.json`                             | Bundled skill names, versions, aliases, and URIs                            |
+| `lor://skills/{name}/{version}/SKILL.md`              | Bundled instructions; sibling `manifest.json` describes files and checksums |
+| `lor://catalog/{kind}/{scope}/{workspace}/{entryKey}` | Authorized skill, subagent, or note detail from list-summary `resourceUri`  |
+| `lor://results/{snapshotId}/{offset}`                 | Short-lived result page                                                     |
+
+Catalog workspace/key components are percent-encoded once. Global resources
+still carry the caller's authorized workspace. Notes require workspace scope.
+Resources are context, not higher-priority instructions.
+
+The native `lor-agent-prompt` prompt uses the same generator as
+`generate_agent_prompt`; neither starts an agent. Clients lacking resources or
+prompts can use the corresponding detail, bundled-skill, and prompt tools.
+
+## Bundled Skills
+
+| Skill              | Version | Purpose                                                 |
+| ------------------ | ------- | ------------------------------------------------------- |
+| `lor-manage-skill` | `1.1.0` | Registration, updates, scope, routing, and verification |
+| `lor-find-context` | `1.0.0` | Find and load skills, profiles, and notes               |
+| `lor-manage-note`  | `1.0.0` | Maintain requested durable workspace notes              |
+
+Aliases such as `lor-add-skill` and `lor-add-note` are discovery names, not new
+MCP tools. Bundled packages do not seed or overwrite registry entries; listing
+registered skills will not automatically list bundled defaults.
+
+Install on the client machine, from the checkout, into an existing absolute,
+non-symlink directory. Review the preview, then replace `<preview-plan-hash>`:
 
 ```sh
-deno task run
+deno task skills preview --root "$HOME/.codex/skills" --skill lor-manage-skill
+deno task skills install --root "$HOME/.codex/skills" --skill lor-manage-skill --plan <preview-plan-hash>
 ```
 
-Verification:
+The installer validates paths, checksums, package limits, and current local
+content. Modified/unmanaged folders, symlinks, and downgrades conflict; there is
+no force-overwrite mode. Installation never executes bundled scripts. Checksums
+detect inconsistent content, not publisher authenticity. Reload the host as
+needed; installation does not edit its settings.
 
-```sh
-deno task check
-deno task test
-deno task lint
-deno task fmt
-```
+For remote package retrieval, the [CLI usage](src/skills/cli.ts) documents
+paired `--server` and `--version` flags; explicit network permission is
+required. See the
+[recovery runbook](docs/runbooks/mcp-hardening.md#filesystem-recovery) for
+interrupted installs and managed file sync.
 
-The configured SQLite driver uses a native library through Deno FFI and may
-download/cache that library on first use.
+## Development and Operations
 
-## Codex Personalization Snippet
+### Source Map and Checks
 
-Copy this into your Codex personalization or custom instructions so LOR is used
-consistently across prompts:
+| Path                                  | Responsibility                                                    |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| `src/server.ts`, `src/http_server.ts` | MCP registration and HTTP sessions                                |
+| `src/tools/`                          | Schemas, tool handlers, authorization, receipts, response budgets |
+| `src/catalog/`                        | Routing, catalog services, revisions, SQLite persistence          |
+| `src/skills/`, `skills/`              | Bundled resources, installers, managed sync, package content      |
+| `src/agent_prompts/`                  | Pure prompt generation                                            |
+| `test/`                               | Unit, database, protocol, and subprocess coverage                 |
 
-```text
-When working in a repository, use LOR MCP before substantive planning,
-implementation, or review.
+Run checks from the checkout; these commands describe the verification surface,
+not a claim that any particular build or client has passed.
 
-Use the current repository path as the LOR workspace. Start by calling
-get_workspace_diagnostics and check_catalog_health for that workspace. If the
-workspace resolves unexpectedly, use the reported diagnostics to fix or explain
-the workspace/alias issue before relying on catalog results.
+| Command                      | Checks                                                              |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `deno task check`            | Type checking for source and tests                                  |
+| `deno task test`             | Automated suite, including temporary SQLite fixtures                |
+| `deno task lint`             | Deno lint rules                                                     |
+| `deno task fmt`              | Formatting for configured source, tests, and skills                 |
+| `deno fmt --check README.md` | README formatting, outside the task's path list                     |
+| `deno task test:stdio`       | Real subprocess startup, restart, discovery, and retry smoke checks |
 
-For routing and context, prefer LOR skills and subagent profiles:
-- Use find_matching_skill for relevant registered skill metadata.
-- Use find_matching_subagent for reusable scoped prompt profiles.
-- Use get_skill_detail or get_subagent_detail when a match needs full metadata.
-- Use generate_agent_prompt only when preparing a fresh short-lived Codex chat.
+### Diagnostics and Limits
 
-LOR prepares context and prompts; it does not create Codex chats, send messages,
-or control other agents. Use native Codex behavior for any chat creation or
-handoff, and report clearly when LOR is unavailable or has no useful match.
+Use `LOR_LOG_FORMAT=json` for structured stderr logs. Logs report request IDs,
+tool names, outcomes, and timing, not raw prompts or note bodies. Workspace
+paths and entry names remain sensitive operational metadata.
 
-Keep edits scoped to the user's request, preserve unrelated user work, prefer
-existing project patterns, and report exact verification commands and results.
-```
+Diagnostics expose `releaseVersion`, `buildId`, `buildIdSource`, and
+`toolContractFingerprint`. Build identity hashes source/config at module load,
+not a signed artifact; source-less packaging reports unavailable. Compare build
+and contract identities after restart, then refresh client discovery.
 
-## Daily Usage
+List/export payloads are paged in SQLite, but counts/order may scan matching
+keys. Matching, health, and diagnostics still perform full-catalog analysis.
+HTTP session/body limits and result budgets are documented in the
+[hardening runbook](docs/runbooks/mcp-hardening.md#monitoring-and-resource-limits).
+They do not provide remote multi-tenant isolation.
 
-Use LOR as a local routing, prompt, and workspace-knowledge layer for Codex.
-Every catalog, prompt, and memory call should include the caller's `workspace`
-so LOR can resolve aliases and keep data isolated by project.
+### Upgrade to 3.0.0
 
-### Start A Workspace Session
+Stop writers and the old server, preserve a complete SQLite backup, and test
+schema 14 migration against a copy with isolated skill roots. Configure explicit
+workspace policy and verify revision, preview, pagination, and deferred-result
+handling before reconnecting clients. Never run old and new binaries against the
+same database.
 
-Before meaningful work, ask the active Codex agent to inspect the workspace and
-route through LOR:
+Rollback requires the pre-upgrade database and configuration together;
+post-backup writes must be reconciled. Pending receipts and filesystem
+interruptions need operator recovery. Automated SDK tests do not establish
+desktop-client UX or power-loss safety.
 
-```text
-Use LOR MCP with workspace `<workspace>`.
-First call get_workspace_diagnostics and check_catalog_health.
-Then use find_matching_skill and find_matching_subagent for the current task.
-```
-
-Use `get_workspace_diagnostics` when a workspace path, folder-name alias, or
-older slug may be resolving to the wrong catalog, or when you need to compare
-local Codex skills with LOR-registered skill metadata. Use
-`check_catalog_health` to inspect stored verification metadata and
-skill/subagent coverage.
-
-### Route Work
-
-Use routing when deciding what context should shape a task:
-
-1. `find_matching_skill` for relevant stored skill metadata.
-2. `find_matching_subagent` for scoped reusable prompt profiles.
-3. `get_skill_detail` or `get_subagent_detail` when the match result needs full
-   metadata.
-4. `generate_agent_prompt` when a fresh short-lived Codex task prompt is useful.
-
-Use `list_skills` and `list_subagents` when browsing by entry family.
-`get_skill_detail` returns full implementation guidance when a selected skill
-has it. `get_subagent_detail` returns the rendered prompt for a subagent
-profile.
-
-When a task has a clear intent, pass structured match fields such as `intent`,
-`positiveKeywords`, `negativeKeywords`, `requiredAny`, `requiredAll`, `domain`,
-or `outputNeed`. Use `debug: true` when investigating routing quality; LOR will
-return normalized query signals, ignored stop words, excluded candidates, and a
-weighted score breakdown.
-
-### Improve Skills
-
-1. `propose_skill_update` to preview better stored skill context.
-2. `apply_skill_update` with `confirm: true` after review.
-3. `preview_skill_file_sync` when the approved context should be written into
-   the local skill file.
-4. `apply_skill_file_sync` with `confirm: true` and the preview's
-   `previewDigest` after reviewing the rendered managed section. The source
-   proposal must belong to the same workspace. Local edits invalidate the
-   preview.
-
-Use `promote_skill_to_global` when a workspace skill should become available to
-other workspaces. New skill registrations default to global scope unless
-`scope: "workspace"` is supplied. Global skills are included in list and match
-by default.
-
-### Remember Workspace Context
-
-Use workspace memory for small coordination notes that are not routing metadata:
-
-1. `remember_workspace_note` for branch plans, review summaries, migration
-   notes, or reapply instructions.
-2. `list_workspace_notes` to scan note summaries, optionally by tag.
-3. `find_matching_workspace_note` to retrieve ranked note previews for the
-   current task or question.
-4. `get_workspace_note` to retrieve the full note body.
-5. `remove_workspace_note` when the note is obsolete.
-
-Workspace notes are not catalog entries and are not used by skill/subagent
-matching. Use `find_matching_workspace_note` when you want note-specific memory
-retrieval.
-
-### Inspect Usage
-
-Use `get_usage_analytics` to see which skills, subagents, and workspace notes
-are actually being listed, matched, or opened in detail. Filter by `entryType`,
-`scope`, `entryKey`, or `projectName` when reviewing a specific family or entry.
-
-### Maintain The Catalog
-
-Use maintenance and expansion tools when the workspace catalog needs cleanup,
-backup, or migration:
-
-- `list_skills`, `list_subagents`
-- `update_skill`, `update_subagent`
-- `remove_skill`, `remove_subagent`
-- `clear_workspace_skills`, `clear_workspace_subagents`
-- `export_catalog`
-- `import_catalog`
-- `preview_workspace_catalog_sync`
-- `apply_workspace_catalog_sync`
-- `introduce_subagent`
-- `get_usage_analytics`
-
-## MCP Tool Map
-
-```mermaid
-flowchart RL
-  catalog["CATALOG"]
-  skills["SKILLS"]
-  subagents["SUBAGENTS"]
-
-  catalog --> skills
-  catalog --> subagents
-
-  generatePrompt["generate_agent_prompt"] --> skills
-  generatePrompt --> subagents
-
-  introduceSkill["introduce_skill"] --> skills
-  promoteSkill["promote_skill_to_global"] --> skills
-  proposeSkillUpdate["propose_skill_update"] --> applySkillUpdate["apply_skill_update"]
-  applySkillUpdate --> skills
-  applySkillUpdate --> previewSkillFileSync["preview_skill_file_sync"]
-  previewSkillFileSync --> applySkillFileSync["apply_skill_file_sync"]
-  applySkillFileSync --> skills
-
-  introduceSubagent["introduce_subagent"] --> subagents
-
-  registerAlias["register_workspace_alias"] --> catalog
-  catalog --> checkHealth["check_catalog_health"]
-  catalog --> workspaceDiagnostics["get_workspace_diagnostics"]
-  catalog --> usageAnalytics["get_usage_analytics"]
-  catalog --> rememberWorkspaceNote["remember_workspace_note"]
-  rememberWorkspaceNote --> listWorkspaceNotes["list_workspace_notes"]
-  listWorkspaceNotes --> findWorkspaceNote["find_matching_workspace_note"]
-  findWorkspaceNote --> getWorkspaceNote["get_workspace_note"]
-  getWorkspaceNote --> removeWorkspaceNote["remove_workspace_note"]
-  catalog --> exportCatalog["export_catalog"]
-  exportCatalog --> importCatalog["import_catalog"]
-  catalog --> previewWorkspaceSync["preview_workspace_catalog_sync"]
-  previewWorkspaceSync --> applyWorkspaceSync["apply_workspace_catalog_sync"]
-  applyWorkspaceSync --> catalog
-  skills --> listSkills["list_skills"]
-  subagents --> listSubagents["list_subagents"]
-
-  listSkills --> updateSkill["update_skill"]
-  updateSkill --> skills
-  listSubagents --> updateSubagent["update_subagent"]
-  updateSubagent --> subagents
-  listSkills --> removeSkill["remove_skill"]
-  listSubagents --> removeSubagent["remove_subagent"]
-  removeSkill --> clearSkills["clear_workspace_skills"]
-  removeSubagent --> clearSubagents["clear_workspace_subagents"]
-  skills --> findSkill["find_matching_skill"]
-  subagents --> findSubagent["find_matching_subagent"]
-  findSkill --> getSkill["get_skill_detail"]
-  findSubagent --> getSubagent["get_subagent_detail"]
-  getSkill --> skills
-  getSubagent --> subagents
-  listSkills --> usageAnalytics
-  listSubagents --> usageAnalytics
-  findSkill --> usageAnalytics
-  findSubagent --> usageAnalytics
-  getSkill --> usageAnalytics
-  getSubagent --> usageAnalytics
-  listWorkspaceNotes --> usageAnalytics
-  findWorkspaceNote --> usageAnalytics
-  getWorkspaceNote --> usageAnalytics
-```
-
-## Capability Details
-
-### Runtime And Storage
-
-- Version: `2.0.0`.
-- Runtime: Deno TypeScript.
-- Primary transport: local Streamable HTTP at `http://127.0.0.1:8765/mcp`.
-- Fallback transport: stdio through `deno task run`.
-- Storage: server-owned local SQLite database under `.lor-mcp/` by default.
-- Catalog scope: caller-supplied `workspace`, resolved through canonical
-  workspace paths and registered aliases.
-
-### Catalog And Routing
-
-- Matching: deterministic local scoring with structured routing metadata,
-  normalized aliases, stop-word filtering, hard exclusions before ranking,
-  structured explanations, conflict reporting, and registered skill context
-  signals.
-- Global skills: shared skills can be introduced or promoted with
-  `scope: "global"` and are included in list/match by default. New skill
-  registrations default to global scope unless `scope: "workspace"` is supplied.
-- Subagents: reusable prompt profiles for small, scoped delegation, with
-  workspace/global scope and ready-to-use prompts returned from introduction and
-  detail flows. Matching returns summaries. New registrations default to global
-  scope unless `scope: "workspace"` is supplied.
-- Negative routing: skills and subagents can store structured exclusion
-  metadata. Strong negative matches are suppressed, moderate negative matches
-  are demoted, and visible demotions include negative evidence in explanations.
-- Debug routing: `debug: true` on matching calls returns normalized query
-  signals, ignored signals, excluded candidates, weighted match signals, and
-  final score breakdowns for routing-quality work.
-- Implementation guidance: skills can store detail-loaded first-inspect lists,
-  implementation rules, common fix patterns, test expectations, verification,
-  and handoff checklists. Matching does not score this guidance.
-
-### Prompt Support
-
-- Agent prompts: `generate_agent_prompt` creates deterministic ready-to-paste
-  prompts for fresh Codex chats without registering or messaging agents.
-
-### Skill And Workspace Knowledge
-
-- Skill improvement: approval-gated stored skill context updates, with optional
-  approval-gated sync into a LOR-managed `SKILL.md` section.
-- Workspace memory: LOR stores small workspace-scoped notes for durable
-  coordination context outside the routing catalog. Notes are always
-  workspace-scoped and do not accept global scope.
-
-### Operational Support
-
-- Workspace diagnostics: LOR can report resolved workspace aliases, catalog
-  counts, and sanitized storage/runtime status without exposing catalog entries.
-- HTTP discovery logging: expected OAuth/OIDC `.well-known` discovery probe
-  `404` responses stay below warning severity while real unrelated `4xx`
-  responses remain warnings.
-
-## Repository Notes
-
-- `CHANGELOG.md`: version history.
-- `VERSION`: current project version.
-- `docs/readme.md`: planning docs overview.
-- `docs/roadmap.md`: feature spec roadmap and implementation status.
-- `AGENTS.md`: repository-specific Codex operating instructions.
-- `.temp/`: local agent-supporting guidance and vendored skills used while
-  developing this repository.
+Follow the [upgrade procedure](docs/runbooks/mcp-hardening.md#upgrade-procedure)
+and
+[client acceptance matrix](docs/runbooks/mcp-hardening.md#client-acceptance-matrix).
+See [CHANGELOG.md](CHANGELOG.md) for release changes,
+[versioning](docs/versioning.md) for release conventions, and the
+[documentation index](docs/readme.md) for design background. Historical specs
+may describe older surfaces; current registrations and schemas are
+authoritative.

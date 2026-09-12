@@ -3,7 +3,7 @@
 This folder is the planning, specification, and implementation-status home for
 the LOR MCP Server.
 
-LOR is currently a runnable local 2.0.0 Deno TypeScript MCP server with
+LOR is currently a runnable local 3.0.0 Deno TypeScript MCP server with
 Streamable HTTP, SQLite-backed workspace catalog storage, deterministic
 skill/subagent matching, prompt generation, workspace catalog sync, shared
 global skill scope, registered skill context updates, and approval-gated local

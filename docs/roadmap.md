@@ -5,7 +5,7 @@ Orchestration Router (LOR) MCP Server.
 
 ## Current Implementation
 
-Implemented in the runnable local 2.0.0 server:
+Implemented in the runnable local 3.0.0 server:
 
 - Deno TypeScript MCP server.
 - Local Streamable HTTP server through `deno task serve`, exposed at

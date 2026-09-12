@@ -13,8 +13,20 @@ The project follows Semantic Versioning:
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-09-11
+
 ### Added
 
+- Add bundled default skills, read-only skill resources, and a preview-based
+  local installer that preserves modified installations.
+- Add authorized catalog resources and the native `lor-agent-prompt` MCP prompt,
+  with existing tool fallbacks retained.
+- Add server onboarding instructions, structured output contracts, and release,
+  source-build, and tool-contract diagnostics.
+- Add bounded result paging through resources and `read_result_page` for
+  oversized tool outcomes, with an explicit `deferred` status.
+- Add durable idempotency receipts and operation status lookup. Interrupted
+  writes can still leave pending receipts and require manual reconciliation.
 - Add `find_matching_workspace_note` for deterministic workspace-memory note
   retrieval with ranked previews and optional tag filtering.
 - Add structured skill/subagent routing metadata for intents, positive and
@@ -23,6 +35,15 @@ The project follows Semantic Versioning:
 
 ### Changed
 
+- Require revision preconditions for entry updates/deletes and reviewed preview
+  digests for sync applies; reject unknown or malformed tool inputs.
+- Paginate catalog discovery and exports in SQLite, with snapshot-bound cursors
+  and database schema 14 generation tracking. Old cursors must be discarded.
+- Enforce host-configured workspace access and restrict global writes, alias
+  management, and local file sync by default.
+- Bound HTTP sessions, request sizes, and tool execution responses. Back up the
+  database before upgrading and refresh client discovery after restarting; see
+  the [upgrade and recovery runbook](docs/runbooks/mcp-hardening.md).
 - Route skill/subagent matches through normalized aliases, stop-word filtering,
   hard pre-ranking exclusions, weighted structured scores, and separate
   negative evidence.
