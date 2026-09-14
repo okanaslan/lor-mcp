@@ -94,7 +94,7 @@ function recoveryFor(code: ErrorCode): string {
     case "invalid_cursor":
       return "Restart listing without a cursor.";
     case "access_denied":
-      return "Use an authorized workspace and operation; arguments cannot grant access.";
+      return "Check the configured global, file-sync, or alias permission; arguments cannot grant access.";
     case "validation_error":
       return "Correct the indicated input field before retrying.";
     case "idempotency_conflict":

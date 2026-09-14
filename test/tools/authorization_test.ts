@@ -1,4 +1,4 @@
-import { assertRejects, assertThrows } from "@std/assert";
+import { assertThrows } from "@std/assert";
 import {
   type AccessPolicy,
   authorizeOperation,
@@ -6,46 +6,66 @@ import {
 import { loadConfig, loadServeConfig } from "@src/config.ts";
 
 const policy: AccessPolicy = {
-  workspaces: ["allowed"],
   globalRead: true,
   globalWrite: false,
   localFiles: false,
   aliases: false,
 };
-const resolve = (name: string) => name === "alias" ? "denied" : name;
 
-Deno.test("authorization checks workspace aliases, both sync targets and implicit globals", async () => {
-  await authorizeOperation(policy, resolve, "list_skills", {
-    workspace: "allowed",
+Deno.test("authorization accepts any workspace and sync targets without configuration", () => {
+  for (const workspace of ["new-project", "/arbitrary/project", "alias"]) {
+    authorizeOperation(policy, "list_skills", { workspace });
+    authorizeOperation(policy, "introduce_skill", {
+      workspace,
+      scope: "workspace",
+    });
+    authorizeOperation(policy, "remember_workspace_note", { workspace });
+  }
+  authorizeOperation(policy, "apply_workspace_catalog_sync", {
+    sourceWorkspace: "/project-a",
+    targetWorkspace: "/project-b",
   });
+});
+
+Deno.test("authorization retains implicit global, file-sync and alias restrictions", () => {
   for (
     const [name, input] of [
-      ["list_skills", { workspace: "denied" }],
-      ["list_skills", { workspace: "alias" }],
-      ["apply_workspace_catalog_sync", {
-        sourceWorkspace: "allowed",
-        targetWorkspace: "denied",
+      ["introduce_skill", { workspace: "new-project" }],
+      ["introduce_skill", { workspace: "new-project", scope: "global" }],
+      ["apply_skill_update", { workspace: "new-project", proposalId: "known" }],
+      ["apply_skill_file_sync", {
+        workspace: "new-project",
+        scope: "workspace",
       }],
-      ["introduce_skill", { workspace: "allowed" }],
-      ["apply_skill_update", { workspace: "allowed", proposalId: "known" }],
-      ["apply_skill_file_sync", { workspace: "allowed", confirm: true }],
+      ["preview_skill_file_sync", {
+        workspace: "new-project",
+        scope: "workspace",
+      }],
       ["register_workspace_alias", {
-        workspace: "allowed",
-        alias: "denied",
-        confirm: true,
+        workspace: "new-project",
+        alias: "alias",
       }],
     ] as const
   ) {
-    await assertRejects(
-      () => authorizeOperation(policy, resolve, name, input),
+    assertThrows(
+      () => authorizeOperation(policy, name, input),
       Error,
       "access_denied",
     );
   }
-  await authorizeOperation(policy, resolve, "introduce_skill", {
-    workspace: "allowed",
-    scope: "workspace",
+  authorizeOperation({ ...policy, aliases: true }, "register_workspace_alias", {
+    workspace: "/new-project",
+    alias: "new-alias",
   });
+  authorizeOperation({ ...policy, globalWrite: true }, "introduce_skill", {
+    workspace: "/new-project",
+    scope: "global",
+  });
+  assertThrows(
+    () => authorizeOperation(policy, "list_skills", null),
+    Error,
+    "access_denied",
+  );
 });
 
 Deno.test("local configuration rejects unsafe exposure and invalid permission flags", () => {
@@ -61,27 +81,38 @@ Deno.test("local configuration rejects unsafe exposure and invalid permission fl
   );
 });
 
-Deno.test("local file permission does not grant global catalog reads", async () => {
+Deno.test("workspace access does not grant global reads or local file permissions", () => {
   const localOnly = { ...policy, localFiles: true, globalRead: false };
-  for (const name of ["preview_skill_file_sync", "apply_skill_file_sync"]) {
-    await authorizeOperation(localOnly, resolve, name, {
-      workspace: "allowed",
-      scope: "workspace",
-    });
-    await assertRejects(
+  authorizeOperation(localOnly, "list_skills", {
+    workspace: "/new-project",
+    scope: "workspace",
+  });
+  for (const scope of ["global", undefined]) {
+    assertThrows(
       () =>
-        authorizeOperation(localOnly, resolve, name, {
-          workspace: "allowed",
-          scope: "global",
+        authorizeOperation(localOnly, "list_skills", {
+          workspace: "/new-project",
+          scope,
         }),
       Error,
       "access_denied",
     );
-    await assertRejects(
-      () =>
-        authorizeOperation(localOnly, resolve, name, { workspace: "allowed" }),
-      Error,
-      "access_denied",
-    );
+  }
+  for (const name of ["preview_skill_file_sync", "apply_skill_file_sync"]) {
+    authorizeOperation(localOnly, name, {
+      workspace: "/new-project",
+      scope: "workspace",
+    });
+    for (const scope of ["global", undefined]) {
+      assertThrows(
+        () =>
+          authorizeOperation(localOnly, name, {
+            workspace: "/new-project",
+            scope,
+          }),
+        Error,
+        "access_denied",
+      );
+    }
   }
 });

@@ -34,7 +34,7 @@ multi-user service.
 flowchart TD
   Client["MCP client"] --> Transport["Streamable HTTP or stdio"]
   Transport --> Interface["Tools, resources, and prompts"]
-  Interface --> Policy["Input validation and workspace authorization"]
+  Interface --> Policy["Input validation and operation permissions"]
   Policy --> Catalog["Catalog services and deterministic routing"]
   Catalog --> DB[("SQLite catalog, notes, proposals, receipts, usage")]
   Policy --> Sync["Preview-bound local file sync"]
@@ -45,9 +45,11 @@ flowchart TD
   Installer --> Destination["Client-owned skill directory"]
 ```
 
-Catalog operations resolve the supplied workspace and registered aliases before
-checking host-owned access policy. Workspace and global entries are separate
-scopes; a path, alias, or resource URI is not an access grant. Notes are always
+All workspaces are available without server-side registration or an allowlist.
+Catalog operations still resolve workspace identifiers and aliases to keep data
+separate. Any connected local client can target any workspace; identifiers are
+not per-client security boundaries. Global and workspace scopes remain separate,
+and global, file-sync, and alias permissions still apply. Notes are always
 workspace-scoped and are not candidates for skill/subagent matching.
 
 Routing is deterministic local scoring, not an LLM call. It normalizes task
@@ -73,17 +75,16 @@ permission to override user instructions.
 
 ### Start and Connect
 
-Run from the LOR checkout. Replace `/absolute/path/to/project` with an existing
-project's canonical path:
+Run from the LOR checkout; no workspace configuration is needed:
 
 ```sh
-LOR_ALLOWED_WORKSPACES=/absolute/path/to/project deno task serve
+deno task serve
 ```
 
 The endpoint is `http://127.0.0.1:8765/mcp`. The database defaults to
-`.lor-mcp/catalog.db` inside the server working directory, **not** the
-authorized project. Global reads are enabled; global writes, alias management,
-and local file sync remain disabled.
+`.lor-mcp/catalog.db` inside the server working directory, **not** the requested
+project. Global reads are enabled; global writes, alias management, and local
+file sync remain disabled.
 
 Connect Codex to the already-running HTTP server:
 
@@ -98,11 +99,11 @@ Alternatively, configure the host's MCP server URL. For Codex:
 url = "http://127.0.0.1:8765/mcp"
 ```
 
-For stdio, have the host launch `deno task run` from the LOR checkout with
-`LOR_ALLOWED_WORKSPACES` set. To run it manually from that same directory:
+For stdio, have the host launch `deno task run` from the LOR checkout. To run it
+manually from that same directory:
 
 ```sh
-LOR_ALLOWED_WORKSPACES=/absolute/path/to/project deno task run
+deno task run
 ```
 
 Stdout is reserved for MCP messages; application logs go to stderr. For either
@@ -114,8 +115,9 @@ for task environment loading.
 ### Verify the Connection
 
 1. Initialize the client and discover `tools/list`.
-2. Call `get_workspace_diagnostics` with the authorized `workspace`. Check its
-   resolved workspace, release version, build ID, and tool-contract fingerprint.
+2. Call `get_workspace_diagnostics` with the current project as `workspace`.
+   Check its resolved workspace, release version, build ID, and tool-contract
+   fingerprint.
 3. Call `list_skills` with that workspace and `scope: "workspace"`. An empty
    catalog is valid; an access denial means policy/configuration needs
    attention.
@@ -128,15 +130,16 @@ host to replace cached model-visible tool definitions.
 ## Configuration
 
 These values are read by the server. Boolean flags accept `true` or `false`.
-Defaults assume the process starts in the LOR checkout.
+Defaults assume the process starts in the LOR checkout. The former
+`LOR_ALLOWED_WORKSPACES` variable is ignored and can be removed from existing
+environment files; all workspaces are now available by default.
 
 | Variable                     | Default                                                     | Purpose and implications                                                                                       |
 | ---------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `LOR_ALLOWED_WORKSPACES`     | Server working directory                                    | Comma-separated canonical workspace identifiers; request arguments cannot expand this list.                    |
 | `LOR_GLOBAL_READ`            | `true`                                                      | Allows global and combined-scope reads; explicit workspace-only reads do not need it.                          |
 | `LOR_GLOBAL_WRITE`           | `false`                                                     | Allows authorized global catalog mutations; enable only for trusted publishers.                                |
 | `LOR_ALLOW_LOCAL_FILES`      | `false`                                                     | Enables managed server-side skill file sync.                                                                   |
-| `LOR_ALLOW_ALIAS_MANAGEMENT` | `false`                                                     | Enables alias changes; alias and target identifiers must both be authorized.                                   |
+| `LOR_ALLOW_ALIAS_MANAGEMENT` | `false`                                                     | Enables alias creation and reassignment; disabled by default.                                                  |
 | `LOR_DB_PATH`                | `<cwd>/.lor-mcp/catalog.db`                                 | Server-owned SQLite path; protect the database and backups as private context.                                 |
 | `LOR_SKILL_ROOTS`            | `<cwd>/.temp/skills`, `~/.codex/skills`, `~/.agents/skills` | Comma-separated roots for managed file sync, not arbitrary client-selected paths. Home roots depend on `HOME`. |
 | `LOR_HOST`                   | `127.0.0.1`                                                 | HTTP only; configuration accepts loopback values `127.0.0.1`, `localhost`, or `::1`.                           |
@@ -287,7 +290,7 @@ Discover static resources with `resources/list` and templates with
 | `lor://results/{snapshotId}/{offset}`                 | Short-lived result page                                                     |
 
 Catalog workspace/key components are percent-encoded once. Global resources
-still carry the caller's authorized workspace. Notes require workspace scope.
+still carry the caller's requested workspace. Notes require workspace scope.
 Resources are context, not higher-priority instructions.
 
 The native `lor-agent-prompt` prompt uses the same generator as
@@ -372,9 +375,9 @@ They do not provide remote multi-tenant isolation.
 
 Stop writers and the old server, preserve a complete SQLite backup, and test
 schema 14 migration against a copy with isolated skill roots. Configure explicit
-workspace policy and verify revision, preview, pagination, and deferred-result
-handling before reconnecting clients. Never run old and new binaries against the
-same database.
+operation permissions and verify revision, preview, pagination, and
+deferred-result handling before reconnecting clients. Never run old and new
+binaries against the same database.
 
 Rollback requires the pre-upgrade database and configuration together;
 post-backup writes must be reconciled. Pending receipts and filesystem

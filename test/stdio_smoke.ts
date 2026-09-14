@@ -26,7 +26,6 @@ try {
       cwd: fromFileUrl(new URL("../", import.meta.url)),
       env: {
         LOR_DB_PATH: join(root, "catalog.db"),
-        LOR_ALLOWED_WORKSPACES: "smoke",
         LOR_GLOBAL_WRITE: "false",
         LOR_LOG_FORMAT: "json",
         LOR_LOG_LEVEL: "silent",
@@ -82,11 +81,26 @@ try {
         JSON.parse(resource.contents[0].text).data.body,
         "Disposable subprocess verification",
       );
-      const denied = await client.callTool({
+      const other = await client.callTool({
         name: "list_workspace_notes",
-        arguments: { workspace: "denied" },
+        arguments: { workspace: "new-project" },
+      });
+      assertEquals(other.isError, undefined);
+      assertEquals(other.structuredContent.data.total, 0);
+      const denied = await client.callTool({
+        name: "introduce_skill",
+        arguments: {
+          workspace: "new-project",
+          scope: "global",
+          skillName: "restricted-global",
+          projectName: "test",
+          displayName: "Restricted",
+          primarySpecialty: "test",
+          specialtyTags: ["test"],
+        },
       });
       assertEquals(denied.isError, true);
+      assertEquals(denied.structuredContent.error.code, "access_denied");
       const diagnostic = await client.callTool({
         name: "get_workspace_diagnostics",
         arguments: { workspace: "smoke" },
@@ -106,7 +120,7 @@ try {
     }
   }
   console.log(
-    "Stdio restart smoke passed: fresh process discovery, required schemas, instructions, prompts/resources, build fingerprints, durable retry and denied workspace.",
+    "Stdio restart smoke passed: fresh process discovery, required schemas, instructions, prompts/resources, build fingerprints, durable retry, new workspace access and denied global write.",
   );
 } finally {
   await Deno.remove(root, { recursive: true });

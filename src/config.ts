@@ -35,7 +35,6 @@ const CONFIG_ENV_KEYS = [
   "LOR_DB_PATH",
   "LOR_SKILL_ROOTS",
   "HOME",
-  "LOR_ALLOWED_WORKSPACES",
   "LOR_GLOBAL_READ",
   "LOR_GLOBAL_WRITE",
   "LOR_ALLOW_LOCAL_FILES",
@@ -62,10 +61,6 @@ export function loadConfig(
     dbPath,
     skillRoots,
     accessPolicy: {
-      workspaces:
-        optionalEnv(env, "LOR_ALLOWED_WORKSPACES")?.split(",").map((s) =>
-          s.trim()
-        ).filter(Boolean) ?? [cwd],
       globalRead: booleanEnv(env, "LOR_GLOBAL_READ", true),
       globalWrite: booleanEnv(env, "LOR_GLOBAL_WRITE", false),
       localFiles: booleanEnv(env, "LOR_ALLOW_LOCAL_FILES", false),

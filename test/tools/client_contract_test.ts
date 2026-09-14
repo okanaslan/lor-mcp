@@ -12,7 +12,6 @@ Deno.test("SDK client exercises real runtime authorization, revisions, paginatio
   const root = await Deno.makeTempDir();
   const config = loadConfig({
     LOR_DB_PATH: join(root, "catalog.db"),
-    LOR_ALLOWED_WORKSPACES: "allowed",
     LOR_GLOBAL_READ: "false",
   }, { cwd: root });
   let handler = createHttpMcpHandler({
@@ -77,9 +76,12 @@ Deno.test("SDK client exercises real runtime authorization, revisions, paginatio
       idempotencyKey: "create-skill",
     };
     assertEquals(
-      (await call("introduce_skill", { ...skill, workspace: "denied" })).error
-        ?.code,
-      "access_denied",
+      (await call("introduce_skill", {
+        ...skill,
+        workspace: "other-project",
+        displayName: "Other project",
+      })).status,
+      "ok",
     );
     assertEquals(
       (await call("introduce_skill", { ...skill, scope: "global" })).error
@@ -89,6 +91,21 @@ Deno.test("SDK client exercises real runtime authorization, revisions, paginatio
     const created = await call("introduce_skill", skill);
     assertEquals(created.status, "ok");
     const revision = created.data!.revision;
+    assertEquals(
+      (await call("get_skill_detail", {
+        workspace: "other-project",
+        scope: "workspace",
+        skillName: skill.skillName,
+      })).data!.displayName,
+      "Other project",
+    );
+    assertEquals(
+      (await call("list_skills", {
+        workspace: "empty-project",
+        scope: "workspace",
+      })).data!.total,
+      0,
+    );
     assertEquals(
       (await client!.callTool({
         name: "update_skill",
@@ -159,10 +176,10 @@ Deno.test("SDK client exercises real runtime authorization, revisions, paginatio
     assertEquals(receipt.data!.status, "completed");
     assertEquals(
       (await call("get_operation", {
-        workspace: "denied",
+        workspace: "empty-project",
         operationKey: "create-skill",
       })).error?.code,
-      "access_denied",
+      "not_found",
     );
     await close();
     handler = createHttpMcpHandler({
@@ -181,6 +198,49 @@ Deno.test("SDK client exercises real runtime authorization, revisions, paginatio
     assertEquals(
       (await call("list_skills", { workspace: "allowed", scope: "workspace" }))
         .data!.total,
+      2,
+    );
+    assertEquals(
+      (await call("register_workspace_alias", {
+        workspace: "allowed",
+        alias: "project-alias",
+      })).error?.code,
+      "access_denied",
+    );
+    config.accessPolicy.aliases = true;
+    assertEquals(
+      (await call("register_workspace_alias", {
+        workspace: "allowed",
+        alias: "project-alias",
+      })).status,
+      "ok",
+    );
+    assertEquals(
+      (await call("list_skills", {
+        workspace: "project-alias",
+        scope: "workspace",
+      })).data!.total,
+      2,
+    );
+    const sync = {
+      sourceWorkspace: "project-alias",
+      targetWorkspace: "/new-sync-target",
+    };
+    const preview = await call("preview_workspace_catalog_sync", sync);
+    assertEquals(preview.status, "ok");
+    assertEquals(
+      (await call("apply_workspace_catalog_sync", {
+        ...sync,
+        previewDigest: preview.data!.previewDigest,
+        confirm: true,
+      })).status,
+      "ok",
+    );
+    assertEquals(
+      (await call("list_skills", {
+        workspace: sync.targetWorkspace,
+        scope: "workspace",
+      })).data!.total,
       2,
     );
   } finally {
@@ -292,7 +352,6 @@ Deno.test("SDK cancellation before runtime dispatch prevents a catalog mutation"
   const root = await Deno.makeTempDir();
   const config = loadConfig({
     LOR_DB_PATH: join(root, "catalog.db"),
-    LOR_ALLOWED_WORKSPACES: "allowed",
   }, { cwd: root });
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();

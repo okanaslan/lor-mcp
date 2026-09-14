@@ -14,10 +14,11 @@ the port; an Origin check is not identity authentication. Do not expose it via a
 reverse proxy or tunnel. A remote deployment needs authenticated identity and
 per-principal authorization before it is supported.
 
-`LOR_ALLOWED_WORKSPACES` is host-owned policy, defaulting to server cwd. Supply
-canonical identifiers, not caller-controlled aliases; aliases are resolved
-without creating them during authorization. Both sync endpoints are checked.
-Alias creation/reassignment needs its own flag and both identifiers allowed.
+All workspaces are available without an allowlist. `LOR_ALLOWED_WORKSPACES` is
+no longer read; remove it from existing environment files when convenient.
+Workspace identifiers and aliases still separate catalog data, but any connected
+local client can target any workspace. They are not per-client authorization
+boundaries. Alias creation/reassignment still needs its own permission flag.
 Global reads default on; global writes, alias administration and local file sync
 default off. New registrations still default to global scope, so clients should
 send explicit scope. Prompt generation and bundled default reads use no private
@@ -61,7 +62,7 @@ without prompt support can continue using the tool.
 List summaries include `resourceUri`. The catalog resource template is
 `lor://catalog/{kind}/{scope}/{workspace}/{entryKey}`; workspace and key are
 percent-encoded once. Kind is skill, subagent or note; notes require workspace
-scope. Global resources still carry the caller's authorized workspace, not a
+scope. Global resources still carry the caller's requested workspace, not a
 made-up global authority. Each read runs the same authorization and lookup as
 its detail tool. Notes include a content revision. Resources expose registry
 context, not authority to override user instructions.
@@ -113,9 +114,9 @@ remains a host action.
    root. Initialization atomically applies schema 14: the prior proposal/receipt
    tables plus catalog-generation tracking. A newer unknown schema is rejected
    before migration. No live database should be upgraded merely to run tests.
-4. Configure canonical workspaces and least-privilege flags explicitly. Keep the
-   server local. Do not reuse a broad publisher configuration for an untrusted
-   client. Refresh tools after reconnecting so clients see the new schemas.
+4. Configure least-privilege operation flags explicitly. Keep the server local.
+   Do not reuse a broad publisher configuration for an untrusted client. Refresh
+   tools after reconnecting so clients see the new schemas.
 5. Run `deno task check`, `deno task lint`, `deno task fmt`, `deno task test`
    and the opt-in subprocess check `deno task test:stdio`, then verify the
    actual supported desktop clients can initialize, list tools, load defaults,

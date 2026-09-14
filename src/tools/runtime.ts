@@ -44,10 +44,9 @@ export async function createDefaultRuntime(
       executeOperation(repository, name, input, handler),
     getOperation: (workspace, key) =>
       repository.getOperation(repository.lookupWorkspace(workspace), key),
-    authorize: async (name, input) => {
-      await authorizeOperation(
+    authorize: (name, input) => {
+      authorizeOperation(
         config.accessPolicy,
-        (workspace) => repository.lookupWorkspace(workspace),
         name,
         input,
       );
@@ -74,6 +73,7 @@ export async function createDefaultRuntime(
           { field: "expectedRevision" },
         );
       }
+      return Promise.resolve();
     },
     service: new CatalogService({
       repository,

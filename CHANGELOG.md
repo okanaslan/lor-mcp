@@ -13,6 +13,13 @@ The project follows Semantic Versioning:
 
 ## [Unreleased]
 
+### Changed
+
+- Remove workspace allowlist enforcement and the `LOR_ALLOWED_WORKSPACES`
+  setting. Any connected local client can target any workspace without server
+  configuration. Workspace data separation, global permissions, file-sync and
+  alias controls, and loopback-only HTTP remain unchanged.
+
 ## [3.0.0] - 2026-09-11
 
 ### Added

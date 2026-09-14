@@ -31,6 +31,22 @@ Deno.test("loadConfig lets explicit database path override default", () => {
   assertEquals(config.dbPath, "/tmp/custom/catalog.db");
 });
 
+Deno.test("loadConfig ignores legacy workspace allowlists and preserves permission defaults", () => {
+  const defaults = loadConfig({}, { cwd: "/server" });
+  assertEquals(defaults.accessPolicy, {
+    globalRead: true,
+    globalWrite: false,
+    localFiles: false,
+    aliases: false,
+  });
+  for (const value of ["/old-project", "*", ""]) {
+    assertEquals(
+      loadConfig({ LOR_ALLOWED_WORKSPACES: value }, { cwd: "/server" }),
+      defaults,
+    );
+  }
+});
+
 Deno.test("loadConfig lets explicit skill roots override defaults", () => {
   const config = loadConfig({
     HOME: "/Users/tester",

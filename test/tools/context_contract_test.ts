@@ -16,7 +16,6 @@ async function withClient(
   const root = await Deno.makeTempDir();
   const config = loadConfig({
     LOR_DB_PATH: join(root, "catalog.db"),
-    LOR_ALLOWED_WORKSPACES: "/workspace/encoded %2F project",
     LOR_GLOBAL_WRITE: "true",
   }, { cwd: root });
   const handler = createHttpMcpHandler({
@@ -91,7 +90,7 @@ Deno.test("wire schemas require safety preconditions and describe continuation f
 
 Deno.test("catalog resources preserve encoded identifiers and enforce scope and caller policy on every read", () =>
   withClient(async (client, config) => {
-    const workspace = config.accessPolicy.workspaces[0];
+    const workspace = "/workspace/encoded %2F project";
     const create = await client.callTool({
       name: "introduce_skill",
       arguments: {
@@ -120,11 +119,41 @@ Deno.test("catalog resources preserve encoded identifiers and enforce scope and 
       client.readResource({
         uri: catalogResourceUri(
           "skill",
-          "denied",
+          "empty-project",
           "workspace",
           "name %2F part",
         ),
       })
+    );
+    const otherCreate = await client.callTool({
+      name: "introduce_skill",
+      arguments: {
+        workspace: "/another/new-project",
+        scope: "workspace",
+        skillName: "name %2F part",
+        projectName: "test",
+        displayName: "Other workspace",
+        primarySpecialty: "api",
+        specialtyTags: ["api"],
+      },
+    });
+    assertEquals(otherCreate.structuredContent.status, "ok");
+    const otherRead = await client.readResource({
+      uri: catalogResourceUri(
+        "skill",
+        "/another/new-project",
+        "workspace",
+        "name %2F part",
+      ),
+    });
+    assertEquals(
+      JSON.parse(otherRead.contents[0].text).data.displayName,
+      "Other workspace",
+    );
+    assertEquals(
+      JSON.parse((await client.readResource({ uri })).contents[0].text).data
+        .displayName,
+      "Test",
     );
     await assertRejects(() =>
       client.readResource({
@@ -169,7 +198,7 @@ Deno.test("catalog resources preserve encoded identifiers and enforce scope and 
   }));
 
 Deno.test("native prompt reuses the tool generator and diagnostics identify the loaded source and contracts", () =>
-  withClient(async (client, config) => {
+  withClient(async (client) => {
     const prompts = await client.listPrompts();
     assert(
       prompts.prompts.some((prompt: { name: string }) =>
@@ -177,7 +206,7 @@ Deno.test("native prompt reuses the tool generator and diagnostics identify the 
       ),
     );
     const input = {
-      workspace: config.accessPolicy.workspaces[0],
+      workspace: "/workspace/encoded %2F project",
       role: "backend",
       task: "inspect API",
     };
@@ -218,7 +247,7 @@ Deno.test("native prompt reuses the tool generator and diagnostics identify the 
 
 Deno.test("oversized tool results are bounded, reconstructable via resource and tool, and never repeat writes", () =>
   withClient(async (client, config) => {
-    const workspace = config.accessPolicy.workspaces[0];
+    const workspace = "/workspace/encoded %2F project";
     const runtime = await createDefaultRuntime({ config });
     let entry;
     try {
@@ -270,8 +299,8 @@ Deno.test("oversized tool results are bounded, reconstructable via resource and 
   }));
 
 Deno.test("reading pages of a deferred mutation does not execute the mutation again", () =>
-  withClient(async (client, config) => {
-    const workspace = config.accessPolicy.workspaces[0];
+  withClient(async (client) => {
+    const workspace = "/workspace/encoded %2F project";
     const result = await client.callTool({
       name: "introduce_skill",
       arguments: {
