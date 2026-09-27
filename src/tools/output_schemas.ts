@@ -293,7 +293,16 @@ const usageType = z.enum(["skill", "subagent", "note"]);
 const usage = z.object({
   workspace: text,
   checkedAt: text,
-  filters: z.object({ ...filterFields, entryType: usageType.optional() }),
+  period: z.literal("lifetime"),
+  filters: z.object({
+    ...filterFields,
+    entryType: usageType.optional(),
+    sortBy: z.enum(["listed", "matched", "detailed"]).optional(),
+  }),
+  metricDefinitions: z.record(
+    z.enum(["listed", "matched", "detailed", "total", "lastDetailedAt"]),
+    text,
+  ),
   summary: z.object({
     totalEntries: count,
     totalCount: count,
@@ -312,6 +321,7 @@ const usage = z.object({
     ...usageCounts,
     firstSeenAt: text.optional(),
     lastSeenAt: text.optional(),
+    lastDetailedAt: text.optional(),
   })),
   recommendedActions: strings,
 });

@@ -873,6 +873,7 @@ Deno.test("HTTP MCP handler calls get_usage_analytics", async () => {
         name: "get_usage_analytics",
         arguments: {
           workspace: "LOR-MCP",
+          sortBy: "detailed",
         },
       },
     });
@@ -881,6 +882,15 @@ Deno.test("HTTP MCP handler calls get_usage_analytics", async () => {
     assertEquals(response.status, 200);
     assertEquals(body.result.structuredContent.status, "ok");
     assertEquals(body.result.structuredContent.data.workspace, "LOR-MCP");
+    assertEquals(body.result.structuredContent.data.period, "lifetime");
+    assertEquals(
+      body.result.structuredContent.data.filters.sortBy,
+      "detailed",
+    );
+    assertEquals(
+      typeof body.result.structuredContent.data.metricDefinitions.detailed,
+      "string",
+    );
     assertEquals(body.result.structuredContent.data.summary.totalCount, 0);
     assertEquals(body.result.structuredContent.data.entries, []);
   } finally {

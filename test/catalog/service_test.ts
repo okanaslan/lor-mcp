@@ -2580,6 +2580,9 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
     const consumerReport = await service.getUsageAnalytics({
       workspace: "Consumer-Workspace",
     });
+    const repeatedReport = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+    });
     const noteReport = await service.getUsageAnalytics({
       workspace: "LOR-MCP",
       entryType: "note",
@@ -2593,6 +2596,11 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
     });
 
     assertEquals(consumerReport.workspace, "Consumer-Workspace");
+    assertEquals(consumerReport.period, "lifetime");
+    assertEquals(
+      consumerReport.metricDefinitions.detailed.includes("proxy"),
+      true,
+    );
     assertEquals(consumerReport.summary.totalEntries, 2);
     assertEquals(consumerReport.summary.byEntryType.skill, {
       entries: 1,
@@ -2618,6 +2626,9 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
         "subagent:global:backend-api-test-profile",
       ],
     );
+    assertEquals(consumerReport.entries[0].lastDetailedAt, FIXED_NOW);
+    assertEquals(repeatedReport.summary, consumerReport.summary);
+    assertEquals(repeatedReport.entries, consumerReport.entries);
     assertEquals(noteReport.summary.byEntryType.note, {
       entries: 1,
       listed: 1,
@@ -2629,6 +2640,162 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
     assertEquals(noteReport.entries[0].entryKey, note.noteId);
     assertEquals(skillProjectReport.entries.length, 1);
     assertEquals(skillProjectReport.entries[0].workspace, "Consumer-Workspace");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService usage analytics sorts and groups by stable identity", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await repo.recordUsageCounters([
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "shared",
+        projectName: "Old Project",
+        operation: "listed",
+        count: 2,
+      },
+    ], { now: "2026-07-11T00:00:00.000Z" });
+    await repo.recordUsageCounters([
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "shared",
+        projectName: "Current Project",
+        operation: "matched",
+        count: 4,
+      },
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "shared",
+        projectName: "Current Project",
+        operation: "detailed",
+        count: 1,
+      },
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "workspace",
+        entryKey: "shared",
+        projectName: "Workspace Project",
+        operation: "matched",
+        count: 4,
+      },
+      {
+        workspace: "workspace-a",
+        entryType: "subagent",
+        scope: "global",
+        entryKey: "subagent-profile",
+        projectName: "Current Project",
+        operation: "listed",
+        count: 3,
+      },
+      {
+        workspace: "workspace-b",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "shared",
+        projectName: "Current Project",
+        operation: "matched",
+        count: 9,
+      },
+    ], { now: FIXED_NOW });
+    await repo.recordUsageCounters([
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "shared",
+        projectName: "Current Project",
+        operation: "matched",
+      },
+    ], { now: "2026-07-13T00:00:00.000Z" });
+
+    const rawSkillCounters = await repo.getUsageCounters("workspace-a", {
+      entryType: "skill",
+      scope: "global",
+      entryKey: "shared",
+    });
+    const legacyReport = await service.getUsageAnalytics({
+      workspace: "workspace-a",
+    });
+    const matchedReport = await service.getUsageAnalytics({
+      workspace: "workspace-a",
+      sortBy: "matched",
+    });
+    const listedReport = await service.getUsageAnalytics({
+      workspace: "workspace-a",
+      sortBy: "listed",
+    });
+    const detailedReport = await service.getUsageAnalytics({
+      workspace: "workspace-a",
+      sortBy: "detailed",
+    });
+    const projectReport = await service.getUsageAnalytics({
+      workspace: "workspace-a",
+      projectName: "Current Project",
+    });
+    const otherWorkspaceReport = await service.getUsageAnalytics({
+      workspace: "workspace-b",
+    });
+
+    assertEquals(
+      legacyReport.entries.map((entry) =>
+        `${entry.entryType}:${entry.scope}:${entry.projectName}:${entry.entryKey}`
+      ),
+      [
+        "skill:global:Current Project:shared",
+        "skill:workspace:Workspace Project:shared",
+        "subagent:global:Current Project:subagent-profile",
+      ],
+    );
+    assertEquals(
+      rawSkillCounters.map((record) =>
+        `${record.operation}:${record.projectName}`
+      ),
+      [
+        "detailed:Current Project",
+        "matched:Current Project",
+        "listed:Old Project",
+      ],
+    );
+    assertEquals(legacyReport.summary.totalEntries, 3);
+    assertEquals(legacyReport.entries[0].total, 8);
+    assertEquals(
+      legacyReport.entries[0].lastSeenAt,
+      "2026-07-13T00:00:00.000Z",
+    );
+    assertEquals(legacyReport.entries[0].lastDetailedAt, FIXED_NOW);
+    assertEquals(
+      matchedReport.entries.map((entry) =>
+        `${entry.scope}:${entry.entryType}:${entry.entryKey}:${entry.matched}`
+      ),
+      [
+        "global:skill:shared:5",
+        "workspace:skill:shared:4",
+        "global:subagent:subagent-profile:0",
+      ],
+    );
+    assertEquals(
+      listedReport.entries.map((entry) => entry.entryKey),
+      ["subagent-profile", "shared", "shared"],
+    );
+    assertEquals(
+      detailedReport.entries.map((entry) => entry.entryKey),
+      ["shared", "subagent-profile", "shared"],
+    );
+    assertEquals(detailedReport.entries[1].lastDetailedAt, undefined);
+    assertEquals(projectReport.entries.length, 2);
+    assertEquals(projectReport.entries[0].entryKey, "shared");
+    assertEquals(projectReport.entries[0].total, 8);
+    assertEquals(otherWorkspaceReport.summary.totalCount, 9);
+    assertEquals(otherWorkspaceReport.entries.length, 1);
   } finally {
     repo.close();
   }

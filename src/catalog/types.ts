@@ -770,6 +770,7 @@ export interface UsageAnalyticsFilter {
   scope?: CatalogScope;
   entryKey?: string;
   projectName?: string;
+  sortBy?: UsageOperation;
 }
 
 export interface UsageAnalyticsEntry {
@@ -784,6 +785,7 @@ export interface UsageAnalyticsEntry {
   total: number;
   firstSeenAt?: string;
   lastSeenAt?: string;
+  lastDetailedAt?: string;
 }
 
 export interface UsageAnalyticsTypeSummary {
@@ -804,12 +806,18 @@ export interface UsageAnalyticsSummary {
 export interface UsageAnalyticsReport {
   workspace: string;
   checkedAt: string;
+  period: "lifetime";
   filters: {
     entryType?: UsageEntryType;
     scope?: CatalogScope;
     entryKey?: string;
     projectName?: string;
+    sortBy?: UsageOperation;
   };
+  metricDefinitions: Record<
+    UsageOperation | "total" | "lastDetailedAt",
+    string
+  >;
   summary: UsageAnalyticsSummary;
   entries: UsageAnalyticsEntry[];
   recommendedActions: string[];

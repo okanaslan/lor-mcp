@@ -1270,18 +1270,27 @@ export class CatalogService {
       entryType: validated.entryType,
       scope: validated.scope,
       entryKey: validated.entryKey,
-      projectName: validated.projectName,
     });
-    const entries = usageAnalyticsEntries(workspace, records);
+    const entries = usageAnalyticsEntries(
+      workspace,
+      records,
+      validated.sortBy,
+    ).filter((entry) =>
+      validated.projectName === undefined ||
+      entry.projectName === validated.projectName
+    );
     return {
       workspace,
       checkedAt: this.#now(),
+      period: "lifetime",
       filters: {
         entryType: validated.entryType,
         scope: validated.scope,
         entryKey: validated.entryKey,
         projectName: validated.projectName,
+        sortBy: validated.sortBy,
       },
+      metricDefinitions: usageAnalyticsMetricDefinitions(),
       summary: summarizeUsageAnalytics(entries),
       entries,
       recommendedActions: usageAnalyticsRecommendedActions(entries),
@@ -2010,14 +2019,18 @@ function usageFromWorkspaceNoteMatch(
 function usageAnalyticsEntries(
   workspace: string,
   records: readonly UsageCounterRecord[],
+  sortBy?: UsageOperation,
 ): UsageAnalyticsEntry[] {
   const entries = new Map<string, UsageAnalyticsEntry>();
+  const projectMetadata = new Map<
+    string,
+    { projectName: string; lastSeenAt: string }
+  >();
   for (const record of records) {
     const key = [
       record.entryType,
       record.scope,
       record.entryKey,
-      record.projectName ?? "",
     ].join(":");
     const current = entries.get(key) ?? {
       workspace,
@@ -2032,8 +2045,28 @@ function usageAnalyticsEntries(
       firstSeenAt: record.firstSeenAt,
       lastSeenAt: record.lastSeenAt,
     };
+    const metadata = projectMetadata.get(key);
+    if (
+      record.projectName &&
+      (metadata === undefined ||
+        record.lastSeenAt > metadata.lastSeenAt ||
+        (record.lastSeenAt === metadata.lastSeenAt &&
+          record.projectName.localeCompare(metadata.projectName) < 0))
+    ) {
+      projectMetadata.set(key, {
+        projectName: record.projectName,
+        lastSeenAt: record.lastSeenAt,
+      });
+      current.projectName = record.projectName;
+    }
     current[record.operation] += record.count;
     current.total += record.count;
+    if (record.operation === "detailed") {
+      current.lastDetailedAt = current.lastDetailedAt &&
+          current.lastDetailedAt > record.lastSeenAt
+        ? current.lastDetailedAt
+        : record.lastSeenAt;
+    }
     current.firstSeenAt = current.firstSeenAt &&
         current.firstSeenAt < record.firstSeenAt
       ? current.firstSeenAt
@@ -2045,12 +2078,39 @@ function usageAnalyticsEntries(
     entries.set(key, current);
   }
 
-  return [...entries.values()].sort((a, b) =>
+  const ordered = [...entries.values()];
+  if (sortBy) {
+    return ordered.sort((a, b) =>
+      b[sortBy] - a[sortBy] ||
+      a.scope.localeCompare(b.scope) ||
+      a.entryType.localeCompare(b.entryType) ||
+      a.entryKey.localeCompare(b.entryKey)
+    );
+  }
+
+  return ordered.sort((a, b) =>
     a.entryType.localeCompare(b.entryType) ||
     a.scope.localeCompare(b.scope) ||
     (a.projectName ?? "").localeCompare(b.projectName ?? "") ||
     a.entryKey.localeCompare(b.entryKey)
   );
+}
+
+function usageAnalyticsMetricDefinitions(): UsageAnalyticsReport[
+  "metricDefinitions"
+] {
+  return {
+    listed:
+      "Number of times the entry was returned from a list tool; repeated calls are counted separately.",
+    matched:
+      "Number of times the entry was returned from a match tool; repeated calls are counted separately.",
+    detailed:
+      "Number of times the entry was opened through a detail tool; this is a proxy for agent use, not proof that the guidance was applied.",
+    total:
+      "Sum of listed, matched, and detailed counters for retained lifetime analytics history; lifetime excludes activity before tracking started and repeated calls are not unique tasks or executions.",
+    lastDetailedAt:
+      "Most recent timestamp for the detailed counter, omitted when there is no recorded detail read.",
+  };
 }
 
 function summarizeUsageAnalytics(
@@ -2119,7 +2179,7 @@ function usageAnalyticsRecommendedActions(
   }
   if (entries.some((entry) => entry.detailed > 0)) {
     actions.push(
-      "Keep frequently opened entries current because agents are using their detailed metadata.",
+      "Keep frequently opened entries current because agents are opening or reading their detailed metadata.",
     );
   }
   return actions.length > 0 ? actions : [

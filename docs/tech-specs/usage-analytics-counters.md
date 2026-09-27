@@ -93,10 +93,54 @@ Add `get_usage_analytics`:
   - standard `status: ok` envelope
   - `resolvedWorkspace`
   - `checkedAt`
+  - `period: "lifetime"`
   - `filters`
+  - `metricDefinitions`
   - `summary`
   - `entries`
   - `recommendedActions`
+
+Supported optional sorting:
+
+- `sortBy: "listed" | "matched" | "detailed"`
+- Sorting is descending by the requested counter.
+- Ties are deterministic by scope, entry type, and entry key.
+- When `sortBy` is omitted, preserve the legacy deterministic ordering by entry
+  type, scope, resolved project name, and entry key.
+
+Example most-used skills request:
+
+```json
+{
+  "workspace": "/path/to/workspace",
+  "entryType": "skill",
+  "sortBy": "detailed"
+}
+```
+
+Usage rows are grouped by stable entry identity:
+
+- `workspace`
+- `entryType`
+- `entryScope`
+- `entryKey`
+
+`projectName` is mutable metadata and must not be part of the report grouping
+identity. The repository may retain the last recorded project metadata on each
+operation row, but the service report must aggregate all operation counters for
+the stable entry identity and resolve one deterministic project name for display
+and filtering. Use the project name from the newest recorded counter row for the
+entry; if multiple project names share the same newest timestamp, choose the
+lexicographically first project name. Project filters apply to that resolved
+metadata and must not return partial operation counts for one entry.
+
+`lastDetailedAt` is derived only from the `detailed` operation row's
+`lastSeenAt`. Omit it when there is no recorded detail read.
+
+`period: "lifetime"` means retained local recorded history. It excludes activity
+before tracking was introduced or enabled. Counter values are repeated tool
+returns/detail reads, not unique tasks or proof that returned guidance was used
+in code.
 
 `scope: "global"` is valid only for skills and subagents. Workspace notes are
 always workspace-scoped.

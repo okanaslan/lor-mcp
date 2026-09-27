@@ -556,6 +556,7 @@ export const getUsageAnalyticsInputSchema = z.strictObject({
   scope: catalogScopeSchema.optional(),
   entryKey: z.string().max(16000).trim().min(1).optional(),
   projectName: z.string().max(16000).trim().min(1).optional(),
+  sortBy: z.enum(["listed", "matched", "detailed"]).optional(),
 }).refine(
   (input) => !(input.entryType === "note" && input.scope === "global"),
   {

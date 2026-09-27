@@ -83,12 +83,12 @@ Implemented in the runnable local 3.0.0 server:
 - Workspace memory is implemented as durable workspace-scoped notes outside the
   routing catalog. Notes do not support global scope.
 - Usage analytics for skill, subagent, and workspace-note list/match/detail
-  usage is implemented as local aggregate counters.
-- Structured routing metadata for skills and subagents is implemented so
-  entries can declare intents, positive keywords, negative keywords, required
-  signals, domain, output need, and field weights. Debug matching can return
-  normalized query signals, ignored stop words, excluded candidates, and score
-  breakdowns.
+  usage is implemented as local lifetime aggregate counters with deterministic
+  sorting, `lastDetailedAt`, and stable entry-identity grouping.
+- Structured routing metadata for skills and subagents is implemented so entries
+  can declare intents, positive keywords, negative keywords, required signals,
+  domain, output need, and field weights. Debug matching can return normalized
+  query signals, ignored stop words, excluded candidates, and score breakdowns.
 - Negative routing metadata for skills and subagents remains implemented so
   structured "do not use when" guidance can suppress or demote matches.
 - Implementation-oriented skill guidance is implemented as detail-loaded skill
@@ -229,7 +229,9 @@ Latest implementation verification:
 - [Usage Analytics](feature-specs/usage-analytics.md): Implemented for V2 local
   aggregate counters that record how often skills, subagents, and workspace
   notes are listed, matched, and opened in detail without storing raw prompts,
-  task text, or note bodies. Technical planning is tracked in
+  task text, or note bodies. Reports include lifetime metric definitions,
+  optional counter sorting, and stable identity grouping across mutable project
+  metadata. Technical planning is tracked in
   [Usage Analytics Counters](tech-specs/usage-analytics-counters.md).
 - [Negative Routing Metadata](feature-specs/negative-routing-metadata.md):
   Implemented for V2. Adds structured "do not use when" metadata for skills and

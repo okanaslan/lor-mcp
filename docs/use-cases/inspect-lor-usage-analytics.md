@@ -23,10 +23,12 @@ to improve.
    current workspace.
 2. The current agent calls `get_usage_analytics` with the repository workspace.
 3. LOR resolves the workspace and reads aggregate usage counters.
-4. LOR returns summary totals and per-entry counters for skills, subagents, and
-   workspace notes.
-5. The current agent identifies heavily used entries, unused entries, and
-   entries that are often matched but rarely opened in detail.
+4. LOR returns lifetime summary totals, metric definitions, per-entry counters,
+   optional `lastDetailedAt` values, and recommended actions for skills,
+   subagents, and workspace notes.
+5. The current agent identifies heavily used observed entries, observed entries
+   with zero detail reads, and entries that are often matched but rarely opened
+   in detail.
 6. The current agent recommends follow-up actions, such as improving skill
    context, adding subagent profiles, pruning stale notes, or leaving healthy
    entries alone.
@@ -35,6 +37,14 @@ to improve.
 
 The user can make catalog maintenance decisions from observed LOR usage instead
 of guessing which skills, subagents, or notes matter.
+
+Usage counters are local retained history. They count repeated list, match, and
+detail reads; they do not prove unique tasks, unique executions, or that an
+agent applied the returned guidance.
+
+The report only includes entries with recorded usage history. It does not list
+catalog entries that have never been listed, matched, or opened since tracking
+started.
 
 ## 6. Related Feature Specs
 

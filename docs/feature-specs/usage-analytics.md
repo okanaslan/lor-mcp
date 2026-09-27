@@ -45,14 +45,24 @@ used, so users can improve catalog quality over time.
 - LOR must expose a read-only `get_usage_analytics` tool.
 - `get_usage_analytics` input must require `workspace`.
 - `get_usage_analytics` input may filter by `entryType`, `scope`, `entryKey`,
-  and `projectName` when those fields apply.
+  and resolved `projectName` when those fields apply.
+- `get_usage_analytics` input may sort rows by `listed`, `matched`, or
+  `detailed` counters in descending order. If omitted, the legacy deterministic
+  type/scope/project/key order is preserved.
 - `get_usage_analytics` must return:
   - resolved workspace
   - checked timestamp
+  - `period: "lifetime"`
+  - metric definitions
   - applied filters
   - summary totals by entry type and operation
   - per-entry usage rows
   - recommended next actions
+- Usage rows must be grouped by stable entry identity: workspace, entry type,
+  scope, and entry key. `projectName` is mutable metadata and must not split
+  counters.
+- `lastDetailedAt` must be included per row only when there is a recorded detail
+  read for that entry.
 - Skill and subagent analytics must distinguish `workspace` and `global` scope.
 - Global skill and subagent usage must be attributed to the caller workspace
   while preserving the entry's global scope.
@@ -81,10 +91,25 @@ Conceptual `UsageAnalyticsReport` fields:
 
 - `workspace`
 - `checkedAt`
+- `period`: `lifetime`
 - `filters`
+- `metricDefinitions`
 - `summary`
 - `entries`
 - `recommendedActions`
+
+`lifetime` means the retained local counter history since usage tracking was
+enabled. It does not include activity before tracking existed. Counters record
+tool returns and detail reads; repeated calls are counted separately and are not
+unique tasks, executions, or proof that returned guidance was applied.
+
+`projectName` filtering applies to the resolved per-entry metadata selected from
+recorded usage rows, not to the counter identity itself. If an entry's project
+metadata changes, its counters remain grouped under the same stable entry key.
+
+Reports include entries with recorded usage history only. A missing entry means
+there is no retained list, match, or detail counter for it in the requested
+workspace/filter, not proof that the underlying catalog entry is unused forever.
 
 ## 7. Error Handling
 

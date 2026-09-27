@@ -403,6 +403,9 @@ export function validateUsageAnalyticsFilter(
       : requireCatalogScope(input.scope, "scope"),
     entryKey: input.entryKey?.trim() || undefined,
     projectName: input.projectName?.trim() || undefined,
+    sortBy: input.sortBy === undefined
+      ? undefined
+      : requireUsageOperation(input.sortBy),
   };
 }
 
@@ -823,6 +826,19 @@ function requireUsageEntryType(
     "validation_error",
     "entryType is invalid.",
     { field: "entryType" },
+  );
+}
+
+function requireUsageOperation(
+  value: unknown,
+): UsageAnalyticsFilter["sortBy"] {
+  if (value === "listed" || value === "matched" || value === "detailed") {
+    return value;
+  }
+  throw new LorError(
+    "validation_error",
+    "sortBy is invalid.",
+    { field: "sortBy" },
   );
 }
 
