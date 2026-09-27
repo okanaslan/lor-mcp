@@ -26,8 +26,8 @@ to improve.
    recent UTC-day report.
 3. LOR resolves the workspace and reads aggregate usage counters.
 4. LOR returns lifetime summary totals, metric definitions, per-entry counters,
-   optional `lastDetailedAt` values, and recommended actions for skills,
-   subagents, and workspace notes.
+   request-level routing outcomes, optional `lastDetailedAt` values, and
+   recommended actions for skills, subagents, and workspace notes.
 5. The current agent identifies heavily used observed entries, observed entries
    with zero detail reads, and entries that are often matched but rarely opened
    in detail.
@@ -48,6 +48,10 @@ The report only includes entries with recorded usage history. It does not list
 catalog entries that have never been listed, matched, or opened since tracking
 started. Recent daily periods do not fabricate history from older lifetime-only
 counters.
+
+Routing outcomes are useful for spotting broad routing misses, such as many
+skill match requests returning no candidates. They are not per-entry counters
+and should be read separately from filtered entry rows.
 
 ## 6. Related Feature Specs
 

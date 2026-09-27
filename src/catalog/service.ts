@@ -69,6 +69,8 @@ import {
   type UsageAnalyticsSummary,
   type UsageCounterIncrement,
   type UsageCounterRecord,
+  type UsageEntryType,
+  type UsageMatchOutcomeRecord,
   type UsageOperation,
   type VerificationMetadata,
   type WorkspaceCatalogSyncApplyResult,
@@ -1226,6 +1228,12 @@ export class CatalogService {
     await this.recordUsage(
       matches.map((note) => usageFromWorkspaceNoteMatch(workspace, note)),
     );
+    await this.recordMatchOutcome({
+      workspace,
+      entryType: "note",
+      recommendationCount: matches.length,
+      noMatch: matches.length === 0,
+    });
 
     return {
       status: matches.length > 0 ? "ok" : "no_match",
@@ -1277,6 +1285,15 @@ export class CatalogService {
       periodStartDay: periodBounds?.startDay,
       periodEndDay: periodBounds?.endDay,
     });
+    const outcomeRecords = await this.#repository.getUsageMatchOutcomes(
+      workspace,
+      {
+        entryType: validated.entryType,
+        period,
+        periodStartDay: periodBounds?.startDay,
+        periodEndDay: periodBounds?.endDay,
+      },
+    );
     const entries = usageAnalyticsEntries(
       workspace,
       records,
@@ -1305,6 +1322,11 @@ export class CatalogService {
       },
       metricDefinitions: usageAnalyticsMetricDefinitions(period),
       summary: summarizeUsageAnalytics(entries),
+      routingOutcomes: summarizeRoutingOutcomes(outcomeRecords, {
+        workspace,
+        entryType: validated.entryType,
+        period,
+      }),
       entries,
       recommendedActions: usageAnalyticsRecommendedActions(entries),
     };
@@ -1420,6 +1442,12 @@ export class CatalogService {
         usageFromMatchCandidate(workspace, candidate, "matched")
       ),
     );
+    await this.recordMatchOutcome({
+      workspace,
+      entryType: "skill",
+      recommendationCount: result.data.skills.length,
+      noMatch: result.data.skills.length === 0,
+    });
     return result;
   }
 
@@ -1436,6 +1464,12 @@ export class CatalogService {
         usageFromMatchCandidate(workspace, candidate, "matched")
       ),
     );
+    await this.recordMatchOutcome({
+      workspace,
+      entryType: "subagent",
+      recommendationCount: result.data.subagents.length,
+      noMatch: result.data.subagents.length === 0,
+    });
     return result;
   }
 
@@ -1520,6 +1554,30 @@ export class CatalogService {
 
     try {
       await this.#repository.recordUsageCounters(increments, {
+        now: this.#now(),
+      });
+    } catch (error) {
+      const appError = toLorError(error);
+      this.#logger.warn(
+        {
+          event: "usage_analytics_write_failed",
+          errorCode: appError.code,
+        },
+        "Usage analytics write failed after a successful operation.",
+      );
+    }
+  }
+
+  private async recordMatchOutcome(
+    increment: {
+      workspace: string;
+      entryType: UsageEntryType;
+      recommendationCount: number;
+      noMatch: boolean;
+    },
+  ): Promise<void> {
+    try {
+      await this.#repository.recordUsageMatchOutcome(increment, {
         now: this.#now(),
       });
     } catch (error) {
@@ -2192,6 +2250,42 @@ function summarizeUsageAnalytics(
   }
 
   return summary;
+}
+
+function summarizeRoutingOutcomes(
+  records: readonly UsageMatchOutcomeRecord[],
+  appliesTo: UsageAnalyticsReport["routingOutcomes"]["appliesTo"],
+): UsageAnalyticsReport["routingOutcomes"] {
+  const byEntryType: UsageAnalyticsReport["routingOutcomes"]["byEntryType"] = {
+    skill: emptyRoutingOutcomeSummary(),
+    subagent: emptyRoutingOutcomeSummary(),
+    note: emptyRoutingOutcomeSummary(),
+  };
+  for (const record of records) {
+    const summary = byEntryType[record.entryType];
+    summary.matchRequests += record.matchRequests;
+    summary.noMatchRequests += record.noMatchRequests;
+    summary.recommendationCount += record.recommendationCount;
+  }
+  for (const summary of Object.values(byEntryType)) {
+    summary.noMatchRate = summary.matchRequests === 0
+      ? 0
+      : summary.noMatchRequests / summary.matchRequests;
+    summary.averageRecommendations = summary.matchRequests === 0
+      ? 0
+      : summary.recommendationCount / summary.matchRequests;
+  }
+  return { appliesTo, byEntryType };
+}
+
+function emptyRoutingOutcomeSummary() {
+  return {
+    matchRequests: 0,
+    noMatchRequests: 0,
+    noMatchRate: 0,
+    recommendationCount: 0,
+    averageRecommendations: 0,
+  };
 }
 
 function emptyUsageTypeSummary() {

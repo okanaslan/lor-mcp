@@ -2552,6 +2552,11 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
       workspace: "Consumer-Workspace",
       task: "backend api implementation",
     });
+    await service.findMatchingSkills({
+      workspace: "Consumer-Workspace",
+      task: "unrelated watercolor illustration",
+      requiredAll: ["missing-signal"],
+    });
     await service.getSkillDetail({
       workspace: "Consumer-Workspace",
       skillName: "backend-api",
@@ -2562,6 +2567,11 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
       workspace: "Consumer-Workspace",
       task: "backend api tests",
     });
+    await service.findMatchingSubagents({
+      workspace: "Consumer-Workspace",
+      task: "unrelated watercolor illustration",
+      requiredAll: ["missing-signal"],
+    });
     await service.getSubagentDetail({
       workspace: "Consumer-Workspace",
       subagentName: "backend-api-test-profile",
@@ -2571,6 +2581,10 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
     await service.findMatchingWorkspaceNotes({
       workspace: "LOR-MCP",
       query: "backend API",
+    });
+    await service.findMatchingWorkspaceNotes({
+      workspace: "LOR-MCP",
+      query: "zzzzzz qqqqqq",
     });
     await service.getWorkspaceNote({
       workspace: "LOR-MCP",
@@ -2617,6 +2631,39 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
       total: 3,
     });
     assertEquals(consumerReport.summary.byEntryType.note.total, 0);
+    assertEquals(consumerReport.routingOutcomes.appliesTo, {
+      workspace: "Consumer-Workspace",
+      entryType: undefined,
+      period: "lifetime",
+    });
+    assertEquals(
+      consumerReport.routingOutcomes.byEntryType.skill.matchRequests,
+      2,
+    );
+    assertEquals(
+      consumerReport.routingOutcomes.byEntryType.skill.noMatchRequests,
+      1,
+    );
+    assertEquals(
+      consumerReport.routingOutcomes.byEntryType.skill.noMatchRate,
+      0.5,
+    );
+    assertEquals(
+      consumerReport.routingOutcomes.byEntryType.skill.recommendationCount,
+      1,
+    );
+    assertEquals(
+      consumerReport.routingOutcomes.byEntryType.skill.averageRecommendations,
+      0.5,
+    );
+    assertEquals(
+      consumerReport.routingOutcomes.byEntryType.subagent.matchRequests,
+      2,
+    );
+    assertEquals(
+      consumerReport.routingOutcomes.byEntryType.subagent.noMatchRequests,
+      1,
+    );
     assertEquals(
       consumerReport.entries.map((entry) =>
         `${entry.entryType}:${entry.scope}:${entry.entryKey}`
@@ -2636,10 +2683,20 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
       detailed: 1,
       total: 3,
     });
+    assertEquals(noteReport.routingOutcomes.byEntryType.note.matchRequests, 2);
+    assertEquals(
+      noteReport.routingOutcomes.byEntryType.note.noMatchRequests,
+      1,
+    );
     assertEquals(noteReport.entries[0].scope, "workspace");
     assertEquals(noteReport.entries[0].entryKey, note.noteId);
     assertEquals(skillProjectReport.entries.length, 1);
     assertEquals(skillProjectReport.entries[0].workspace, "Consumer-Workspace");
+    assertEquals(skillProjectReport.routingOutcomes.appliesTo, {
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      period: "lifetime",
+    });
   } finally {
     repo.close();
   }

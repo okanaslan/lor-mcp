@@ -30,6 +30,8 @@ import type {
   UsageCounterIncrement,
   UsageCounterRecord,
   UsageEntryType,
+  UsageMatchOutcomeIncrement,
+  UsageMatchOutcomeRecord,
   UsageOperation,
   VerificationMetadata,
   WorkspaceNote,
@@ -158,6 +160,16 @@ interface UsageCounterRow {
   lastSeenAt: string;
 }
 
+interface UsageMatchOutcomeRow {
+  workspace: string;
+  entryType: string;
+  matchRequests: number;
+  noMatchRequests: number;
+  recommendationCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
 import { assertRevision, fingerprint } from "@src/catalog/revision.ts";
 import type { OperationReceipt } from "@src/tools/operations.ts";
 import type { ToolResult } from "@src/tools/response.ts";
@@ -182,7 +194,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         const current = this.#db.prepare(
           "SELECT MAX(version) AS version FROM schema_migrations",
         ).get<{ version: number }>();
-        if ((current?.version ?? 0) > 15) {
+        if ((current?.version ?? 0) > 16) {
           throw new LorError(
             "setup_error",
             "Catalog schema is newer than this server. Use a compatible release.",
@@ -210,6 +222,8 @@ export class SqliteCatalogRepository implements CatalogRepository {
         db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
         db.exec(USAGE_COUNTERS_SCHEMA_SQL);
         db.exec(USAGE_DAILY_COUNTERS_SCHEMA_SQL);
+        db.exec(USAGE_MATCH_OUTCOMES_SCHEMA_SQL);
+        db.exec(USAGE_DAILY_MATCH_OUTCOMES_SCHEMA_SQL);
         db.exec(`CREATE TABLE IF NOT EXISTS operation_receipts (
         workspace TEXT NOT NULL, operationKey TEXT NOT NULL,
         payloadHash TEXT NOT NULL, status TEXT NOT NULL, result TEXT,
@@ -236,7 +250,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
               UPDATE catalog_generation SET token = lower(hex(randomblob(16))) WHERE id = 1; END`);
           }
         }
-        recordSchemaVersion(db, 15);
+        recordSchemaVersion(db, 16);
       });
       migrate();
     } catch (error) {
@@ -1353,6 +1367,59 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  recordUsageMatchOutcome(
+    increment: UsageMatchOutcomeIncrement,
+    options: { now: string },
+  ): Promise<void> {
+    const db = this.requireDb();
+    const day = usageDay(options.now);
+    const noMatchRequests = increment.noMatch ? 1 : 0;
+    const record = db.transaction(() => {
+      db.exec(
+        `INSERT INTO usage_match_outcomes (
+          workspace, entryType, matchRequests, noMatchRequests,
+          recommendationCount, firstSeenAt, lastSeenAt
+        ) VALUES (?, ?, 1, ?, ?, ?, ?)
+        ON CONFLICT (workspace, entryType) DO UPDATE SET
+          matchRequests = matchRequests + 1,
+          noMatchRequests = noMatchRequests + excluded.noMatchRequests,
+          recommendationCount = recommendationCount + excluded.recommendationCount,
+          lastSeenAt = excluded.lastSeenAt`,
+        increment.workspace,
+        increment.entryType,
+        noMatchRequests,
+        increment.recommendationCount,
+        options.now,
+        options.now,
+      );
+      db.exec(
+        `INSERT INTO usage_daily_match_outcomes (
+          day, workspace, entryType, matchRequests, noMatchRequests,
+          recommendationCount, firstSeenAt, lastSeenAt
+        ) VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+        ON CONFLICT (day, workspace, entryType) DO UPDATE SET
+          matchRequests = matchRequests + 1,
+          noMatchRequests = noMatchRequests + excluded.noMatchRequests,
+          recommendationCount = recommendationCount + excluded.recommendationCount,
+          lastSeenAt = excluded.lastSeenAt`,
+        day,
+        increment.workspace,
+        increment.entryType,
+        noMatchRequests,
+        increment.recommendationCount,
+        options.now,
+        options.now,
+      );
+    });
+
+    try {
+      record();
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
   getUsageCounters(
     workspace: string,
     filter: Omit<UsageAnalyticsFilter, "workspace"> & {
@@ -1405,6 +1472,53 @@ export class SqliteCatalogRepository implements CatalogRepository {
              ORDER BY entryType, entryScope, projectName, entryKey, operation`,
       ).all(...values);
       return Promise.resolve(rows.map(mapUsageCounterRow));
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  getUsageMatchOutcomes(
+    workspace: string,
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    } = {},
+  ): Promise<UsageMatchOutcomeRecord[]> {
+    try {
+      const clauses = ["workspace = ?"];
+      const values: string[] = [workspace];
+      const daily = filter.period !== undefined && filter.period !== "lifetime";
+      if (filter.entryType) {
+        clauses.push("entryType = ?");
+        values.push(filter.entryType);
+      }
+      if (daily) {
+        if (filter.periodStartDay) {
+          clauses.push("day >= ?");
+          values.push(filter.periodStartDay);
+        }
+        if (filter.periodEndDay) {
+          clauses.push("day <= ?");
+          values.push(filter.periodEndDay);
+        }
+      }
+
+      const rows = this.requireDb().prepare<UsageMatchOutcomeRow>(
+        daily
+          ? `SELECT
+              workspace, entryType, SUM(matchRequests) AS matchRequests,
+              SUM(noMatchRequests) AS noMatchRequests,
+              SUM(recommendationCount) AS recommendationCount,
+              MIN(firstSeenAt) AS firstSeenAt, MAX(lastSeenAt) AS lastSeenAt
+             FROM usage_daily_match_outcomes
+             WHERE ${clauses.join(" AND ")}
+             GROUP BY workspace, entryType
+             ORDER BY entryType`
+          : `SELECT * FROM usage_match_outcomes
+             WHERE ${clauses.join(" AND ")}
+             ORDER BY entryType`,
+      ).all(...values);
+      return Promise.resolve(rows.map(mapUsageMatchOutcomeRow));
     } catch (error) {
       return Promise.reject(mapStorageError(error));
     }
@@ -1760,6 +1874,20 @@ function mapUsageCounterRow(row: UsageCounterRow): UsageCounterRecord {
     projectName: row.projectName ?? undefined,
     operation: parseUsageOperation(row.operation),
     count: row.count,
+    firstSeenAt: row.firstSeenAt,
+    lastSeenAt: row.lastSeenAt,
+  };
+}
+
+function mapUsageMatchOutcomeRow(
+  row: UsageMatchOutcomeRow,
+): UsageMatchOutcomeRecord {
+  return {
+    workspace: row.workspace,
+    entryType: parseUsageEntryType(row.entryType),
+    matchRequests: row.matchRequests,
+    noMatchRequests: row.noMatchRequests,
+    recommendationCount: row.recommendationCount,
     firstSeenAt: row.firstSeenAt,
     lastSeenAt: row.lastSeenAt,
   };
@@ -2308,4 +2436,37 @@ CREATE INDEX IF NOT EXISTS usage_daily_workspace_day_idx
 
 CREATE INDEX IF NOT EXISTS usage_daily_workspace_type_idx
   ON usage_daily_counters(workspace, entryType, day);
+`;
+
+const USAGE_MATCH_OUTCOMES_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS usage_match_outcomes (
+  workspace TEXT NOT NULL,
+  entryType TEXT NOT NULL,
+  matchRequests INTEGER NOT NULL,
+  noMatchRequests INTEGER NOT NULL,
+  recommendationCount INTEGER NOT NULL,
+  firstSeenAt TEXT NOT NULL,
+  lastSeenAt TEXT NOT NULL,
+  PRIMARY KEY (workspace, entryType)
+);
+
+CREATE INDEX IF NOT EXISTS usage_match_outcomes_workspace_idx
+  ON usage_match_outcomes(workspace);
+`;
+
+const USAGE_DAILY_MATCH_OUTCOMES_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS usage_daily_match_outcomes (
+  day TEXT NOT NULL,
+  workspace TEXT NOT NULL,
+  entryType TEXT NOT NULL,
+  matchRequests INTEGER NOT NULL,
+  noMatchRequests INTEGER NOT NULL,
+  recommendationCount INTEGER NOT NULL,
+  firstSeenAt TEXT NOT NULL,
+  lastSeenAt TEXT NOT NULL,
+  PRIMARY KEY (day, workspace, entryType)
+);
+
+CREATE INDEX IF NOT EXISTS usage_daily_match_outcomes_workspace_day_idx
+  ON usage_daily_match_outcomes(workspace, day);
 `;

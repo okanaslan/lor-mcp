@@ -765,6 +765,23 @@ export interface UsageCounterRecord {
   lastSeenAt: string;
 }
 
+export interface UsageMatchOutcomeIncrement {
+  workspace: string;
+  entryType: UsageEntryType;
+  recommendationCount: number;
+  noMatch: boolean;
+}
+
+export interface UsageMatchOutcomeRecord {
+  workspace: string;
+  entryType: UsageEntryType;
+  matchRequests: number;
+  noMatchRequests: number;
+  recommendationCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
 export interface UsageAnalyticsFilter {
   workspace: string;
   entryType?: UsageEntryType;
@@ -805,6 +822,14 @@ export interface UsageAnalyticsSummary {
   byOperation: Record<UsageOperation, number>;
 }
 
+export interface UsageRoutingOutcomeSummary {
+  matchRequests: number;
+  noMatchRequests: number;
+  noMatchRate: number;
+  recommendationCount: number;
+  averageRecommendations: number;
+}
+
 export interface UsageAnalyticsReport {
   workspace: string;
   checkedAt: string;
@@ -824,6 +849,14 @@ export interface UsageAnalyticsReport {
     string
   >;
   summary: UsageAnalyticsSummary;
+  routingOutcomes: {
+    appliesTo: {
+      workspace: string;
+      entryType?: UsageEntryType;
+      period: UsageAnalyticsPeriod;
+    };
+    byEntryType: Record<UsageEntryType, UsageRoutingOutcomeSummary>;
+  };
   entries: UsageAnalyticsEntry[];
   recommendedActions: string[];
 }
@@ -1085,6 +1118,10 @@ export interface CatalogRepository {
     increments: readonly UsageCounterIncrement[],
     options: { now: string },
   ): Promise<void>;
+  recordUsageMatchOutcome(
+    increment: UsageMatchOutcomeIncrement,
+    options: { now: string },
+  ): Promise<void>;
   getUsageCounters(
     workspace: string,
     filter: Omit<UsageAnalyticsFilter, "workspace"> & {
@@ -1092,6 +1129,13 @@ export interface CatalogRepository {
       periodEndDay?: string;
     },
   ): Promise<UsageCounterRecord[]>;
+  getUsageMatchOutcomes(
+    workspace: string,
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    },
+  ): Promise<UsageMatchOutcomeRecord[]>;
   updateEntry(
     workspace: string,
     input: CatalogEntryUpdate & { now: string },

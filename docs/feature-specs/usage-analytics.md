@@ -38,6 +38,14 @@ used, so users can improve catalog quality over time.
   - `find_matching_skill`
   - `find_matching_subagent`
   - `find_matching_workspace_note`
+- LOR must count successful match requests for skills, subagents, and workspace
+  notes, including requests that return no recommendations.
+- LOR must report request-level routing outcomes:
+  - match request count
+  - no-match request count
+  - no-match rate
+  - recommendation count
+  - average recommendations per successful request
 - LOR must count when an entry is retrieved by a detail tool:
   - `get_skill_detail`
   - `get_subagent_detail`
@@ -59,6 +67,7 @@ used, so users can improve catalog quality over time.
   - metric definitions
   - applied filters
   - summary totals by entry type and operation
+  - request-level routing outcomes by entry type
   - per-entry usage rows
   - recommended next actions
 - Usage rows must be grouped by stable entry identity: workspace, entry type,
@@ -119,6 +128,11 @@ metadata changes, its counters remain grouped under the same stable entry key.
 Reports include entries with recorded usage history only. A missing entry means
 there is no retained list, match, or detail counter for it in the requested
 workspace/filter, not proof that the underlying catalog entry is unused forever.
+
+Routing outcomes are request-level aggregates by workspace, entry type, and
+period. They do not apply `entryKey`, `scope`, or `projectName` filters because
+no-match requests and whole-result recommendation counts cannot be assigned to a
+single catalog entry. Failed match requests do not increment outcome counters.
 
 ## 7. Error Handling
 

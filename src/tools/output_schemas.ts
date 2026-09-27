@@ -289,6 +289,13 @@ const usageCounts = {
   detailed: count,
   total: count,
 };
+const routingOutcome = z.object({
+  matchRequests: count,
+  noMatchRequests: count,
+  noMatchRate: z.number(),
+  recommendationCount: count,
+  averageRecommendations: z.number(),
+});
 const usageType = z.enum(["skill", "subagent", "note"]);
 const usagePeriod = z.enum(["lifetime", "last_7_days", "last_30_days"]);
 const usage = z.object({
@@ -315,6 +322,14 @@ const usage = z.object({
       z.object({ entries: count, ...usageCounts }),
     ),
     byOperation: z.object({ listed: count, matched: count, detailed: count }),
+  }),
+  routingOutcomes: z.object({
+    appliesTo: z.object({
+      workspace: text,
+      entryType: usageType.optional(),
+      period: usagePeriod,
+    }),
+    byEntryType: z.record(usageType, routingOutcome),
   }),
   entries: z.array(z.object({
     workspace: text,

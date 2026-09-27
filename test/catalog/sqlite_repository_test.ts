@@ -1113,7 +1113,7 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     });
     const workspaceB = await repo.getUsageCounters("workspace-b", {});
 
-    assertEquals(schemaVersion, 15);
+    assertEquals(schemaVersion, 16);
     assertEquals(workspaceA.map((record) => record.entryKey), [
       "backend-skill",
       "api-test-subagent",
@@ -1179,6 +1179,43 @@ Deno.test("SqliteCatalogRepository stores daily usage without fabricating histor
     assertEquals(july1[0].count, 1);
     assertEquals(july2[0].count, 2);
     assertEquals(beforeTracking, []);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository stores match outcome counters by period", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await repo.recordUsageMatchOutcome({
+      workspace: "workspace-a",
+      entryType: "skill",
+      recommendationCount: 2,
+      noMatch: false,
+    }, { now: "2026-07-01T00:00:00.000Z" });
+    await repo.recordUsageMatchOutcome({
+      workspace: "workspace-a",
+      entryType: "skill",
+      recommendationCount: 0,
+      noMatch: true,
+    }, { now: "2026-07-02T00:00:00.000Z" });
+
+    const lifetime = await repo.getUsageMatchOutcomes("workspace-a", {
+      entryType: "skill",
+    });
+    const july2 = await repo.getUsageMatchOutcomes("workspace-a", {
+      entryType: "skill",
+      period: "last_7_days",
+      periodStartDay: "2026-07-02",
+      periodEndDay: "2026-07-02",
+    });
+
+    assertEquals(lifetime[0].matchRequests, 2);
+    assertEquals(lifetime[0].noMatchRequests, 1);
+    assertEquals(lifetime[0].recommendationCount, 2);
+    assertEquals(july2[0].matchRequests, 1);
+    assertEquals(july2[0].noMatchRequests, 1);
+    assertEquals(july2[0].recommendationCount, 0);
   } finally {
     repo.close();
   }

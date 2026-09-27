@@ -84,6 +84,28 @@ Every new usage write updates both `usage_counters` and
 `usage_daily_counters`. Existing lifetime counters remain valid during
 migration, but no daily history is fabricated from them.
 
+Add request-level routing outcome tables:
+
+- `usage_match_outcomes`
+- `usage_daily_match_outcomes`
+
+Fields:
+
+- `workspace`
+- `entryType`
+- `matchRequests`
+- `noMatchRequests`
+- `recommendationCount`
+- `firstSeenAt`
+- `lastSeenAt`
+- daily table only: `day`
+
+Match outcome counters are written after successful match tool execution. A
+successful match request with zero returned candidates increments
+`matchRequests` and `noMatchRequests`, with `recommendationCount` set to `0`.
+Failed validation, storage failures before a response, or thrown match requests
+do not increment outcome counters. Raw task/query text is never stored.
+
 Supported values:
 
 - `entryType`: `skill`, `subagent`, `note`
@@ -127,6 +149,7 @@ Add `get_usage_analytics`:
   - `filters`
   - `metricDefinitions`
   - `summary`
+  - `routingOutcomes`
   - `entries`
   - `recommendedActions`
 
@@ -182,6 +205,11 @@ deterministic rule as lifetime reports.
 `scope: "global"` is valid only for skills and subagents. Workspace notes are
 always workspace-scoped.
 
+`routingOutcomes` are request-level aggregates. They are scoped only by
+workspace, optional `entryType`, and selected period. They intentionally do not
+honor `entryKey`, `scope`, or `projectName` filters, because no-match requests
+and recommendation counts cannot be attributed to a single entry.
+
 ## 6. Alternatives Considered
 
 - Tool-call counters only: rejected because users need to know which entries
@@ -198,6 +226,7 @@ always workspace-scoped.
 
 - Add a schema migration for `usage_counters`.
 - Add an additive schema migration for `usage_daily_counters`.
+- Add additive schema migrations for match outcome counters.
 - Add repository methods for batch counter increments and analytics reads.
 - Prefer batch increments after list/match operations to avoid one write per
   entry when possible.
