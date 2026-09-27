@@ -2835,6 +2835,195 @@ Deno.test("CatalogService keeps attribution by recommendation day for period rep
   }
 });
 
+Deno.test("CatalogService reports global usage across canonical workspaces", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.registerWorkspaceAlias({
+      workspace: "/workspaces/app",
+      alias: "app",
+      confirm: true,
+    });
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "global-backend",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Global Backend Skill",
+      primarySpecialty: "backend api implementation",
+      specialtyTags: ["backend", "api"],
+    });
+    await service.introduceSkill({
+      workspace: "/workspaces/app",
+      scope: "workspace",
+      skillName: "local-only",
+      projectName: "Local App",
+      displayName: "Local Only Skill",
+      primarySpecialty: "local app workflow",
+      specialtyTags: ["local-only"],
+      routing: {
+        requiredAll: ["local-only"],
+      },
+    });
+    await repo.recordUsageCounters([
+      {
+        workspace: "/workspaces/app",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "global-backend",
+        projectName: "Old Project",
+        operation: "listed",
+      },
+      {
+        workspace: "app",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "global-backend",
+        projectName: "Old Project",
+        operation: "detailed",
+        count: 2,
+      },
+      {
+        workspace: "other-workspace",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "global-backend",
+        projectName: "Old Project",
+        operation: "matched",
+      },
+      {
+        workspace: "other-workspace",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "global-backend",
+        projectName: "Old Project",
+        operation: "detailed",
+      },
+    ], { now: FIXED_NOW });
+    await repo.recordRecommendationAttributions([
+      {
+        recommendationId: "rec-1",
+        workspace: "app",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "global-backend",
+        recommendedAt: FIXED_NOW,
+        expiresAt: "2026-08-11T00:00:00.000Z",
+      },
+    ], { now: FIXED_NOW });
+    await repo.attributeRecommendationOpen({
+      recommendationId: "rec-1",
+      workspace: "app",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "global-backend",
+    }, { now: FIXED_NOW });
+    await repo.recordUnattributedDetailOpen({
+      workspace: "other-workspace",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "global-backend",
+    }, { now: FIXED_NOW });
+
+    await service.findMatchingSkills({
+      workspace: "/workspaces/app",
+      task: "local app workflow local-only",
+      requiredAll: ["local-only"],
+    });
+
+    const report = await service.getUsageAnalytics({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "global-backend",
+      acrossWorkspaces: true,
+    });
+
+    assertEquals(report.filters.acrossWorkspaces, true);
+    assertEquals(report.routingOutcomes.appliesTo, {
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      period: "lifetime",
+      acrossWorkspaces: true,
+    });
+    assert(
+      report.routingOutcomes.unavailableReason?.includes(
+        "do not record whether returned recommendations were global",
+      ),
+    );
+    assertEquals(
+      report.routingOutcomes.byEntryType.skill.matchRequests,
+      0,
+    );
+    assertEquals(report.entries.length, 1);
+    assertEquals(
+      report.entries[0].projectName,
+      "Local Orchestration Router (LOR)",
+    );
+    assertEquals(report.entries[0].listed, 1);
+    assertEquals(report.entries[0].matched, 1);
+    assertEquals(report.entries[0].detailed, 3);
+    assertEquals(report.entries[0].total, 5);
+    assertEquals(report.entries[0].attribution, {
+      impressions: 1,
+      attributedOpens: 1,
+      attributionRate: 1,
+      unattributedDetailOpens: 1,
+    });
+    assertEquals(
+      report.entries[0].workspaceContributions?.map((
+        contribution,
+      ) => ({
+        workspace: contribution.workspace,
+        listed: contribution.listed,
+        matched: contribution.matched,
+        detailed: contribution.detailed,
+        total: contribution.total,
+        attribution: contribution.attribution,
+      })),
+      [
+        {
+          workspace: "/workspaces/app",
+          listed: 1,
+          matched: 0,
+          detailed: 2,
+          total: 3,
+          attribution: {
+            impressions: 1,
+            attributedOpens: 1,
+            attributionRate: 1,
+            unattributedDetailOpens: 0,
+          },
+        },
+        {
+          workspace: "other-workspace",
+          listed: 0,
+          matched: 1,
+          detailed: 1,
+          total: 2,
+          attribution: {
+            impressions: 0,
+            attributedOpens: 0,
+            attributionRate: 0,
+            unattributedDetailOpens: 1,
+          },
+        },
+      ],
+    );
+
+    await assertRejects(
+      () =>
+        service.getUsageAnalytics({
+          workspace: "LOR-MCP",
+          entryType: "skill",
+          acrossWorkspaces: true,
+        }),
+      Error,
+      "acrossWorkspaces requires scope",
+    );
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService usage analytics sorts and groups by stable identity", async () => {
   const { repo, service } = await createCatalogService();
   try {

@@ -870,8 +870,35 @@ Deno.test("getUsageAnalyticsInputSchema accepts public V2 usage filters", () => 
       projectName: "Local Orchestration Router (LOR)",
       sortBy: "detailed",
       period: "last_7_days",
+      acrossWorkspaces: true,
     }).success,
     true,
+  );
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "subagent",
+      scope: "global",
+      acrossWorkspaces: true,
+    }).success,
+    true,
+  );
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "skill",
+      acrossWorkspaces: true,
+    }).success,
+    false,
+  );
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      entryType: "note",
+      scope: "global",
+      acrossWorkspaces: true,
+    }).success,
+    false,
   );
   assertEquals(
     getUsageAnalyticsInputSchema.safeParse({

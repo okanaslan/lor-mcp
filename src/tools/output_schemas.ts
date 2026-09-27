@@ -326,6 +326,7 @@ const usage = z.object({
     entryType: usageType.optional(),
     sortBy: z.enum(["listed", "matched", "detailed"]).optional(),
     period: usagePeriod.optional(),
+    acrossWorkspaces: z.boolean().optional(),
   }),
   metricDefinitions: z.record(
     z.enum(["listed", "matched", "detailed", "total", "lastDetailedAt"]),
@@ -345,8 +346,10 @@ const usage = z.object({
       workspace: text,
       entryType: usageType.optional(),
       period: usagePeriod,
+      acrossWorkspaces: z.boolean().optional(),
     }),
     byEntryType: z.record(usageType, routingOutcome),
+    unavailableReason: text.optional(),
   }),
   coverage: z.object({
     registered: count,
@@ -378,6 +381,14 @@ const usage = z.object({
     lastSeenAt: text.optional(),
     lastDetailedAt: text.optional(),
     attribution: attributionSummary.optional(),
+    workspaceContributions: z.array(z.object({
+      workspace: text,
+      ...usageCounts,
+      firstSeenAt: text.optional(),
+      lastSeenAt: text.optional(),
+      lastDetailedAt: text.optional(),
+      attribution: attributionSummary.optional(),
+    })).optional(),
   })),
   recommendedActions: strings,
 });

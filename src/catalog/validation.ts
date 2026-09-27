@@ -393,6 +393,22 @@ export function validateUsageAnalyticsFilter(
       { field: "projectName", entryType: "note" },
     );
   }
+  if (input.acrossWorkspaces === true) {
+    if (input.scope !== "global") {
+      throw new LorError(
+        "validation_error",
+        'acrossWorkspaces requires scope: "global".',
+        { field: "scope" },
+      );
+    }
+    if (input.entryType !== "skill" && input.entryType !== "subagent") {
+      throw new LorError(
+        "validation_error",
+        'acrossWorkspaces requires entryType: "skill" or "subagent".',
+        { field: "entryType" },
+      );
+    }
+  }
 
   return {
     workspace: requireWorkspace(input.workspace),
@@ -410,6 +426,7 @@ export function validateUsageAnalyticsFilter(
     period: input.period === undefined
       ? undefined
       : requireUsageAnalyticsPeriod(input.period),
+    acrossWorkspaces: input.acrossWorkspaces === true ? true : undefined,
   };
 }
 

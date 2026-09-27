@@ -232,8 +232,9 @@ Latest implementation verification:
   notes are listed, matched, and opened in detail without storing raw prompts,
   task text, or note bodies. Reports include lifetime and recent daily periods,
   request-level routing outcomes, current-catalog coverage, metric definitions,
-  recommendation attribution, optional counter sorting, and stable identity
-  grouping across mutable project metadata. Technical planning is tracked in
+  recommendation attribution, optional counter sorting, global skill/subagent
+  cross-workspace reports, and stable identity grouping across mutable project
+  metadata. Technical planning is tracked in
   [Usage Analytics Counters](tech-specs/usage-analytics-counters.md).
 - [Negative Routing Metadata](feature-specs/negative-routing-metadata.md):
   Implemented for V2. Adds structured "do not use when" metadata for skills and

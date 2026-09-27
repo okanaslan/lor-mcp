@@ -875,7 +875,10 @@ Deno.test("HTTP MCP handler calls get_usage_analytics", async () => {
         name: "get_usage_analytics",
         arguments: {
           workspace: "LOR-MCP",
+          entryType: "skill",
+          scope: "global",
           sortBy: "detailed",
+          acrossWorkspaces: true,
         },
       },
     });
@@ -888,6 +891,15 @@ Deno.test("HTTP MCP handler calls get_usage_analytics", async () => {
     assertEquals(
       body.result.structuredContent.data.filters.sortBy,
       "detailed",
+    );
+    assertEquals(
+      body.result.structuredContent.data.filters.acrossWorkspaces,
+      true,
+    );
+    assertEquals(
+      typeof body.result.structuredContent.data.routingOutcomes
+        .unavailableReason,
+      "string",
     );
     assertEquals(
       typeof body.result.structuredContent.data.metricDefinitions.detailed,

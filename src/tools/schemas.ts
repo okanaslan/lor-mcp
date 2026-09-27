@@ -561,6 +561,7 @@ export const getUsageAnalyticsInputSchema = z.strictObject({
   projectName: z.string().max(16000).trim().min(1).optional(),
   sortBy: z.enum(["listed", "matched", "detailed"]).optional(),
   period: z.enum(["lifetime", "last_7_days", "last_30_days"]).optional(),
+  acrossWorkspaces: z.boolean().optional(),
 }).refine(
   (input) => !(input.entryType === "note" && input.scope === "global"),
   {
@@ -572,6 +573,21 @@ export const getUsageAnalyticsInputSchema = z.strictObject({
   {
     message: "Workspace notes do not support projectName filters.",
     path: ["projectName"],
+  },
+).refine(
+  (input) => !(input.acrossWorkspaces === true && input.scope !== "global"),
+  {
+    message: 'acrossWorkspaces requires scope: "global".',
+    path: ["scope"],
+  },
+).refine(
+  (input) =>
+    !(input.acrossWorkspaces === true &&
+      input.entryType !== "skill" &&
+      input.entryType !== "subagent"),
+  {
+    message: 'acrossWorkspaces requires entryType: "skill" or "subagent".',
+    path: ["entryType"],
   },
 );
 

@@ -825,6 +825,19 @@ export interface UsageAnalyticsFilter {
   projectName?: string;
   sortBy?: UsageOperation;
   period?: UsageAnalyticsPeriod;
+  acrossWorkspaces?: boolean;
+}
+
+export interface UsageWorkspaceContribution {
+  workspace: string;
+  listed: number;
+  matched: number;
+  detailed: number;
+  total: number;
+  firstSeenAt?: string;
+  lastSeenAt?: string;
+  lastDetailedAt?: string;
+  attribution?: UsageAttributionSummary;
 }
 
 export interface UsageAnalyticsEntry {
@@ -842,6 +855,7 @@ export interface UsageAnalyticsEntry {
   lastSeenAt?: string;
   lastDetailedAt?: string;
   attribution?: UsageAttributionSummary;
+  workspaceContributions?: UsageWorkspaceContribution[];
 }
 
 export interface UsageAnalyticsTypeSummary {
@@ -901,6 +915,7 @@ export interface UsageAnalyticsReport {
     projectName?: string;
     sortBy?: UsageOperation;
     period?: UsageAnalyticsPeriod;
+    acrossWorkspaces?: boolean;
   };
   metricDefinitions: Record<
     UsageOperation | "total" | "lastDetailedAt",
@@ -912,8 +927,10 @@ export interface UsageAnalyticsReport {
       workspace: string;
       entryType?: UsageEntryType;
       period: UsageAnalyticsPeriod;
+      acrossWorkspaces?: boolean;
     };
     byEntryType: Record<UsageEntryType, UsageRoutingOutcomeSummary>;
+    unavailableReason?: string;
   };
   coverage: UsageCoverageSummary;
   attribution: {
@@ -1178,6 +1195,7 @@ export interface CatalogRepository {
     workspace: string,
     options: { now: string },
   ): Promise<string>;
+  lookupWorkspace(workspace: string): string;
   listWorkspaceAliases(canonicalWorkspace: string): Promise<string[]>;
   getSchemaVersion(): Promise<number | undefined>;
   createWorkspaceNote(input: WorkspaceNote): Promise<WorkspaceNote>;
@@ -1228,6 +1246,12 @@ export interface CatalogRepository {
       periodEndDay?: string;
     },
   ): Promise<UsageCounterRecord[]>;
+  getGlobalUsageCounters(
+    filter: Omit<UsageAnalyticsFilter, "workspace"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    },
+  ): Promise<UsageCounterRecord[]>;
   getUsageMatchOutcomes(
     workspace: string,
     filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
@@ -1242,8 +1266,20 @@ export interface CatalogRepository {
       periodEndDay?: string;
     },
   ): Promise<UsageAttributionRecord[]>;
+  getGlobalUsageAttribution(
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    },
+  ): Promise<UsageAttributionRecord[]>;
   getUsageUnattributedOpens(
     workspace: string,
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    },
+  ): Promise<UsageUnattributedOpenRecord[]>;
+  getGlobalUsageUnattributedOpens(
     filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
       periodStartDay?: string;
       periodEndDay?: string;

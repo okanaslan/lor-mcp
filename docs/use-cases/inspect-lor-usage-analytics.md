@@ -23,7 +23,9 @@ to improve.
    current workspace.
 2. The current agent calls `get_usage_analytics` with the repository workspace,
    optionally using `period: "last_7_days"` or `period: "last_30_days"` for a
-   recent UTC-day report.
+   recent UTC-day report. To inspect global skill or subagent usage across
+   workspaces, the agent calls with `scope: "global"`, `entryType: "skill"` or
+   `entryType: "subagent"`, and `acrossWorkspaces: true`.
 3. LOR resolves the workspace and reads aggregate usage counters.
 4. LOR returns lifetime summary totals, metric definitions, per-entry counters,
    request-level routing outcomes, recommendation attribution, coverage,
@@ -63,6 +65,11 @@ detail. It uses opaque recommendation ids returned by match tools and passed to
 detail tools. Attribution is aggregate and partial: it does not store raw
 queries, repeated detail opens are not counted as new attributed opens, and
 unattributed detail opens are reported separately.
+
+Cross-workspace global reports include per-workspace contribution breakdowns for
+global skills or subagents. Routing outcomes are intentionally unavailable in
+that mode because the request-level counters cannot distinguish global
+recommendations from workspace-local recommendations.
 
 ## 6. Related Feature Specs
 

@@ -76,6 +76,7 @@ import {
   type UsageOperation,
   type UsageRecommendationRecord,
   type UsageUnattributedOpenRecord,
+  type UsageWorkspaceContribution,
   type VerificationMetadata,
   type WorkspaceCatalogSyncApplyResult,
   type WorkspaceCatalogSyncInput,
@@ -1326,34 +1327,59 @@ export class CatalogService {
     const checkedAt = this.#now();
     const period = validated.period ?? "lifetime";
     const periodBounds = usageAnalyticsPeriodBounds(period, checkedAt);
-    const records = await this.#repository.getUsageCounters(workspace, {
-      entryType: validated.entryType,
-      scope: validated.scope,
-      entryKey: validated.entryKey,
-      period,
-      periodStartDay: periodBounds?.startDay,
-      periodEndDay: periodBounds?.endDay,
-    });
-    const outcomeRecords = await this.#repository.getUsageMatchOutcomes(
-      workspace,
-      {
+    const globalAcrossWorkspaces = validated.acrossWorkspaces === true;
+    const records = globalAcrossWorkspaces
+      ? this.canonicalizeUsageRecords(
+        await this.#repository.getGlobalUsageCounters({
+          entryType: validated.entryType,
+          scope: validated.scope,
+          entryKey: validated.entryKey,
+          period,
+          periodStartDay: periodBounds?.startDay,
+          periodEndDay: periodBounds?.endDay,
+        }),
+      )
+      : await this.#repository.getUsageCounters(workspace, {
+        entryType: validated.entryType,
+        scope: validated.scope,
+        entryKey: validated.entryKey,
+        periodStartDay: periodBounds?.startDay,
+        periodEndDay: periodBounds?.endDay,
+        period,
+      });
+    const outcomeRecords = globalAcrossWorkspaces
+      ? []
+      : await this.#repository.getUsageMatchOutcomes(workspace, {
         entryType: validated.entryType,
         period,
         periodStartDay: periodBounds?.startDay,
         periodEndDay: periodBounds?.endDay,
-      },
-    );
-    const attributionRecords = await this.#repository.getUsageAttribution(
-      workspace,
-      {
+      });
+    const attributionRecords = globalAcrossWorkspaces
+      ? this.canonicalizeUsageRecords(
+        await this.#repository.getGlobalUsageAttribution({
+          entryType: validated.entryType,
+          period,
+          periodStartDay: periodBounds?.startDay,
+          periodEndDay: periodBounds?.endDay,
+        }),
+      )
+      : await this.#repository.getUsageAttribution(workspace, {
         entryType: validated.entryType,
         period,
         periodStartDay: periodBounds?.startDay,
         periodEndDay: periodBounds?.endDay,
-      },
-    );
-    const unattributedOpenRecords = await this.#repository
-      .getUsageUnattributedOpens(workspace, {
+      });
+    const unattributedOpenRecords = globalAcrossWorkspaces
+      ? this.canonicalizeUsageRecords(
+        await this.#repository.getGlobalUsageUnattributedOpens({
+          entryType: validated.entryType,
+          period,
+          periodStartDay: periodBounds?.startDay,
+          periodEndDay: periodBounds?.endDay,
+        }),
+      )
+      : await this.#repository.getUsageUnattributedOpens(workspace, {
         entryType: validated.entryType,
         period,
         periodStartDay: periodBounds?.startDay,
@@ -1383,6 +1409,14 @@ export class CatalogService {
       attributionRecords,
       unattributedOpenRecords,
     );
+    if (globalAcrossWorkspaces) {
+      attachWorkspaceContributions(
+        filteredEntries,
+        records,
+        attributionRecords,
+        unattributedOpenRecords,
+      );
+    }
     return {
       workspace,
       checkedAt,
@@ -1400,14 +1434,22 @@ export class CatalogService {
         projectName: validated.projectName,
         sortBy: validated.sortBy,
         period: validated.period,
+        acrossWorkspaces: validated.acrossWorkspaces,
       },
       metricDefinitions: usageAnalyticsMetricDefinitions(period),
       summary: summarizeUsageAnalytics(filteredEntries),
-      routingOutcomes: summarizeRoutingOutcomes(outcomeRecords, {
-        workspace,
-        entryType: validated.entryType,
-        period,
-      }),
+      routingOutcomes: globalAcrossWorkspaces
+        ? unavailableRoutingOutcomes({
+          workspace,
+          entryType: validated.entryType,
+          period,
+          acrossWorkspaces: true,
+        })
+        : summarizeRoutingOutcomes(outcomeRecords, {
+          workspace,
+          entryType: validated.entryType,
+          period,
+        }),
       coverage: summarizeUsageCoverage(filteredEntries),
       attribution: summarizeUsageAttribution(
         filteredEntries,
@@ -1736,6 +1778,20 @@ export class CatalogService {
       );
     }
     return entries;
+  }
+
+  private canonicalizeUsageRecords<T extends { workspace: string }>(
+    records: readonly T[],
+  ): T[] {
+    const cache = new Map<string, string>();
+    return records.map((record) => {
+      let canonical = cache.get(record.workspace);
+      if (!canonical) {
+        canonical = this.#repository.lookupWorkspace(record.workspace);
+        cache.set(record.workspace, canonical);
+      }
+      return { ...record, workspace: canonical };
+    });
   }
 
   private async recordMatchOutcome(
@@ -2625,6 +2681,21 @@ function summarizeRoutingOutcomes(
   return { appliesTo, byEntryType };
 }
 
+function unavailableRoutingOutcomes(
+  appliesTo: UsageAnalyticsReport["routingOutcomes"]["appliesTo"],
+): UsageAnalyticsReport["routingOutcomes"] {
+  return {
+    appliesTo,
+    byEntryType: {
+      skill: emptyRoutingOutcomeSummary(),
+      subagent: emptyRoutingOutcomeSummary(),
+      note: emptyRoutingOutcomeSummary(),
+    },
+    unavailableReason:
+      "Cross-workspace global reports omit routing outcomes because match outcome counters do not record whether returned recommendations were global or workspace-local.",
+  };
+}
+
 function summarizeUsageCoverage(
   entries: readonly UsageAnalyticsEntry[],
 ): UsageAnalyticsReport["coverage"] {
@@ -2671,6 +2742,125 @@ function attachUsageAttribution(
   }
 }
 
+function attachWorkspaceContributions(
+  entries: UsageAnalyticsEntry[],
+  usageRecords: readonly UsageCounterRecord[],
+  attributionRecords: readonly UsageAttributionRecord[],
+  unattributedOpenRecords: readonly UsageUnattributedOpenRecord[],
+): void {
+  const contributions = summarizeWorkspaceContributions(usageRecords);
+  attachContributionAttribution(
+    contributions,
+    attributionRecords,
+    unattributedOpenRecords,
+  );
+
+  for (const entry of entries) {
+    const entryContributions = contributions.get(usageEntryIdentity(entry));
+    entry.workspaceContributions = entryContributions
+      ? [...entryContributions.values()].sort((a, b) =>
+        b.total - a.total || a.workspace.localeCompare(b.workspace)
+      )
+      : [];
+  }
+}
+
+function summarizeWorkspaceContributions(
+  records: readonly UsageCounterRecord[],
+): Map<string, Map<string, UsageWorkspaceContribution>> {
+  const contributions = new Map<
+    string,
+    Map<string, UsageWorkspaceContribution>
+  >();
+  for (const record of records) {
+    const entryKey = usageAttributionIdentity(record);
+    const byWorkspace = contributions.get(entryKey) ??
+      new Map<string, UsageWorkspaceContribution>();
+    const contribution = byWorkspace.get(record.workspace) ?? {
+      workspace: record.workspace,
+      listed: 0,
+      matched: 0,
+      detailed: 0,
+      total: 0,
+    };
+    contribution[record.operation] += record.count;
+    contribution.total += record.count;
+    if (record.operation === "detailed") {
+      contribution.lastDetailedAt = contribution.lastDetailedAt &&
+          contribution.lastDetailedAt > record.lastSeenAt
+        ? contribution.lastDetailedAt
+        : record.lastSeenAt;
+    }
+    contribution.firstSeenAt = contribution.firstSeenAt &&
+        contribution.firstSeenAt < record.firstSeenAt
+      ? contribution.firstSeenAt
+      : record.firstSeenAt;
+    contribution.lastSeenAt = contribution.lastSeenAt &&
+        contribution.lastSeenAt > record.lastSeenAt
+      ? contribution.lastSeenAt
+      : record.lastSeenAt;
+    byWorkspace.set(record.workspace, contribution);
+    contributions.set(entryKey, byWorkspace);
+  }
+  return contributions;
+}
+
+function attachContributionAttribution(
+  contributions: Map<string, Map<string, UsageWorkspaceContribution>>,
+  attributionRecords: readonly UsageAttributionRecord[],
+  unattributedOpenRecords: readonly UsageUnattributedOpenRecord[],
+): void {
+  for (const record of attributionRecords) {
+    const contribution = getOrCreateContribution(
+      contributions,
+      usageAttributionIdentity(record),
+      record.workspace,
+    );
+    const attribution = contribution.attribution ?? emptyAttributionSummary();
+    attribution.impressions += record.impressions;
+    attribution.attributedOpens += record.attributedOpens;
+    contribution.attribution = attribution;
+  }
+  for (const record of unattributedOpenRecords) {
+    const contribution = getOrCreateContribution(
+      contributions,
+      usageAttributionIdentity(record),
+      record.workspace,
+    );
+    const attribution = contribution.attribution ?? emptyAttributionSummary();
+    attribution.unattributedDetailOpens += record.unattributedDetailOpens;
+    contribution.attribution = attribution;
+  }
+  for (const byWorkspace of contributions.values()) {
+    for (const contribution of byWorkspace.values()) {
+      if (contribution.attribution) {
+        contribution.attribution.attributionRate = attributionRate(
+          contribution.attribution,
+        );
+      }
+    }
+  }
+}
+
+function getOrCreateContribution(
+  contributions: Map<string, Map<string, UsageWorkspaceContribution>>,
+  entryKey: string,
+  workspace: string,
+): UsageWorkspaceContribution {
+  const byWorkspace = contributions.get(entryKey) ??
+    new Map<string, UsageWorkspaceContribution>();
+  const contribution = byWorkspace.get(workspace) ?? {
+    workspace,
+    listed: 0,
+    matched: 0,
+    detailed: 0,
+    total: 0,
+  };
+  byWorkspace.set(workspace, contribution);
+  contributions.set(entryKey, byWorkspace);
+  return contribution;
+}
+
 function summarizeUsageAttribution(
   entries: readonly UsageAnalyticsEntry[],
   attributionRecords: readonly UsageAttributionRecord[],
@@ -2682,7 +2872,10 @@ function summarizeUsageAttribution(
     subagent: emptyAttributionSummary(),
     note: emptyAttributionSummary(),
   };
-  const daily: UsageAnalyticsReport["attribution"]["daily"] = [];
+  const daily = new Map<
+    string,
+    UsageAnalyticsReport["attribution"]["daily"][number]
+  >();
 
   for (const record of attributionRecords) {
     const key = usageAttributionIdentity(record);
@@ -2692,14 +2885,23 @@ function summarizeUsageAttribution(
     const summary = byEntryType[record.entryType];
     summary.impressions += record.impressions;
     summary.attributedOpens += record.attributedOpens;
-    daily.push({
+    const dailyKey = [
+      record.day,
+      record.entryType,
+      record.scope,
+      record.entryKey,
+    ].join(":");
+    const dailySummary = daily.get(dailyKey) ?? {
       day: record.day,
       entryType: record.entryType,
       scope: record.scope,
       entryKey: record.entryKey,
-      impressions: record.impressions,
-      attributedOpens: record.attributedOpens,
-    });
+      impressions: 0,
+      attributedOpens: 0,
+    };
+    dailySummary.impressions += record.impressions;
+    dailySummary.attributedOpens += record.attributedOpens;
+    daily.set(dailyKey, dailySummary);
   }
 
   for (const record of unattributedOpenRecords) {
@@ -2718,7 +2920,12 @@ function summarizeUsageAttribution(
   return {
     partialAttribution: true,
     byEntryType,
-    daily,
+    daily: [...daily.values()].sort((a, b) =>
+      a.day.localeCompare(b.day) ||
+      a.entryType.localeCompare(b.entryType) ||
+      a.scope.localeCompare(b.scope) ||
+      a.entryKey.localeCompare(b.entryKey)
+    ),
   };
 }
 

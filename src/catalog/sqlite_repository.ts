@@ -1652,6 +1652,55 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  getGlobalUsageCounters(
+    filter: Omit<UsageAnalyticsFilter, "workspace"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    } = {},
+  ): Promise<UsageCounterRecord[]> {
+    try {
+      const clauses = ["entryScope = 'global'"];
+      const values: string[] = [];
+      const daily = filter.period !== undefined && filter.period !== "lifetime";
+      if (filter.entryType) {
+        clauses.push("entryType = ?");
+        values.push(filter.entryType);
+      }
+      if (filter.entryKey) {
+        clauses.push("entryKey = ?");
+        values.push(filter.entryKey);
+      }
+      if (daily) {
+        if (filter.periodStartDay) {
+          clauses.push("day >= ?");
+          values.push(filter.periodStartDay);
+        }
+        if (filter.periodEndDay) {
+          clauses.push("day <= ?");
+          values.push(filter.periodEndDay);
+        }
+      }
+
+      const rows = this.requireDb().prepare<UsageCounterRow>(
+        daily
+          ? `SELECT
+              workspace, entryType, entryScope, entryKey, projectName,
+              operation, count, firstSeenAt, lastSeenAt
+             FROM usage_daily_counters
+             WHERE ${clauses.join(" AND ")}
+             ORDER BY workspace, entryType, entryScope, projectName, entryKey,
+              operation, day`
+          : `SELECT * FROM usage_counters
+             WHERE ${clauses.join(" AND ")}
+             ORDER BY workspace, entryType, entryScope, projectName, entryKey,
+              operation`,
+      ).all(...values);
+      return Promise.resolve(rows.map(mapUsageCounterRow));
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
   getUsageMatchOutcomes(
     workspace: string,
     filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
@@ -1734,6 +1783,40 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  getGlobalUsageAttribution(
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    } = {},
+  ): Promise<UsageAttributionRecord[]> {
+    try {
+      const clauses = ["entryScope = 'global'"];
+      const values: string[] = [];
+      if (filter.entryType) {
+        clauses.push("entryType = ?");
+        values.push(filter.entryType);
+      }
+      if (filter.period !== undefined && filter.period !== "lifetime") {
+        if (filter.periodStartDay) {
+          clauses.push("day >= ?");
+          values.push(filter.periodStartDay);
+        }
+        if (filter.periodEndDay) {
+          clauses.push("day <= ?");
+          values.push(filter.periodEndDay);
+        }
+      }
+      const rows = this.requireDb().prepare<UsageAttributionRow>(
+        `SELECT * FROM usage_daily_attribution
+         WHERE ${clauses.join(" AND ")}
+         ORDER BY workspace, day, entryType, entryScope, entryKey`,
+      ).all(...values);
+      return Promise.resolve(rows.map(mapUsageAttributionRow));
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
   getUsageUnattributedOpens(
     workspace: string,
     filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
@@ -1762,6 +1845,40 @@ export class SqliteCatalogRepository implements CatalogRepository {
         `SELECT * FROM usage_daily_unattributed_opens
          WHERE ${clauses.join(" AND ")}
          ORDER BY day, entryType, entryScope, entryKey`,
+      ).all(...values);
+      return Promise.resolve(rows.map(mapUsageUnattributedOpenRow));
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  getGlobalUsageUnattributedOpens(
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    } = {},
+  ): Promise<UsageUnattributedOpenRecord[]> {
+    try {
+      const clauses = ["entryScope = 'global'"];
+      const values: string[] = [];
+      if (filter.entryType) {
+        clauses.push("entryType = ?");
+        values.push(filter.entryType);
+      }
+      if (filter.period !== undefined && filter.period !== "lifetime") {
+        if (filter.periodStartDay) {
+          clauses.push("day >= ?");
+          values.push(filter.periodStartDay);
+        }
+        if (filter.periodEndDay) {
+          clauses.push("day <= ?");
+          values.push(filter.periodEndDay);
+        }
+      }
+      const rows = this.requireDb().prepare<UsageUnattributedOpenRow>(
+        `SELECT * FROM usage_daily_unattributed_opens
+         WHERE ${clauses.join(" AND ")}
+         ORDER BY workspace, day, entryType, entryScope, entryKey`,
       ).all(...values);
       return Promise.resolve(rows.map(mapUsageUnattributedOpenRow));
     } catch (error) {

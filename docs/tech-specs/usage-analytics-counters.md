@@ -187,9 +187,11 @@ Add `get_usage_analytics`:
   - optional `entryType`: `skill`, `subagent`, or `note`
   - optional `scope`: `workspace` or `global`
   - optional `entryKey`
-  - optional `projectName`
-  - optional `period`: `lifetime`, `last_7_days`, or `last_30_days`; default
-    `lifetime`
+- optional `projectName`
+- optional `period`: `lifetime`, `last_7_days`, or `last_30_days`; default
+  `lifetime`
+- optional `acrossWorkspaces: true`, valid only with `scope: "global"` and
+  `entryType: "skill"` or `entryType: "subagent"`
 - output:
   - standard `status: ok` envelope
   - `resolvedWorkspace`
@@ -281,6 +283,16 @@ be derived from `detailed - attributedOpens`, because detail reads and
 attributed opens use different cohort dates and duplicate detail reads are
 deduplicated for attribution.
 
+`acrossWorkspaces: true` switches the read path to global-scope aggregate tables
+across all caller workspaces. The service resolves stored workspace values
+through the alias table before grouping `workspaceContributions`, so historical
+alias strings collapse into the canonical workspace. This mode must not expose
+request-level routing outcomes as global routing outcomes: the existing outcome
+tables record only workspace and entry type, not whether a match response
+returned global or workspace-local recommendations. Return empty routing outcome
+counters with an explicit `unavailableReason` until the outcome schema can
+support global-only attribution.
+
 ## 6. Alternatives Considered
 
 - Tool-call counters only: rejected because users need to know which entries
@@ -300,6 +312,7 @@ deduplicated for attribution.
 - Add additive schema migrations for match outcome counters.
 - Add additive schema migrations for short-lived recommendation ids and daily
   attribution aggregates.
+- Add read-side global aggregate queries for global skill/subagent usage.
 - Add repository methods for batch counter increments and analytics reads.
 - Prefer batch increments after list/match operations to avoid one write per
   entry when possible.

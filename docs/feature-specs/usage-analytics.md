@@ -70,6 +70,9 @@ used, so users can improve catalog quality over time.
 - `get_usage_analytics` input may choose `period: "lifetime"`,
   `period: "last_7_days"`, or `period: "last_30_days"`. If omitted, the period
   defaults to `lifetime`.
+- `get_usage_analytics` input may set `acrossWorkspaces: true` only with
+  `scope: "global"` and `entryType: "skill"` or `entryType: "subagent"` to
+  inspect aggregate global-entry usage across caller workspaces.
 - `get_usage_analytics` input may sort rows by `listed`, `matched`, or
   `detailed` counters in descending order. If omitted, the legacy deterministic
   type/scope/project/key order is preserved.
@@ -83,6 +86,7 @@ used, so users can improve catalog quality over time.
   - request-level routing outcomes by entry type
   - coverage for current visible catalog entries
   - recommendation attribution summaries
+  - workspace contribution breakdowns for cross-workspace global reports
   - per-entry usage rows
   - recommended next actions
 - Usage rows must be grouped by stable entry identity: workspace, entry type,
@@ -170,6 +174,14 @@ increment normal `detailed` counters but do not create extra attributed opens.
 Missing, invalid, or expired ids are counted separately as unattributed detail
 opens by the day of the detail read.
 
+Cross-workspace global reports aggregate only global skill or subagent entry
+usage across caller workspaces. Each row may include `workspaceContributions`
+with per-workspace counters and attribution. Workspace aliases are resolved
+before contribution grouping so historical alias strings do not split one
+workspace. Routing outcomes are marked unavailable in this mode because the
+request-level outcome counters do not record whether a match response returned
+global or workspace-local recommendations.
+
 ## 7. Error Handling
 
 - Missing or invalid `workspace` must return `validation_error`.
@@ -208,3 +220,5 @@ opens by the day of the detail read.
 - 2026-08-16: Add `get_usage_analytics` as the read-only reporting surface.
 - 2026-08-16: Add opaque recommendation ids for aggregate match-to-detail
   attribution without storing raw task or query content.
+- 2026-08-16: Add explicit cross-workspace reports for global skill/subagent
+  usage, with routing outcomes unavailable until outcome counters include scope.
