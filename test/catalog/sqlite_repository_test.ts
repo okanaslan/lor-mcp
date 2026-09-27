@@ -1113,7 +1113,7 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     });
     const workspaceB = await repo.getUsageCounters("workspace-b", {});
 
-    assertEquals(schemaVersion, 14);
+    assertEquals(schemaVersion, 15);
     assertEquals(workspaceA.map((record) => record.entryKey), [
       "backend-skill",
       "api-test-subagent",
@@ -1125,6 +1125,60 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     assertEquals(skillOnly[0].lastSeenAt, FIXED_NOW);
     assertEquals(workspaceB.length, 1);
     assertEquals(workspaceB[0].workspace, "workspace-b");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository stores daily usage without fabricating history", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await repo.recordUsageCounters([
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+        operation: "listed",
+      },
+    ], { now: "2026-07-01T23:59:59.000Z" });
+    await repo.recordUsageCounters([
+      {
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+        operation: "listed",
+        count: 2,
+      },
+    ], { now: "2026-07-02T00:00:00.000Z" });
+
+    const lifetime = await repo.getUsageCounters("workspace-a", {
+      entryType: "skill",
+    });
+    const july1 = await repo.getUsageCounters("workspace-a", {
+      entryType: "skill",
+      period: "last_7_days",
+      periodStartDay: "2026-07-01",
+      periodEndDay: "2026-07-01",
+    });
+    const july2 = await repo.getUsageCounters("workspace-a", {
+      entryType: "skill",
+      period: "last_7_days",
+      periodStartDay: "2026-07-02",
+      periodEndDay: "2026-07-02",
+    });
+    const beforeTracking = await repo.getUsageCounters("workspace-a", {
+      entryType: "skill",
+      period: "last_7_days",
+      periodStartDay: "2026-06-01",
+      periodEndDay: "2026-06-07",
+    });
+
+    assertEquals(lifetime[0].count, 3);
+    assertEquals(july1[0].count, 1);
+    assertEquals(july2[0].count, 2);
+    assertEquals(beforeTracking, []);
   } finally {
     repo.close();
   }

@@ -31,12 +31,14 @@ export async function createCatalogService(): Promise<{
 }>;
 export async function createCatalogService(options: {
   skillRoots?: readonly string[];
+  now?: () => string;
 }): Promise<{
   repo: SqliteCatalogRepository;
   service: CatalogService;
 }>;
 export async function createCatalogService(options: {
   skillRoots?: readonly string[];
+  now?: () => string;
 } = {}): Promise<{
   repo: SqliteCatalogRepository;
   service: CatalogService;
@@ -45,7 +47,7 @@ export async function createCatalogService(options: {
   const service = new CatalogService({
     repository: repo,
     skillRoots: options.skillRoots,
-    now: () => FIXED_NOW,
+    now: options.now ?? (() => FIXED_NOW),
   });
   return { repo, service };
 }

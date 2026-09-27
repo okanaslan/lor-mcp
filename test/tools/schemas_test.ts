@@ -868,6 +868,7 @@ Deno.test("getUsageAnalyticsInputSchema accepts public V2 usage filters", () => 
       entryKey: "backend-skill",
       projectName: "Local Orchestration Router (LOR)",
       sortBy: "detailed",
+      period: "last_7_days",
     }).success,
     true,
   );
@@ -907,6 +908,13 @@ Deno.test("getUsageAnalyticsInputSchema accepts public V2 usage filters", () => 
     getUsageAnalyticsInputSchema.safeParse({
       workspace: "LOR-MCP",
       sortBy: "total",
+    }).success,
+    false,
+  );
+  assertEquals(
+    getUsageAnalyticsInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      period: "yesterday",
     }).success,
     false,
   );

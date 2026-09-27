@@ -182,7 +182,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         const current = this.#db.prepare(
           "SELECT MAX(version) AS version FROM schema_migrations",
         ).get<{ version: number }>();
-        if ((current?.version ?? 0) > 14) {
+        if ((current?.version ?? 0) > 15) {
           throw new LorError(
             "setup_error",
             "Catalog schema is newer than this server. Use a compatible release.",
@@ -209,6 +209,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         db.exec(DELEGATED_TASK_RESULTS_SCHEMA_SQL);
         db.exec(WORKSPACE_NOTES_SCHEMA_SQL);
         db.exec(USAGE_COUNTERS_SCHEMA_SQL);
+        db.exec(USAGE_DAILY_COUNTERS_SCHEMA_SQL);
         db.exec(`CREATE TABLE IF NOT EXISTS operation_receipts (
         workspace TEXT NOT NULL, operationKey TEXT NOT NULL,
         payloadHash TEXT NOT NULL, status TEXT NOT NULL, result TEXT,
@@ -235,7 +236,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
               UPDATE catalog_generation SET token = lower(hex(randomblob(16))) WHERE id = 1; END`);
           }
         }
-        recordSchemaVersion(db, 14);
+        recordSchemaVersion(db, 15);
       });
       migrate();
     } catch (error) {
@@ -1296,6 +1297,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
     const db = this.requireDb();
     const record = db.transaction(() => {
+      const day = usageDay(options.now);
       for (const increment of increments) {
         db.exec(
           `INSERT INTO usage_counters (
@@ -1308,6 +1310,28 @@ export class SqliteCatalogRepository implements CatalogRepository {
             count = count + excluded.count,
             projectName = excluded.projectName,
             lastSeenAt = excluded.lastSeenAt`,
+          increment.workspace,
+          increment.entryType,
+          increment.scope,
+          increment.entryKey,
+          increment.projectName ?? null,
+          increment.operation,
+          increment.count ?? 1,
+          options.now,
+          options.now,
+        );
+        db.exec(
+          `INSERT INTO usage_daily_counters (
+            day, workspace, entryType, entryScope, entryKey, projectName,
+            operation, count, firstSeenAt, lastSeenAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (
+            day, workspace, entryType, entryScope, entryKey, operation
+          ) DO UPDATE SET
+            count = count + excluded.count,
+            projectName = excluded.projectName,
+            lastSeenAt = excluded.lastSeenAt`,
+          day,
           increment.workspace,
           increment.entryType,
           increment.scope,
@@ -1331,11 +1355,15 @@ export class SqliteCatalogRepository implements CatalogRepository {
 
   getUsageCounters(
     workspace: string,
-    filter: Omit<UsageAnalyticsFilter, "workspace"> = {},
+    filter: Omit<UsageAnalyticsFilter, "workspace"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    } = {},
   ): Promise<UsageCounterRecord[]> {
     try {
       const clauses = ["workspace = ?"];
       const values: string[] = [workspace];
+      const daily = filter.period !== undefined && filter.period !== "lifetime";
       if (filter.entryType) {
         clauses.push("entryType = ?");
         values.push(filter.entryType);
@@ -1352,11 +1380,29 @@ export class SqliteCatalogRepository implements CatalogRepository {
         clauses.push("projectName = ?");
         values.push(filter.projectName);
       }
+      if (daily) {
+        if (filter.periodStartDay) {
+          clauses.push("day >= ?");
+          values.push(filter.periodStartDay);
+        }
+        if (filter.periodEndDay) {
+          clauses.push("day <= ?");
+          values.push(filter.periodEndDay);
+        }
+      }
 
       const rows = this.requireDb().prepare<UsageCounterRow>(
-        `SELECT * FROM usage_counters
-         WHERE ${clauses.join(" AND ")}
-         ORDER BY entryType, entryScope, projectName, entryKey, operation`,
+        daily
+          ? `SELECT
+              workspace, entryType, entryScope, entryKey, projectName,
+              operation, count, firstSeenAt, lastSeenAt
+             FROM usage_daily_counters
+             WHERE ${clauses.join(" AND ")}
+             ORDER BY entryType, entryScope, projectName, entryKey, operation,
+              day`
+          : `SELECT * FROM usage_counters
+             WHERE ${clauses.join(" AND ")}
+             ORDER BY entryType, entryScope, projectName, entryKey, operation`,
       ).all(...values);
       return Promise.resolve(rows.map(mapUsageCounterRow));
     } catch (error) {
@@ -1864,6 +1910,10 @@ function parseUsageOperation(value: string): UsageOperation {
   return "listed";
 }
 
+function usageDay(isoTimestamp: string): string {
+  return new Date(isoTimestamp).toISOString().slice(0, 10);
+}
+
 interface TableColumn {
   name: string;
 }
@@ -2236,4 +2286,26 @@ CREATE INDEX IF NOT EXISTS usage_counters_workspace_type_idx
 
 CREATE INDEX IF NOT EXISTS usage_counters_workspace_project_idx
   ON usage_counters(workspace, projectName);
+`;
+
+const USAGE_DAILY_COUNTERS_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS usage_daily_counters (
+  day TEXT NOT NULL,
+  workspace TEXT NOT NULL,
+  entryType TEXT NOT NULL,
+  entryScope TEXT NOT NULL,
+  entryKey TEXT NOT NULL,
+  projectName TEXT,
+  operation TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  firstSeenAt TEXT NOT NULL,
+  lastSeenAt TEXT NOT NULL,
+  PRIMARY KEY (day, workspace, entryType, entryScope, entryKey, operation)
+);
+
+CREATE INDEX IF NOT EXISTS usage_daily_workspace_day_idx
+  ON usage_daily_counters(workspace, day);
+
+CREATE INDEX IF NOT EXISTS usage_daily_workspace_type_idx
+  ON usage_daily_counters(workspace, entryType, day);
 `;

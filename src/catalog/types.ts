@@ -13,6 +13,7 @@ export type MatchStatus = "ok" | "no_match" | "conflict";
 export type ReferenceEntryType = "agent" | "skill";
 export type UsageEntryType = "skill" | "subagent" | "note";
 export type UsageOperation = "listed" | "matched" | "detailed";
+export type UsageAnalyticsPeriod = "lifetime" | "last_7_days" | "last_30_days";
 export type RoutingSignalSource =
   | "aliases"
   | "skillName"
@@ -771,6 +772,7 @@ export interface UsageAnalyticsFilter {
   entryKey?: string;
   projectName?: string;
   sortBy?: UsageOperation;
+  period?: UsageAnalyticsPeriod;
 }
 
 export interface UsageAnalyticsEntry {
@@ -806,13 +808,16 @@ export interface UsageAnalyticsSummary {
 export interface UsageAnalyticsReport {
   workspace: string;
   checkedAt: string;
-  period: "lifetime";
+  period: UsageAnalyticsPeriod;
+  periodStart?: string;
+  periodEnd?: string;
   filters: {
     entryType?: UsageEntryType;
     scope?: CatalogScope;
     entryKey?: string;
     projectName?: string;
     sortBy?: UsageOperation;
+    period?: UsageAnalyticsPeriod;
   };
   metricDefinitions: Record<
     UsageOperation | "total" | "lastDetailedAt",
@@ -1082,7 +1087,10 @@ export interface CatalogRepository {
   ): Promise<void>;
   getUsageCounters(
     workspace: string,
-    filter: Omit<UsageAnalyticsFilter, "workspace">,
+    filter: Omit<UsageAnalyticsFilter, "workspace"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    },
   ): Promise<UsageCounterRecord[]>;
   updateEntry(
     workspace: string,

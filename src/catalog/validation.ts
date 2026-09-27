@@ -406,6 +406,9 @@ export function validateUsageAnalyticsFilter(
     sortBy: input.sortBy === undefined
       ? undefined
       : requireUsageOperation(input.sortBy),
+    period: input.period === undefined
+      ? undefined
+      : requireUsageAnalyticsPeriod(input.period),
   };
 }
 
@@ -839,6 +842,22 @@ function requireUsageOperation(
     "validation_error",
     "sortBy is invalid.",
     { field: "sortBy" },
+  );
+}
+
+function requireUsageAnalyticsPeriod(
+  value: unknown,
+): UsageAnalyticsFilter["period"] {
+  if (
+    value === "lifetime" || value === "last_7_days" ||
+    value === "last_30_days"
+  ) {
+    return value;
+  }
+  throw new LorError(
+    "validation_error",
+    "period is invalid.",
+    { field: "period" },
   );
 }
 

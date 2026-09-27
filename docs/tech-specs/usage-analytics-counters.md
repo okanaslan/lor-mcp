@@ -57,6 +57,33 @@ Use a unique constraint on:
 - `entryKey`
 - `operation`
 
+Add a second SQLite table for period reports:
+
+- `usage_daily_counters`
+- `day`: UTC date in `YYYY-MM-DD`
+- `workspace`
+- `entryType`
+- `entryScope`
+- `entryKey`
+- `projectName`
+- `operation`
+- `count`
+- `firstSeenAt`
+- `lastSeenAt`
+
+Use a unique constraint on:
+
+- `day`
+- `workspace`
+- `entryType`
+- `entryScope`
+- `entryKey`
+- `operation`
+
+Every new usage write updates both `usage_counters` and
+`usage_daily_counters`. Existing lifetime counters remain valid during
+migration, but no daily history is fabricated from them.
+
 Supported values:
 
 - `entryType`: `skill`, `subagent`, `note`
@@ -89,11 +116,14 @@ Add `get_usage_analytics`:
   - optional `scope`: `workspace` or `global`
   - optional `entryKey`
   - optional `projectName`
+  - optional `period`: `lifetime`, `last_7_days`, or `last_30_days`; default
+    `lifetime`
 - output:
   - standard `status: ok` envelope
   - `resolvedWorkspace`
   - `checkedAt`
-  - `period: "lifetime"`
+  - `period`
+  - optional `periodStart` and `periodEnd` for recent daily periods
   - `filters`
   - `metricDefinitions`
   - `summary`
@@ -142,6 +172,13 @@ before tracking was introduced or enabled. Counter values are repeated tool
 returns/detail reads, not unique tasks or proof that returned guidance was used
 in code.
 
+`period: "last_7_days"` and `period: "last_30_days"` read
+`usage_daily_counters` by UTC calendar day. They include the current partial UTC
+day. `periodStart` is the start of the first included UTC day, and `periodEnd`
+is the report `checkedAt` timestamp. Daily reads return per-day rows to the
+service layer so project metadata resolution follows the same newest-row
+deterministic rule as lifetime reports.
+
 `scope: "global"` is valid only for skills and subagents. Workspace notes are
 always workspace-scoped.
 
@@ -160,6 +197,7 @@ always workspace-scoped.
 ## 7. Implementation Notes
 
 - Add a schema migration for `usage_counters`.
+- Add an additive schema migration for `usage_daily_counters`.
 - Add repository methods for batch counter increments and analytics reads.
 - Prefer batch increments after list/match operations to avoid one write per
   entry when possible.

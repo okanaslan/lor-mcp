@@ -557,6 +557,7 @@ export const getUsageAnalyticsInputSchema = z.strictObject({
   entryKey: z.string().max(16000).trim().min(1).optional(),
   projectName: z.string().max(16000).trim().min(1).optional(),
   sortBy: z.enum(["listed", "matched", "detailed"]).optional(),
+  period: z.enum(["lifetime", "last_7_days", "last_30_days"]).optional(),
 }).refine(
   (input) => !(input.entryType === "note" && input.scope === "global"),
   {

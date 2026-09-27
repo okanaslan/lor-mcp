@@ -21,7 +21,9 @@ to improve.
 
 1. The user asks the current agent to inspect LOR usage analytics for the
    current workspace.
-2. The current agent calls `get_usage_analytics` with the repository workspace.
+2. The current agent calls `get_usage_analytics` with the repository workspace,
+   optionally using `period: "last_7_days"` or `period: "last_30_days"` for a
+   recent UTC-day report.
 3. LOR resolves the workspace and reads aggregate usage counters.
 4. LOR returns lifetime summary totals, metric definitions, per-entry counters,
    optional `lastDetailedAt` values, and recommended actions for skills,
@@ -44,7 +46,8 @@ agent applied the returned guidance.
 
 The report only includes entries with recorded usage history. It does not list
 catalog entries that have never been listed, matched, or opened since tracking
-started.
+started. Recent daily periods do not fabricate history from older lifetime-only
+counters.
 
 ## 6. Related Feature Specs
 

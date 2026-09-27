@@ -1266,10 +1266,16 @@ export class CatalogService {
   ): Promise<UsageAnalyticsReport> {
     const validated = validateUsageAnalyticsFilter(input);
     const workspace = await this.resolveWorkspace(validated.workspace);
+    const checkedAt = this.#now();
+    const period = validated.period ?? "lifetime";
+    const periodBounds = usageAnalyticsPeriodBounds(period, checkedAt);
     const records = await this.#repository.getUsageCounters(workspace, {
       entryType: validated.entryType,
       scope: validated.scope,
       entryKey: validated.entryKey,
+      period,
+      periodStartDay: periodBounds?.startDay,
+      periodEndDay: periodBounds?.endDay,
     });
     const entries = usageAnalyticsEntries(
       workspace,
@@ -1281,16 +1287,23 @@ export class CatalogService {
     );
     return {
       workspace,
-      checkedAt: this.#now(),
-      period: "lifetime",
+      checkedAt,
+      period,
+      ...(periodBounds
+        ? {
+          periodStart: periodBounds.periodStart,
+          periodEnd: periodBounds.periodEnd,
+        }
+        : {}),
       filters: {
         entryType: validated.entryType,
         scope: validated.scope,
         entryKey: validated.entryKey,
         projectName: validated.projectName,
         sortBy: validated.sortBy,
+        period: validated.period,
       },
-      metricDefinitions: usageAnalyticsMetricDefinitions(),
+      metricDefinitions: usageAnalyticsMetricDefinitions(period),
       summary: summarizeUsageAnalytics(entries),
       entries,
       recommendedActions: usageAnalyticsRecommendedActions(entries),
@@ -1795,6 +1808,35 @@ export class CatalogService {
   }
 }
 
+function usageAnalyticsPeriodBounds(
+  period: UsageAnalyticsFilter["period"],
+  checkedAt: string,
+): {
+  startDay: string;
+  endDay: string;
+  periodStart: string;
+  periodEnd: string;
+} | undefined {
+  if (period === undefined || period === "lifetime") {
+    return undefined;
+  }
+  const days = period === "last_7_days" ? 7 : 30;
+  const now = new Date(checkedAt);
+  const endDay = now.toISOString().slice(0, 10);
+  const start = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - (days - 1),
+  );
+  const startDate = new Date(start);
+  return {
+    startDay: startDate.toISOString().slice(0, 10),
+    endDay,
+    periodStart: startDate.toISOString(),
+    periodEnd: checkedAt,
+  };
+}
+
 function introductionVerification(now: string): VerificationMetadata {
   return {
     verificationStatus: "verified",
@@ -2096,9 +2138,14 @@ function usageAnalyticsEntries(
   );
 }
 
-function usageAnalyticsMetricDefinitions(): UsageAnalyticsReport[
+function usageAnalyticsMetricDefinitions(
+  period: UsageAnalyticsReport["period"],
+): UsageAnalyticsReport[
   "metricDefinitions"
 ] {
+  const periodLabel = period === "lifetime"
+    ? "retained lifetime analytics history"
+    : `the selected ${period} analytics period`;
   return {
     listed:
       "Number of times the entry was returned from a list tool; repeated calls are counted separately.",
@@ -2107,7 +2154,7 @@ function usageAnalyticsMetricDefinitions(): UsageAnalyticsReport[
     detailed:
       "Number of times the entry was opened through a detail tool; this is a proxy for agent use, not proof that the guidance was applied.",
     total:
-      "Sum of listed, matched, and detailed counters for retained lifetime analytics history; lifetime excludes activity before tracking started and repeated calls are not unique tasks or executions.",
+      `Sum of listed, matched, and detailed counters for ${periodLabel}; repeated calls are not unique tasks or executions.`,
     lastDetailedAt:
       "Most recent timestamp for the detailed counter, omitted when there is no recorded detail read.",
   };

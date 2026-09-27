@@ -2801,6 +2801,103 @@ Deno.test("CatalogService usage analytics sorts and groups by stable identity", 
   }
 });
 
+Deno.test("CatalogService usage analytics supports UTC daily periods", async () => {
+  let now = "2026-07-01T00:00:00.000Z";
+  const { repo, service } = await createCatalogService({
+    now: () => now,
+  });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-api",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Skill",
+      primarySpecialty: "backend api implementation",
+      specialtyTags: ["backend", "api"],
+    });
+
+    now = "2026-07-03T23:59:59.000Z";
+    await service.listSkills({ workspace: "Consumer-Workspace" });
+    now = "2026-07-04T00:00:00.000Z";
+    await service.listSkills({ workspace: "Consumer-Workspace" });
+    now = "2026-07-10T12:34:56.000Z";
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "backend-api",
+      scope: "global",
+    });
+
+    const lifetime = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+    });
+    const last7 = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      period: "last_7_days",
+    });
+    const last30 = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      period: "last_30_days",
+    });
+
+    assertEquals(lifetime.period, "lifetime");
+    assertEquals(lifetime.periodStart, undefined);
+    assertEquals(lifetime.summary.totalCount, 3);
+    assertEquals(last7.period, "last_7_days");
+    assertEquals(last7.periodStart, "2026-07-04T00:00:00.000Z");
+    assertEquals(last7.periodEnd, "2026-07-10T12:34:56.000Z");
+    assertEquals(last7.entries[0].listed, 1);
+    assertEquals(last7.entries[0].detailed, 1);
+    assertEquals(last7.summary.totalCount, 2);
+    assertEquals(last30.periodStart, "2026-06-11T00:00:00.000Z");
+    assertEquals(last30.summary.totalCount, 3);
+
+    await repo.recordUsageCounters([
+      {
+        workspace: "Rename-Workspace",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "renamed-skill",
+        projectName: "Old Project",
+        operation: "listed",
+      },
+    ], { now: "2026-07-05T00:00:00.000Z" });
+    await repo.recordUsageCounters([
+      {
+        workspace: "Rename-Workspace",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "renamed-skill",
+        projectName: "New Project",
+        operation: "matched",
+      },
+    ], { now: "2026-07-09T00:00:00.000Z" });
+
+    const renamed = await service.getUsageAnalytics({
+      workspace: "Rename-Workspace",
+      entryType: "skill",
+      period: "last_7_days",
+      entryKey: "renamed-skill",
+    });
+    const renamedProjectFilter = await service.getUsageAnalytics({
+      workspace: "Rename-Workspace",
+      entryType: "skill",
+      period: "last_7_days",
+      projectName: "New Project",
+    });
+
+    assertEquals(renamed.entries[0].projectName, "New Project");
+    assertEquals(renamed.entries[0].listed, 1);
+    assertEquals(renamed.entries[0].matched, 1);
+    assertEquals(renamed.entries[0].total, 2);
+    assertEquals(renamedProjectFilter.entries[0].total, 2);
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService returns empty usage analytics and validates note filters", async () => {
   const { repo, service } = await createCatalogService();
   try {

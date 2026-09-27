@@ -46,13 +46,16 @@ used, so users can improve catalog quality over time.
 - `get_usage_analytics` input must require `workspace`.
 - `get_usage_analytics` input may filter by `entryType`, `scope`, `entryKey`,
   and resolved `projectName` when those fields apply.
+- `get_usage_analytics` input may choose `period: "lifetime"`,
+  `period: "last_7_days"`, or `period: "last_30_days"`. If omitted, the
+  period defaults to `lifetime`.
 - `get_usage_analytics` input may sort rows by `listed`, `matched`, or
   `detailed` counters in descending order. If omitted, the legacy deterministic
   type/scope/project/key order is preserved.
 - `get_usage_analytics` must return:
   - resolved workspace
   - checked timestamp
-  - `period: "lifetime"`
+  - period and explicit period bounds for recent daily reports
   - metric definitions
   - applied filters
   - summary totals by entry type and operation
@@ -102,6 +105,12 @@ Conceptual `UsageAnalyticsReport` fields:
 enabled. It does not include activity before tracking existed. Counters record
 tool returns and detail reads; repeated calls are counted separately and are not
 unique tasks, executions, or proof that returned guidance was applied.
+
+`last_7_days` and `last_30_days` use UTC calendar days, include the current
+partial UTC day, and return explicit `periodStart` and `periodEnd` bounds. Daily
+reports are based only on daily counters recorded after daily tracking was
+introduced; historical lifetime counters are preserved but are not converted
+into fabricated daily history.
 
 `projectName` filtering applies to the resolved per-entry metadata selected from
 recorded usage rows, not to the counter identity itself. If an entry's project
