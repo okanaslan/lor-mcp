@@ -46,6 +46,11 @@ used, so users can improve catalog quality over time.
   - no-match rate
   - recommendation count
   - average recommendations per successful request
+- LOR must compare the current visible catalog with the selected period's
+  counters and report coverage:
+  - registered entries
+  - opened entries with recorded detail reads
+  - entries with no recorded detail reads
 - LOR must count when an entry is retrieved by a detail tool:
   - `get_skill_detail`
   - `get_subagent_detail`
@@ -68,6 +73,7 @@ used, so users can improve catalog quality over time.
   - applied filters
   - summary totals by entry type and operation
   - request-level routing outcomes by entry type
+  - coverage for current visible catalog entries
   - per-entry usage rows
   - recommended next actions
 - Usage rows must be grouped by stable entry identity: workspace, entry type,
@@ -133,6 +139,13 @@ Routing outcomes are request-level aggregates by workspace, entry type, and
 period. They do not apply `entryKey`, `scope`, or `projectName` filters because
 no-match requests and whole-result recommendation counts cannot be assigned to a
 single catalog entry. Failed match requests do not increment outcome counters.
+
+Coverage is based on the current visible catalog after resolving workspace and
+global scope rules. Current entries with no counters are included in report rows
+with zero counts. Historical rows for deleted entries remain visible as usage
+history but are marked as not currently registered and excluded from coverage.
+Project filters are applied after usage rows are merged with current catalog
+metadata, so renamed entries are filtered by their current project name.
 
 ## 7. Error Handling
 

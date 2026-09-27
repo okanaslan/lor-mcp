@@ -296,6 +296,11 @@ const routingOutcome = z.object({
   recommendationCount: count,
   averageRecommendations: z.number(),
 });
+const coverageType = z.object({
+  registered: count,
+  opened: count,
+  noRecordedDetail: count,
+});
 const usageType = z.enum(["skill", "subagent", "note"]);
 const usagePeriod = z.enum(["lifetime", "last_7_days", "last_30_days"]);
 const usage = z.object({
@@ -331,12 +336,19 @@ const usage = z.object({
     }),
     byEntryType: z.record(usageType, routingOutcome),
   }),
+  coverage: z.object({
+    registered: count,
+    opened: count,
+    noRecordedDetail: count,
+    byEntryType: z.record(usageType, coverageType),
+  }),
   entries: z.array(z.object({
     workspace: text,
     entryType: usageType,
     scope: base.scope,
     entryKey: text,
     projectName: text.optional(),
+    registered: z.boolean(),
     ...usageCounts,
     firstSeenAt: text.optional(),
     lastSeenAt: text.optional(),

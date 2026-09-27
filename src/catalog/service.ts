@@ -1298,7 +1298,18 @@ export class CatalogService {
       workspace,
       records,
       validated.sortBy,
-    ).filter((entry) =>
+    );
+    const currentEntries = await this.currentUsageAnalyticsEntries(
+      workspace,
+      validated,
+    );
+    const mergedEntries = mergeCurrentUsageEntries(
+      workspace,
+      entries,
+      currentEntries,
+      validated.sortBy,
+    );
+    const filteredEntries = mergedEntries.filter((entry) =>
       validated.projectName === undefined ||
       entry.projectName === validated.projectName
     );
@@ -1321,14 +1332,15 @@ export class CatalogService {
         period: validated.period,
       },
       metricDefinitions: usageAnalyticsMetricDefinitions(period),
-      summary: summarizeUsageAnalytics(entries),
+      summary: summarizeUsageAnalytics(filteredEntries),
       routingOutcomes: summarizeRoutingOutcomes(outcomeRecords, {
         workspace,
         entryType: validated.entryType,
         period,
       }),
-      entries,
-      recommendedActions: usageAnalyticsRecommendedActions(entries),
+      coverage: summarizeUsageCoverage(filteredEntries),
+      entries: filteredEntries,
+      recommendedActions: usageAnalyticsRecommendedActions(filteredEntries),
     };
   }
 
@@ -1566,6 +1578,63 @@ export class CatalogService {
         "Usage analytics write failed after a successful operation.",
       );
     }
+  }
+
+  private async currentUsageAnalyticsEntries(
+    workspace: string,
+    filter: UsageAnalyticsFilter,
+  ): Promise<UsageAnalyticsEntry[]> {
+    const entries: UsageAnalyticsEntry[] = [];
+    if (filter.entryType === undefined || filter.entryType === "skill") {
+      const skills = await this.#repository.listEntries(workspace, {
+        workspace,
+        entryType: "skill",
+        scope: filter.scope,
+      });
+      entries.push(
+        ...skills.filter((entry): entry is SkillCatalogEntry =>
+          entry.entryType === "skill"
+        ).filter((entry) =>
+          filter.entryKey === undefined || entry.skillName === filter.entryKey
+        ).map((entry) => emptyCurrentUsageEntry(workspace, entry)),
+      );
+    }
+    if (filter.entryType === undefined || filter.entryType === "subagent") {
+      const subagents = await this.#repository.listEntries(workspace, {
+        workspace,
+        entryType: "subagent",
+        scope: filter.scope,
+      });
+      entries.push(
+        ...subagents.filter((entry): entry is SubagentCatalogEntry =>
+          entry.entryType === "subagent"
+        ).filter((entry) =>
+          filter.entryKey === undefined || entry.name === filter.entryKey
+        ).map((entry) => emptyCurrentUsageEntry(workspace, entry)),
+      );
+    }
+    if (
+      (filter.entryType === undefined || filter.entryType === "note") &&
+      filter.scope !== "global"
+    ) {
+      const notes = await this.#repository.listWorkspaceNotes(workspace);
+      entries.push(
+        ...notes.filter((note) =>
+          filter.entryKey === undefined || note.noteId === filter.entryKey
+        ).map((note) => ({
+          workspace,
+          entryType: "note" as const,
+          scope: "workspace" as const,
+          entryKey: note.noteId,
+          registered: true,
+          listed: 0,
+          matched: 0,
+          detailed: 0,
+          total: 0,
+        })),
+      );
+    }
+    return entries;
   }
 
   private async recordMatchOutcome(
@@ -2138,6 +2207,7 @@ function usageAnalyticsEntries(
       scope: record.scope,
       entryKey: record.entryKey,
       projectName: record.projectName,
+      registered: false,
       listed: 0,
       matched: 0,
       detailed: 0,
@@ -2189,6 +2259,72 @@ function usageAnalyticsEntries(
   }
 
   return ordered.sort((a, b) =>
+    a.entryType.localeCompare(b.entryType) ||
+    a.scope.localeCompare(b.scope) ||
+    (a.projectName ?? "").localeCompare(b.projectName ?? "") ||
+    a.entryKey.localeCompare(b.entryKey)
+  );
+}
+
+function emptyCurrentUsageEntry(
+  workspace: string,
+  entry: SkillCatalogEntry | SubagentCatalogEntry,
+): UsageAnalyticsEntry {
+  return {
+    workspace,
+    entryType: entry.entryType,
+    scope: entry.scope,
+    entryKey: entry.entryType === "skill" ? entry.skillName : entry.name,
+    projectName: entry.projectName,
+    registered: true,
+    listed: 0,
+    matched: 0,
+    detailed: 0,
+    total: 0,
+  };
+}
+
+function mergeCurrentUsageEntries(
+  workspace: string,
+  usageEntries: readonly UsageAnalyticsEntry[],
+  currentEntries: readonly UsageAnalyticsEntry[],
+  sortBy?: UsageOperation,
+): UsageAnalyticsEntry[] {
+  const entries = new Map<string, UsageAnalyticsEntry>();
+  for (const entry of usageEntries) {
+    entries.set(usageEntryIdentity(entry), { ...entry });
+  }
+  for (const current of currentEntries) {
+    const key = usageEntryIdentity(current);
+    const existing = entries.get(key);
+    if (existing) {
+      existing.registered = true;
+      existing.projectName = current.projectName ?? existing.projectName;
+    } else {
+      entries.set(key, { ...current, workspace });
+    }
+  }
+  return sortUsageAnalyticsEntries([...entries.values()], sortBy);
+}
+
+function usageEntryIdentity(entry: UsageAnalyticsEntry): string {
+  return [entry.entryType, entry.scope, entry.entryKey].join(":");
+}
+
+function sortUsageAnalyticsEntries(
+  entries: UsageAnalyticsEntry[],
+  sortBy?: UsageOperation,
+): UsageAnalyticsEntry[] {
+  if (sortBy) {
+    return entries.sort((a, b) =>
+      b[sortBy] - a[sortBy] ||
+      a.scope.localeCompare(b.scope) ||
+      a.entryType.localeCompare(b.entryType) ||
+      a.entryKey.localeCompare(b.entryKey)
+    );
+  }
+
+  return entries.sort((a, b) =>
     a.entryType.localeCompare(b.entryType) ||
     a.scope.localeCompare(b.scope) ||
     (a.projectName ?? "").localeCompare(b.projectName ?? "") ||
@@ -2276,6 +2412,45 @@ function summarizeRoutingOutcomes(
       : summary.recommendationCount / summary.matchRequests;
   }
   return { appliesTo, byEntryType };
+}
+
+function summarizeUsageCoverage(
+  entries: readonly UsageAnalyticsEntry[],
+): UsageAnalyticsReport["coverage"] {
+  const coverage: UsageAnalyticsReport["coverage"] = {
+    registered: 0,
+    opened: 0,
+    noRecordedDetail: 0,
+    byEntryType: {
+      skill: emptyCoverageTypeSummary(),
+      subagent: emptyCoverageTypeSummary(),
+      note: emptyCoverageTypeSummary(),
+    },
+  };
+  for (const entry of entries) {
+    if (!entry.registered) {
+      continue;
+    }
+    const typeCoverage = coverage.byEntryType[entry.entryType];
+    coverage.registered++;
+    typeCoverage.registered++;
+    if (entry.detailed > 0) {
+      coverage.opened++;
+      typeCoverage.opened++;
+    } else {
+      coverage.noRecordedDetail++;
+      typeCoverage.noRecordedDetail++;
+    }
+  }
+  return coverage;
+}
+
+function emptyCoverageTypeSummary() {
+  return {
+    registered: 0,
+    opened: 0,
+    noRecordedDetail: 0,
+  };
 }
 
 function emptyRoutingOutcomeSummary() {

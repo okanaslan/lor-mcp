@@ -798,6 +798,7 @@ export interface UsageAnalyticsEntry {
   scope: CatalogScope;
   entryKey: string;
   projectName?: string;
+  registered: boolean;
   listed: number;
   matched: number;
   detailed: number;
@@ -830,6 +831,20 @@ export interface UsageRoutingOutcomeSummary {
   averageRecommendations: number;
 }
 
+export interface UsageCoverageSummary {
+  registered: number;
+  opened: number;
+  noRecordedDetail: number;
+  byEntryType: Record<
+    UsageEntryType,
+    {
+      registered: number;
+      opened: number;
+      noRecordedDetail: number;
+    }
+  >;
+}
+
 export interface UsageAnalyticsReport {
   workspace: string;
   checkedAt: string;
@@ -857,6 +872,7 @@ export interface UsageAnalyticsReport {
     };
     byEntryType: Record<UsageEntryType, UsageRoutingOutcomeSummary>;
   };
+  coverage: UsageCoverageSummary;
   entries: UsageAnalyticsEntry[];
   recommendedActions: string[];
 }

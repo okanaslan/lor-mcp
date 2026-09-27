@@ -53,6 +53,10 @@ Routing outcomes are useful for spotting broad routing misses, such as many
 skill match requests returning no candidates. They are not per-entry counters
 and should be read separately from filtered entry rows.
 
+Coverage shows whether current catalog entries have recorded detail reads in the
+selected period. Historical usage for deleted entries can still appear, but it
+does not count as current coverage.
+
 ## 6. Related Feature Specs
 
 - [Usage Analytics](../feature-specs/usage-analytics.md)

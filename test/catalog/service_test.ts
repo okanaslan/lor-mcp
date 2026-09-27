@@ -2987,6 +2987,111 @@ Deno.test("CatalogService returns empty usage analytics and validates note filte
   }
 });
 
+Deno.test("CatalogService usage analytics includes coverage and zero-activity entries", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "used-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Used Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["backend"],
+    });
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "unused-skill",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Unused Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["backend"],
+    });
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "used-skill",
+      scope: "global",
+    });
+    await service.removeSkill({
+      workspace: "LOR-MCP",
+      skillName: "used-skill",
+      scope: "global",
+    });
+
+    const report = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+    });
+
+    assertEquals(report.coverage.registered, 1);
+    assertEquals(report.coverage.opened, 0);
+    assertEquals(report.coverage.noRecordedDetail, 1);
+    assertEquals(report.coverage.byEntryType.skill, {
+      registered: 1,
+      opened: 0,
+      noRecordedDetail: 1,
+    });
+    assertEquals(
+      report.entries.map((entry) =>
+        `${entry.entryKey}:${entry.registered}:${entry.detailed}`
+      ),
+      [
+        "unused-skill:true:0",
+        "used-skill:false:1",
+      ],
+    );
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService usage analytics filters project after current metadata merge", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "renamed-skill",
+      projectName: "Old Project",
+      displayName: "Renamed Skill",
+      primarySpecialty: "backend api",
+      specialtyTags: ["backend"],
+    });
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "renamed-skill",
+      scope: "global",
+    });
+    await service.updateSkill({
+      workspace: "LOR-MCP",
+      scope: "global",
+      skillName: "renamed-skill",
+      projectName: "New Project",
+    });
+
+    const newProjectReport = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      projectName: "New Project",
+    });
+    const oldProjectReport = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      projectName: "Old Project",
+    });
+
+    assertEquals(newProjectReport.entries.length, 1);
+    assertEquals(newProjectReport.entries[0].entryKey, "renamed-skill");
+    assertEquals(newProjectReport.entries[0].projectName, "New Project");
+    assertEquals(newProjectReport.entries[0].registered, true);
+    assertEquals(newProjectReport.entries[0].detailed, 1);
+    assertEquals(newProjectReport.coverage.registered, 1);
+    assertEquals(newProjectReport.coverage.opened, 1);
+    assertEquals(oldProjectReport.entries, []);
+    assertEquals(oldProjectReport.coverage.registered, 0);
+  } finally {
+    repo.close();
+  }
+});
+
 Deno.test("CatalogService does not fail successful operations when usage writes fail", async () => {
   const { repo, service } = await createCatalogService();
   try {

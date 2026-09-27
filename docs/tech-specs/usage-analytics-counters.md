@@ -187,6 +187,11 @@ entry; if multiple project names share the same newest timestamp, choose the
 lexicographically first project name. Project filters apply to that resolved
 metadata and must not return partial operation counts for one entry.
 
+Before applying `projectName` filters, the service must merge counter rows with
+the current visible catalog by stable entry identity. Current catalog metadata
+wins over stored counter metadata. This keeps renamed entries from splitting or
+disappearing under their current project filter.
+
 `lastDetailedAt` is derived only from the `detailed` operation row's
 `lastSeenAt`. Omit it when there is no recorded detail read.
 
@@ -209,6 +214,12 @@ always workspace-scoped.
 workspace, optional `entryType`, and selected period. They intentionally do not
 honor `entryKey`, `scope`, or `projectName` filters, because no-match requests
 and recommendation counts cannot be attributed to a single entry.
+
+`coverage` compares the current visible catalog with the selected period's
+detail counters. It reports registered entries, entries opened through detail
+tools, and entries with no recorded detail read. Deleted entries can remain in
+historical usage rows with `registered: false`, but they are excluded from
+coverage.
 
 ## 6. Alternatives Considered
 
