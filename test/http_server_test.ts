@@ -665,6 +665,8 @@ Deno.test("HTTP MCP handler calls find_matching_skill with structured routing in
 
     assertEquals(response.status, 200);
     assertEquals(body.result.structuredContent.status, "ok");
+    assertEquals(typeof data.recommendationId, "string");
+    assertEquals(data.attribution.mode, "manual");
     assertEquals(data.skills[0].entryKey, "pr-feedback-evaluator");
     assertEquals(data.querySignals.includes("evaluate-feedback"), true);
     assert(
@@ -892,6 +894,15 @@ Deno.test("HTTP MCP handler calls get_usage_analytics", async () => {
       "string",
     );
     assertEquals(body.result.structuredContent.data.summary.totalCount, 0);
+    assertEquals(
+      body.result.structuredContent.data.attribution.byEntryType.skill,
+      {
+        impressions: 0,
+        attributedOpens: 0,
+        attributionRate: 0,
+        unattributedDetailOpens: 0,
+      },
+    );
     assertEquals(body.result.structuredContent.data.entries, []);
   } finally {
     repo.close();

@@ -5,6 +5,7 @@ const boundedArray = <T extends z.ZodType>(schema: T) =>
 export const entryTypeSchema = z.enum(["agent", "skill", "subagent"]);
 const healthEntryTypeSchema = z.enum(["agent", "skill"]);
 const usageEntryTypeSchema = z.enum(["skill", "subagent", "note"]);
+const recommendationIdSchema = z.string().max(16000).trim().min(1);
 export const catalogScopeSchema = z.enum(["workspace", "global"]);
 export const agentStatusSchema = z.enum(["active", "retired"]);
 
@@ -250,12 +251,14 @@ export const getSkillDetailInputSchema = z.strictObject({
   workspace: workspaceSchema,
   skillName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
+  recommendationId: recommendationIdSchema.optional(),
 });
 
 export const getSubagentDetailInputSchema = z.strictObject({
   workspace: workspaceSchema,
   subagentName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),
+  recommendationId: recommendationIdSchema.optional(),
 });
 
 const commonMetadataUpdateFields = {
@@ -594,12 +597,16 @@ export const findMatchingWorkspaceNoteInputSchema = z.strictObject({
   limit: z.number().int().min(1).max(20).optional(),
 });
 
-export const getWorkspaceNoteInputSchema = z.strictObject({
+const workspaceNoteKeyInputSchema = z.strictObject({
   workspace: workspaceSchema,
   noteId: z.string().max(16000).trim().min(1),
 });
 
-export const removeWorkspaceNoteInputSchema = getWorkspaceNoteInputSchema;
+export const getWorkspaceNoteInputSchema = workspaceNoteKeyInputSchema.extend({
+  recommendationId: recommendationIdSchema.optional(),
+});
+
+export const removeWorkspaceNoteInputSchema = workspaceNoteKeyInputSchema;
 
 export const generateAgentPromptInputSchema = z.strictObject({
   workspace: workspaceSchema,

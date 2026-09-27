@@ -26,8 +26,9 @@ to improve.
    recent UTC-day report.
 3. LOR resolves the workspace and reads aggregate usage counters.
 4. LOR returns lifetime summary totals, metric definitions, per-entry counters,
-   request-level routing outcomes, optional `lastDetailedAt` values, and
-   recommended actions for skills, subagents, and workspace notes.
+   request-level routing outcomes, recommendation attribution, coverage,
+   optional `lastDetailedAt` values, and recommended actions for skills,
+   subagents, and workspace notes.
 5. The current agent identifies heavily used observed entries, observed entries
    with zero detail reads, and entries that are often matched but rarely opened
    in detail.
@@ -56,6 +57,12 @@ and should be read separately from filtered entry rows.
 Coverage shows whether current catalog entries have recorded detail reads in the
 selected period. Historical usage for deleted entries can still appear, but it
 does not count as current coverage.
+
+Recommendation attribution shows whether matched entries are later opened in
+detail. It uses opaque recommendation ids returned by match tools and passed to
+detail tools. Attribution is aggregate and partial: it does not store raw
+queries, repeated detail opens are not counted as new attributed opens, and
+unattributed detail opens are reported separately.
 
 ## 6. Related Feature Specs
 

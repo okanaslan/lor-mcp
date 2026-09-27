@@ -80,9 +80,9 @@ Use a unique constraint on:
 - `entryKey`
 - `operation`
 
-Every new usage write updates both `usage_counters` and
-`usage_daily_counters`. Existing lifetime counters remain valid during
-migration, but no daily history is fabricated from them.
+Every new usage write updates both `usage_counters` and `usage_daily_counters`.
+Existing lifetime counters remain valid during migration, but no daily history
+is fabricated from them.
 
 Add request-level routing outcome tables:
 
@@ -106,6 +106,49 @@ successful match request with zero returned candidates increments
 Failed validation, storage failures before a response, or thrown match requests
 do not increment outcome counters. Raw task/query text is never stored.
 
+Add recommendation attribution tables:
+
+- `usage_recommendations`
+- `usage_daily_attribution`
+- `usage_daily_unattributed_opens`
+
+`usage_recommendations` stores short-lived opaque recommendation ids for match
+results. Fields:
+
+- `recommendationId`
+- `workspace`
+- `entryType`
+- `entryScope`
+- `entryKey`
+- `recommendedAt`
+- `expiresAt`
+- `attributedOpenAt`
+
+Rows expire after 30 days and are used only to connect a later detail read to a
+previous match result. The id is opaque and does not encode task/query content.
+
+`usage_daily_attribution` stores retained UTC-day aggregates by recommendation
+day:
+
+- `day`
+- `workspace`
+- `entryType`
+- `entryScope`
+- `entryKey`
+- `impressions`
+- `attributedOpens`
+
+`usage_daily_unattributed_opens` stores retained UTC-day aggregates by detail
+read day for successful detail reads that omit a recommendation id or provide an
+invalid/expired id:
+
+- `day`
+- `workspace`
+- `entryType`
+- `entryScope`
+- `entryKey`
+- `unattributedDetailOpens`
+
 Supported values:
 
 - `entryType`: `skill`, `subagent`, `note`
@@ -122,9 +165,16 @@ Record usage after successful service operations:
   candidate.
 - `findMatchingWorkspaceNote` increments `matched` for each returned note
   preview.
+- Successful match responses include one `recommendationId` for the returned
+  candidate set and a manual attribution instruction.
 - `getSkillDetail` increments `detailed` for the returned skill.
 - `getSubagentDetail` increments `detailed` for the returned subagent.
 - `getWorkspaceNote` increments `detailed` for the returned note.
+- Detail tools accept optional `recommendationId`. A valid id increments
+  `attributedOpens` once for the matching entry on the recommendation day.
+  Repeated opens with the same id are ordinary detail reads but do not increment
+  attribution again. Missing, invalid, or expired ids increment
+  `unattributedDetailOpens` by detail read day.
 
 Do not record failed lookups, validation failures, no-match responses, or empty
 list results as entry-level usage. The reporting tool may still include empty
@@ -150,6 +200,8 @@ Add `get_usage_analytics`:
   - `metricDefinitions`
   - `summary`
   - `routingOutcomes`
+  - `coverage`
+  - `attribution`
   - `entries`
   - `recommendedActions`
 
@@ -200,12 +252,12 @@ before tracking was introduced or enabled. Counter values are repeated tool
 returns/detail reads, not unique tasks or proof that returned guidance was used
 in code.
 
-`period: "last_7_days"` and `period: "last_30_days"` read
-`usage_daily_counters` by UTC calendar day. They include the current partial UTC
-day. `periodStart` is the start of the first included UTC day, and `periodEnd`
-is the report `checkedAt` timestamp. Daily reads return per-day rows to the
-service layer so project metadata resolution follows the same newest-row
-deterministic rule as lifetime reports.
+`period: "last_7_days"` and `period: "last_30_days"` read `usage_daily_counters`
+by UTC calendar day. They include the current partial UTC day. `periodStart` is
+the start of the first included UTC day, and `periodEnd` is the report
+`checkedAt` timestamp. Daily reads return per-day rows to the service layer so
+project metadata resolution follows the same newest-row deterministic rule as
+lifetime reports.
 
 `scope: "global"` is valid only for skills and subagents. Workspace notes are
 always workspace-scoped.
@@ -220,6 +272,14 @@ detail counters. It reports registered entries, entries opened through detail
 tools, and entries with no recorded detail read. Deleted entries can remain in
 historical usage rows with `registered: false`, but they are excluded from
 coverage.
+
+`attribution` reports aggregate match-to-detail attribution for the selected
+period. Its daily rows are keyed by recommendation day, not detail read day, so
+recent-period reports do not move old impressions forward when a user opens the
+detail later. Unattributed detail opens are reported separately and should not
+be derived from `detailed - attributedOpens`, because detail reads and
+attributed opens use different cohort dates and duplicate detail reads are
+deduplicated for attribution.
 
 ## 6. Alternatives Considered
 
@@ -238,6 +298,8 @@ coverage.
 - Add a schema migration for `usage_counters`.
 - Add an additive schema migration for `usage_daily_counters`.
 - Add additive schema migrations for match outcome counters.
+- Add additive schema migrations for short-lived recommendation ids and daily
+  attribution aggregates.
 - Add repository methods for batch counter increments and analytics reads.
 - Prefer batch increments after list/match operations to avoid one write per
   entry when possible.

@@ -372,6 +372,7 @@ export function validateGetWorkspaceNote(
   return {
     workspace: requireWorkspace(input.workspace),
     noteId: requireString(input.noteId, "noteId"),
+    recommendationId: input.recommendationId?.trim() || undefined,
   };
 }
 

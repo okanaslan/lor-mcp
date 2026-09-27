@@ -2,10 +2,10 @@
 
 ## 1. Summary
 
-Implemented for skills and subagent prompt profiles. Structured routing
-metadata lets callers and catalog entries describe intent, positive signals,
-required signals, exclusion signals, domain, and desired output shape without
-depending on long free-text prompt phrasing.
+Implemented for skills and subagent prompt profiles. Structured routing metadata
+lets callers and catalog entries describe intent, positive signals, required
+signals, exclusion signals, domain, and desired output shape without depending
+on long free-text prompt phrasing.
 
 ## 2. Goals
 
@@ -45,9 +45,8 @@ depending on long free-text prompt phrasing.
 - Positive scoring must weight structured routing fields above broad fallback
   text fields.
 - Negative routing must remain separate from positive evidence.
-- `debug: true` must expose query signals, ignored signals, excluded
-  candidates, weighted signal breakdowns, negative signals, and final score
-  breakdowns.
+- `debug: true` must expose query signals, ignored signals, excluded candidates,
+  weighted signal breakdowns, negative signals, and final score breakdowns.
 
 ## 5. Data Model
 
@@ -71,9 +70,9 @@ import, and workspace sync.
 
 ## 6. Matching Behavior
 
-The matcher builds normalized positive and negative query signals from the
-task, specialty hints, and structured request fields. Structured entry metadata
-is evaluated before legacy text fields, and candidate explanations keep the
+The matcher builds normalized positive and negative query signals from the task,
+specialty hints, and structured request fields. Structured entry metadata is
+evaluated before legacy text fields, and candidate explanations keep the
 existing `matchedFields`, `matchedSignals`, and `score` surface.
 
 When `debug` is omitted or false, results remain compact. When `debug: true`,

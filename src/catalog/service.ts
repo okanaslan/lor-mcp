@@ -67,11 +67,15 @@ import {
   type UsageAnalyticsFilter,
   type UsageAnalyticsReport,
   type UsageAnalyticsSummary,
+  type UsageAttributionRecord,
+  type UsageAttributionSummary,
   type UsageCounterIncrement,
   type UsageCounterRecord,
   type UsageEntryType,
   type UsageMatchOutcomeRecord,
   type UsageOperation,
+  type UsageRecommendationRecord,
+  type UsageUnattributedOpenRecord,
   type VerificationMetadata,
   type WorkspaceCatalogSyncApplyResult,
   type WorkspaceCatalogSyncInput,
@@ -387,7 +391,12 @@ export class CatalogService {
   }
 
   async getSkillDetail(
-    input: { workspace: string; skillName: string; scope?: CatalogScope },
+    input: {
+      workspace: string;
+      skillName: string;
+      scope?: CatalogScope;
+      recommendationId?: string;
+    },
   ): Promise<SkillCatalogEntry | undefined> {
     const workspace = await this.resolveWorkspace(input.workspace);
     const entry = await this.resolveScopedEntry(workspace, {
@@ -401,12 +410,23 @@ export class CatalogService {
       await this.recordUsage([
         usageFromCatalogEntry(workspace, skill, "detailed"),
       ]);
+      await this.recordDetailAttribution(input.recommendationId, {
+        workspace,
+        entryType: "skill",
+        scope: skill.scope,
+        entryKey: skill.skillName,
+      });
     }
     return skill;
   }
 
   async getSubagentDetail(
-    input: { workspace: string; subagentName: string; scope?: CatalogScope },
+    input: {
+      workspace: string;
+      subagentName: string;
+      scope?: CatalogScope;
+      recommendationId?: string;
+    },
   ): Promise<SubagentCatalogEntry | undefined> {
     const workspace = await this.resolveWorkspace(input.workspace);
     const entry = await this.resolveScopedEntry(workspace, {
@@ -420,6 +440,12 @@ export class CatalogService {
       await this.recordUsage([
         usageFromCatalogEntry(workspace, subagent, "detailed"),
       ]);
+      await this.recordDetailAttribution(input.recommendationId, {
+        workspace,
+        entryType: "subagent",
+        scope: subagent.scope,
+        entryKey: subagent.name,
+      });
     }
     return subagent;
   }
@@ -1228,6 +1254,19 @@ export class CatalogService {
     await this.recordUsage(
       matches.map((note) => usageFromWorkspaceNoteMatch(workspace, note)),
     );
+    const recommendationId = matches.length > 0
+      ? crypto.randomUUID()
+      : undefined;
+    if (recommendationId) {
+      await this.recordRecommendationAttributions(
+        recommendationRecordsFromNotes(
+          workspace,
+          recommendationId,
+          matches,
+          this.#now(),
+        ),
+      );
+    }
     await this.recordMatchOutcome({
       workspace,
       entryType: "note",
@@ -1239,6 +1278,10 @@ export class CatalogService {
       status: matches.length > 0 ? "ok" : "no_match",
       workspace,
       query: validated.query,
+      recommendationId,
+      attribution: recommendationId
+        ? recommendationAttributionGuidance()
+        : undefined,
       filters: {
         tags: validated.tags,
         limit,
@@ -1266,6 +1309,12 @@ export class CatalogService {
     await this.recordUsage([
       usageFromWorkspaceNote(workspace, note, "detailed"),
     ]);
+    await this.recordDetailAttribution(validated.recommendationId, {
+      workspace,
+      entryType: "note",
+      scope: "workspace",
+      entryKey: note.noteId,
+    });
     return note;
   }
 
@@ -1294,6 +1343,22 @@ export class CatalogService {
         periodEndDay: periodBounds?.endDay,
       },
     );
+    const attributionRecords = await this.#repository.getUsageAttribution(
+      workspace,
+      {
+        entryType: validated.entryType,
+        period,
+        periodStartDay: periodBounds?.startDay,
+        periodEndDay: periodBounds?.endDay,
+      },
+    );
+    const unattributedOpenRecords = await this.#repository
+      .getUsageUnattributedOpens(workspace, {
+        entryType: validated.entryType,
+        period,
+        periodStartDay: periodBounds?.startDay,
+        periodEndDay: periodBounds?.endDay,
+      });
     const entries = usageAnalyticsEntries(
       workspace,
       records,
@@ -1312,6 +1377,11 @@ export class CatalogService {
     const filteredEntries = mergedEntries.filter((entry) =>
       validated.projectName === undefined ||
       entry.projectName === validated.projectName
+    );
+    attachUsageAttribution(
+      filteredEntries,
+      attributionRecords,
+      unattributedOpenRecords,
     );
     return {
       workspace,
@@ -1339,6 +1409,11 @@ export class CatalogService {
         period,
       }),
       coverage: summarizeUsageCoverage(filteredEntries),
+      attribution: summarizeUsageAttribution(
+        filteredEntries,
+        attributionRecords,
+        unattributedOpenRecords,
+      ),
       entries: filteredEntries,
       recommendedActions: usageAnalyticsRecommendedActions(filteredEntries),
     };
@@ -1454,6 +1529,19 @@ export class CatalogService {
         usageFromMatchCandidate(workspace, candidate, "matched")
       ),
     );
+    if (result.data.skills.length > 0) {
+      const recommendationId = crypto.randomUUID();
+      result.data.recommendationId = recommendationId;
+      result.data.attribution = recommendationAttributionGuidance();
+      await this.recordRecommendationAttributions(
+        recommendationRecordsFromCandidates(
+          workspace,
+          recommendationId,
+          result.data.skills,
+          this.#now(),
+        ),
+      );
+    }
     await this.recordMatchOutcome({
       workspace,
       entryType: "skill",
@@ -1476,6 +1564,19 @@ export class CatalogService {
         usageFromMatchCandidate(workspace, candidate, "matched")
       ),
     );
+    if (result.data.subagents.length > 0) {
+      const recommendationId = crypto.randomUUID();
+      result.data.recommendationId = recommendationId;
+      result.data.attribution = recommendationAttributionGuidance();
+      await this.recordRecommendationAttributions(
+        recommendationRecordsFromCandidates(
+          workspace,
+          recommendationId,
+          result.data.subagents,
+          this.#now(),
+        ),
+      );
+    }
     await this.recordMatchOutcome({
       workspace,
       entryType: "subagent",
@@ -1657,6 +1758,64 @@ export class CatalogService {
           errorCode: appError.code,
         },
         "Usage analytics write failed after a successful operation.",
+      );
+    }
+  }
+
+  private async recordRecommendationAttributions(
+    records: readonly UsageRecommendationRecord[],
+  ): Promise<void> {
+    if (records.length === 0) {
+      return;
+    }
+    try {
+      await this.#repository.recordRecommendationAttributions(records, {
+        now: this.#now(),
+      });
+    } catch (error) {
+      const appError = toLorError(error);
+      this.#logger.warn(
+        {
+          event: "usage_attribution_write_failed",
+          errorCode: appError.code,
+        },
+        "Usage attribution write failed after a successful operation.",
+      );
+    }
+  }
+
+  private async recordDetailAttribution(
+    recommendationId: string | undefined,
+    input: {
+      workspace: string;
+      entryType: UsageEntryType;
+      scope: CatalogScope;
+      entryKey: string;
+    },
+  ): Promise<void> {
+    try {
+      let attributionStatus:
+        | Awaited<ReturnType<CatalogRepository["attributeRecommendationOpen"]>>
+        | undefined;
+      if (recommendationId) {
+        attributionStatus = await this.#repository.attributeRecommendationOpen({
+          recommendationId,
+          ...input,
+        }, { now: this.#now() });
+      }
+      if (!recommendationId || attributionStatus === "not_found") {
+        await this.#repository.recordUnattributedDetailOpen(input, {
+          now: this.#now(),
+        });
+      }
+    } catch (error) {
+      const appError = toLorError(error);
+      this.#logger.warn(
+        {
+          event: "usage_attribution_write_failed",
+          errorCode: appError.code,
+        },
+        "Usage attribution write failed after a successful operation.",
       );
     }
   }
@@ -2158,6 +2317,58 @@ function usageFromMatchCandidate(
   };
 }
 
+function recommendationAttributionGuidance() {
+  return {
+    mode: "manual" as const,
+    instruction:
+      "Pass recommendationId to the matching detail tool when opening a recommended entry.",
+  };
+}
+
+function recommendationRecordsFromCandidates(
+  workspace: string,
+  recommendationId: string,
+  candidates: readonly MatchCandidate[],
+  now: string,
+): UsageRecommendationRecord[] {
+  return candidates
+    .filter((candidate) =>
+      candidate.entryType === "skill" || candidate.entryType === "subagent"
+    )
+    .map((candidate) => ({
+      recommendationId,
+      workspace,
+      entryType: candidate.entryType as "skill" | "subagent",
+      scope: candidate.scope,
+      entryKey: candidate.entryKey,
+      recommendedAt: now,
+      expiresAt: recommendationExpiresAt(now),
+    }));
+}
+
+function recommendationRecordsFromNotes(
+  workspace: string,
+  recommendationId: string,
+  notes: readonly WorkspaceNoteMatch[],
+  now: string,
+): UsageRecommendationRecord[] {
+  return notes.map((note) => ({
+    recommendationId,
+    workspace,
+    entryType: "note",
+    scope: "workspace",
+    entryKey: note.noteId,
+    recommendedAt: now,
+    expiresAt: recommendationExpiresAt(now),
+  }));
+}
+
+function recommendationExpiresAt(now: string): string {
+  const expiresAt = new Date(now);
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + 30);
+  return expiresAt.toISOString();
+}
+
 function usageFromWorkspaceNote(
   workspace: string,
   note: Pick<WorkspaceNote, "noteId">,
@@ -2443,6 +2654,119 @@ function summarizeUsageCoverage(
     }
   }
   return coverage;
+}
+
+function attachUsageAttribution(
+  entries: UsageAnalyticsEntry[],
+  attributionRecords: readonly UsageAttributionRecord[],
+  unattributedOpenRecords: readonly UsageUnattributedOpenRecord[],
+): void {
+  const attributionByEntry = summarizeAttributionByEntry(
+    attributionRecords,
+    unattributedOpenRecords,
+  );
+  for (const entry of entries) {
+    entry.attribution = attributionByEntry.get(usageEntryIdentity(entry)) ??
+      emptyAttributionSummary();
+  }
+}
+
+function summarizeUsageAttribution(
+  entries: readonly UsageAnalyticsEntry[],
+  attributionRecords: readonly UsageAttributionRecord[],
+  unattributedOpenRecords: readonly UsageUnattributedOpenRecord[],
+): UsageAnalyticsReport["attribution"] {
+  const visibleEntryKeys = new Set(entries.map(usageEntryIdentity));
+  const byEntryType: Record<UsageEntryType, UsageAttributionSummary> = {
+    skill: emptyAttributionSummary(),
+    subagent: emptyAttributionSummary(),
+    note: emptyAttributionSummary(),
+  };
+  const daily: UsageAnalyticsReport["attribution"]["daily"] = [];
+
+  for (const record of attributionRecords) {
+    const key = usageAttributionIdentity(record);
+    if (!visibleEntryKeys.has(key)) {
+      continue;
+    }
+    const summary = byEntryType[record.entryType];
+    summary.impressions += record.impressions;
+    summary.attributedOpens += record.attributedOpens;
+    daily.push({
+      day: record.day,
+      entryType: record.entryType,
+      scope: record.scope,
+      entryKey: record.entryKey,
+      impressions: record.impressions,
+      attributedOpens: record.attributedOpens,
+    });
+  }
+
+  for (const record of unattributedOpenRecords) {
+    const key = usageAttributionIdentity(record);
+    if (!visibleEntryKeys.has(key)) {
+      continue;
+    }
+    byEntryType[record.entryType].unattributedDetailOpens +=
+      record.unattributedDetailOpens;
+  }
+
+  for (const summary of Object.values(byEntryType)) {
+    summary.attributionRate = attributionRate(summary);
+  }
+
+  return {
+    partialAttribution: true,
+    byEntryType,
+    daily,
+  };
+}
+
+function summarizeAttributionByEntry(
+  attributionRecords: readonly UsageAttributionRecord[],
+  unattributedOpenRecords: readonly UsageUnattributedOpenRecord[],
+): Map<string, UsageAttributionSummary> {
+  const byEntry = new Map<string, UsageAttributionSummary>();
+  for (const record of attributionRecords) {
+    const key = usageAttributionIdentity(record);
+    const summary = byEntry.get(key) ?? emptyAttributionSummary();
+    summary.impressions += record.impressions;
+    summary.attributedOpens += record.attributedOpens;
+    byEntry.set(key, summary);
+  }
+  for (const record of unattributedOpenRecords) {
+    const key = usageAttributionIdentity(record);
+    const summary = byEntry.get(key) ?? emptyAttributionSummary();
+    summary.unattributedDetailOpens += record.unattributedDetailOpens;
+    byEntry.set(key, summary);
+  }
+  for (const summary of byEntry.values()) {
+    summary.attributionRate = attributionRate(summary);
+  }
+  return byEntry;
+}
+
+function usageAttributionIdentity(
+  record:
+    | Pick<UsageAttributionRecord, "entryType" | "scope" | "entryKey">
+    | Pick<UsageUnattributedOpenRecord, "entryType" | "scope" | "entryKey">,
+): string {
+  return [record.entryType, record.scope, record.entryKey].join(":");
+}
+
+function emptyAttributionSummary(): UsageAttributionSummary {
+  return {
+    impressions: 0,
+    attributedOpens: 0,
+    attributionRate: 0,
+    unattributedDetailOpens: 0,
+  };
+}
+
+function attributionRate(summary: UsageAttributionSummary): number {
+  return summary.impressions === 0
+    ? 0
+    : summary.attributedOpens / summary.impressions;
 }
 
 function emptyCoverageTypeSummary() {

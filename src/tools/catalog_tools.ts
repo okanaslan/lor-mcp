@@ -933,7 +933,9 @@ export function registerCatalogTools(
           if (result.status === "ok") {
             return okResult(
               result,
-              `Found ${result.notes.length} matching workspace notes.`,
+              result.recommendationId
+                ? `Found ${result.notes.length} matching workspace notes. Pass recommendationId to get_workspace_note when opening a recommendation.`
+                : `Found ${result.notes.length} matching workspace notes.`,
             );
           }
           return statusResult(
@@ -1079,7 +1081,12 @@ function matchToolResult(
       "Multiple catalog entries matched with near-equal strength.",
     );
   }
-  return okResult(data, `Found matching ${entryLabel}s.`);
+  return okResult(
+    data,
+    data.recommendationId
+      ? `Found matching ${entryLabel}s. Pass recommendationId to the ${entryLabel} detail tool when opening a recommendation.`
+      : `Found matching ${entryLabel}s.`,
+  );
 }
 
 function withLoggedToolErrors(

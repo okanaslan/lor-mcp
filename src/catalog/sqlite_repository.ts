@@ -27,12 +27,15 @@ import type {
   SkillUpdateProposal,
   SubagentCatalogEntry,
   UsageAnalyticsFilter,
+  UsageAttributionRecord,
   UsageCounterIncrement,
   UsageCounterRecord,
   UsageEntryType,
   UsageMatchOutcomeIncrement,
   UsageMatchOutcomeRecord,
   UsageOperation,
+  UsageRecommendationRecord,
+  UsageUnattributedOpenRecord,
   VerificationMetadata,
   WorkspaceNote,
 } from "@src/catalog/types.ts";
@@ -170,6 +173,25 @@ interface UsageMatchOutcomeRow {
   lastSeenAt: string;
 }
 
+interface UsageAttributionRow {
+  day: string;
+  workspace: string;
+  entryType: string;
+  entryScope: string;
+  entryKey: string;
+  impressions: number;
+  attributedOpens: number;
+}
+
+interface UsageUnattributedOpenRow {
+  day: string;
+  workspace: string;
+  entryType: string;
+  entryScope: string;
+  entryKey: string;
+  unattributedDetailOpens: number;
+}
+
 import { assertRevision, fingerprint } from "@src/catalog/revision.ts";
 import type { OperationReceipt } from "@src/tools/operations.ts";
 import type { ToolResult } from "@src/tools/response.ts";
@@ -194,7 +216,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         const current = this.#db.prepare(
           "SELECT MAX(version) AS version FROM schema_migrations",
         ).get<{ version: number }>();
-        if ((current?.version ?? 0) > 16) {
+        if ((current?.version ?? 0) > 17) {
           throw new LorError(
             "setup_error",
             "Catalog schema is newer than this server. Use a compatible release.",
@@ -224,6 +246,9 @@ export class SqliteCatalogRepository implements CatalogRepository {
         db.exec(USAGE_DAILY_COUNTERS_SCHEMA_SQL);
         db.exec(USAGE_MATCH_OUTCOMES_SCHEMA_SQL);
         db.exec(USAGE_DAILY_MATCH_OUTCOMES_SCHEMA_SQL);
+        db.exec(USAGE_RECOMMENDATIONS_SCHEMA_SQL);
+        db.exec(USAGE_DAILY_ATTRIBUTION_SCHEMA_SQL);
+        db.exec(USAGE_DAILY_UNATTRIBUTED_OPENS_SCHEMA_SQL);
         db.exec(`CREATE TABLE IF NOT EXISTS operation_receipts (
         workspace TEXT NOT NULL, operationKey TEXT NOT NULL,
         payloadHash TEXT NOT NULL, status TEXT NOT NULL, result TEXT,
@@ -250,7 +275,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
               UPDATE catalog_generation SET token = lower(hex(randomblob(16))) WHERE id = 1; END`);
           }
         }
-        recordSchemaVersion(db, 16);
+        recordSchemaVersion(db, 17);
       });
       migrate();
     } catch (error) {
@@ -1420,6 +1445,156 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
+  recordRecommendationAttributions(
+    records: readonly UsageRecommendationRecord[],
+    options: { now: string },
+  ): Promise<void> {
+    if (records.length === 0) {
+      return Promise.resolve();
+    }
+    const db = this.requireDb();
+    const record = db.transaction(() => {
+      db.exec(
+        "DELETE FROM usage_recommendations WHERE expiresAt < ?",
+        options.now,
+      );
+      for (const item of records) {
+        const day = usageDay(item.recommendedAt);
+        db.exec(
+          `INSERT OR IGNORE INTO usage_recommendations (
+            recommendationId, workspace, entryType, entryScope, entryKey,
+            recommendedAt, expiresAt, attributedOpenAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+          item.recommendationId,
+          item.workspace,
+          item.entryType,
+          item.scope,
+          item.entryKey,
+          item.recommendedAt,
+          item.expiresAt,
+        );
+        db.exec(
+          `INSERT INTO usage_daily_attribution (
+            day, workspace, entryType, entryScope, entryKey, impressions,
+            attributedOpens
+          ) VALUES (?, ?, ?, ?, ?, 1, 0)
+          ON CONFLICT (day, workspace, entryType, entryScope, entryKey)
+          DO UPDATE SET impressions = impressions + 1`,
+          day,
+          item.workspace,
+          item.entryType,
+          item.scope,
+          item.entryKey,
+        );
+      }
+    });
+    try {
+      record();
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  attributeRecommendationOpen(
+    input: {
+      recommendationId: string;
+      workspace: string;
+      entryType: UsageEntryType;
+      scope: CatalogScope;
+      entryKey: string;
+    },
+    options: { now: string },
+  ): Promise<"attributed" | "already_attributed" | "not_found"> {
+    const db = this.requireDb();
+    const attribute = db.transaction(() => {
+      db.exec(
+        "DELETE FROM usage_recommendations WHERE expiresAt < ?",
+        options.now,
+      );
+      const row = db.prepare<{
+        recommendedAt: string;
+        attributedOpenAt: string | null;
+      }>(
+        `SELECT recommendedAt, attributedOpenAt
+         FROM usage_recommendations
+         WHERE recommendationId = ? AND workspace = ? AND entryType = ?
+           AND entryScope = ? AND entryKey = ? AND expiresAt >= ?`,
+      ).get(
+        input.recommendationId,
+        input.workspace,
+        input.entryType,
+        input.scope,
+        input.entryKey,
+        options.now,
+      );
+      if (!row) {
+        return "not_found";
+      }
+      if (row.attributedOpenAt) {
+        return "already_attributed";
+      }
+      db.exec(
+        `UPDATE usage_recommendations
+         SET attributedOpenAt = ?
+         WHERE recommendationId = ? AND workspace = ? AND entryType = ?
+           AND entryScope = ? AND entryKey = ?`,
+        options.now,
+        input.recommendationId,
+        input.workspace,
+        input.entryType,
+        input.scope,
+        input.entryKey,
+      );
+      db.exec(
+        `UPDATE usage_daily_attribution
+         SET attributedOpens = attributedOpens + 1
+         WHERE day = ? AND workspace = ? AND entryType = ? AND entryScope = ?
+           AND entryKey = ?`,
+        usageDay(row.recommendedAt),
+        input.workspace,
+        input.entryType,
+        input.scope,
+        input.entryKey,
+      );
+      return "attributed";
+    });
+    try {
+      return Promise.resolve(attribute());
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  recordUnattributedDetailOpen(
+    input: {
+      workspace: string;
+      entryType: UsageEntryType;
+      scope: CatalogScope;
+      entryKey: string;
+    },
+    options: { now: string },
+  ): Promise<void> {
+    try {
+      this.requireDb().exec(
+        `INSERT INTO usage_daily_unattributed_opens (
+          day, workspace, entryType, entryScope, entryKey,
+          unattributedDetailOpens
+        ) VALUES (?, ?, ?, ?, ?, 1)
+        ON CONFLICT (day, workspace, entryType, entryScope, entryKey)
+        DO UPDATE SET unattributedDetailOpens = unattributedDetailOpens + 1`,
+        usageDay(options.now),
+        input.workspace,
+        input.entryType,
+        input.scope,
+        input.entryKey,
+      );
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
   getUsageCounters(
     workspace: string,
     filter: Omit<UsageAnalyticsFilter, "workspace"> & {
@@ -1519,6 +1694,76 @@ export class SqliteCatalogRepository implements CatalogRepository {
              ORDER BY entryType`,
       ).all(...values);
       return Promise.resolve(rows.map(mapUsageMatchOutcomeRow));
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  getUsageAttribution(
+    workspace: string,
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    } = {},
+  ): Promise<UsageAttributionRecord[]> {
+    try {
+      const clauses = ["workspace = ?"];
+      const values: string[] = [workspace];
+      if (filter.entryType) {
+        clauses.push("entryType = ?");
+        values.push(filter.entryType);
+      }
+      if (filter.period !== undefined && filter.period !== "lifetime") {
+        if (filter.periodStartDay) {
+          clauses.push("day >= ?");
+          values.push(filter.periodStartDay);
+        }
+        if (filter.periodEndDay) {
+          clauses.push("day <= ?");
+          values.push(filter.periodEndDay);
+        }
+      }
+      const rows = this.requireDb().prepare<UsageAttributionRow>(
+        `SELECT * FROM usage_daily_attribution
+         WHERE ${clauses.join(" AND ")}
+         ORDER BY day, entryType, entryScope, entryKey`,
+      ).all(...values);
+      return Promise.resolve(rows.map(mapUsageAttributionRow));
+    } catch (error) {
+      return Promise.reject(mapStorageError(error));
+    }
+  }
+
+  getUsageUnattributedOpens(
+    workspace: string,
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    } = {},
+  ): Promise<UsageUnattributedOpenRecord[]> {
+    try {
+      const clauses = ["workspace = ?"];
+      const values: string[] = [workspace];
+      if (filter.entryType) {
+        clauses.push("entryType = ?");
+        values.push(filter.entryType);
+      }
+      if (filter.period !== undefined && filter.period !== "lifetime") {
+        if (filter.periodStartDay) {
+          clauses.push("day >= ?");
+          values.push(filter.periodStartDay);
+        }
+        if (filter.periodEndDay) {
+          clauses.push("day <= ?");
+          values.push(filter.periodEndDay);
+        }
+      }
+      const rows = this.requireDb().prepare<UsageUnattributedOpenRow>(
+        `SELECT * FROM usage_daily_unattributed_opens
+         WHERE ${clauses.join(" AND ")}
+         ORDER BY day, entryType, entryScope, entryKey`,
+      ).all(...values);
+      return Promise.resolve(rows.map(mapUsageUnattributedOpenRow));
     } catch (error) {
       return Promise.reject(mapStorageError(error));
     }
@@ -1890,6 +2135,33 @@ function mapUsageMatchOutcomeRow(
     recommendationCount: row.recommendationCount,
     firstSeenAt: row.firstSeenAt,
     lastSeenAt: row.lastSeenAt,
+  };
+}
+
+function mapUsageAttributionRow(
+  row: UsageAttributionRow,
+): UsageAttributionRecord {
+  return {
+    day: row.day,
+    workspace: row.workspace,
+    entryType: parseUsageEntryType(row.entryType),
+    scope: parseCatalogScope(row.entryScope),
+    entryKey: row.entryKey,
+    impressions: row.impressions,
+    attributedOpens: row.attributedOpens,
+  };
+}
+
+function mapUsageUnattributedOpenRow(
+  row: UsageUnattributedOpenRow,
+): UsageUnattributedOpenRecord {
+  return {
+    day: row.day,
+    workspace: row.workspace,
+    entryType: parseUsageEntryType(row.entryType),
+    scope: parseCatalogScope(row.entryScope),
+    entryKey: row.entryKey,
+    unattributedDetailOpens: row.unattributedDetailOpens,
   };
 }
 
@@ -2469,4 +2741,52 @@ CREATE TABLE IF NOT EXISTS usage_daily_match_outcomes (
 
 CREATE INDEX IF NOT EXISTS usage_daily_match_outcomes_workspace_day_idx
   ON usage_daily_match_outcomes(workspace, day);
+`;
+
+const USAGE_RECOMMENDATIONS_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS usage_recommendations (
+  recommendationId TEXT NOT NULL,
+  workspace TEXT NOT NULL,
+  entryType TEXT NOT NULL,
+  entryScope TEXT NOT NULL,
+  entryKey TEXT NOT NULL,
+  recommendedAt TEXT NOT NULL,
+  expiresAt TEXT NOT NULL,
+  attributedOpenAt TEXT,
+  PRIMARY KEY (recommendationId, workspace, entryType, entryScope, entryKey)
+);
+
+CREATE INDEX IF NOT EXISTS usage_recommendations_expiry_idx
+  ON usage_recommendations(expiresAt);
+`;
+
+const USAGE_DAILY_ATTRIBUTION_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS usage_daily_attribution (
+  day TEXT NOT NULL,
+  workspace TEXT NOT NULL,
+  entryType TEXT NOT NULL,
+  entryScope TEXT NOT NULL,
+  entryKey TEXT NOT NULL,
+  impressions INTEGER NOT NULL,
+  attributedOpens INTEGER NOT NULL,
+  PRIMARY KEY (day, workspace, entryType, entryScope, entryKey)
+);
+
+CREATE INDEX IF NOT EXISTS usage_daily_attribution_workspace_day_idx
+  ON usage_daily_attribution(workspace, day);
+`;
+
+const USAGE_DAILY_UNATTRIBUTED_OPENS_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS usage_daily_unattributed_opens (
+  day TEXT NOT NULL,
+  workspace TEXT NOT NULL,
+  entryType TEXT NOT NULL,
+  entryScope TEXT NOT NULL,
+  entryKey TEXT NOT NULL,
+  unattributedDetailOpens INTEGER NOT NULL,
+  PRIMARY KEY (day, workspace, entryType, entryScope, entryKey)
+);
+
+CREATE INDEX IF NOT EXISTS usage_daily_unattributed_opens_workspace_day_idx
+  ON usage_daily_unattributed_opens(workspace, day);
 `;

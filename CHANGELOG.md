@@ -52,8 +52,8 @@ The project follows Semantic Versioning:
   database before upgrading and refresh client discovery after restarting; see
   the [upgrade and recovery runbook](docs/runbooks/mcp-hardening.md).
 - Route skill/subagent matches through normalized aliases, stop-word filtering,
-  hard pre-ranking exclusions, weighted structured scores, and separate
-  negative evidence.
+  hard pre-ranking exclusions, weighted structured scores, and separate negative
+  evidence.
 - Clean up README, roadmap, changelog, and active tool-surface documentation
   ahead of the next planning cycle.
 - Align V2 direction docs for task-oriented agents, tool-surface simplification,
@@ -72,8 +72,8 @@ The project follows Semantic Versioning:
 - Default new `introduce_skill` and `introduce_subagent` registrations to global
   scope when `scope` is omitted; callers use `scope: "workspace"` for
   workspace-local entries. Workspace notes remain workspace-scoped.
-- Align the advertised MCP server version with the `VERSION` file and keep
-  stdio startup from reading HTTP-only `LOR_HOST`/`LOR_PORT` environment vars.
+- Align the advertised MCP server version with the `VERSION` file and keep stdio
+  startup from reading HTTP-only `LOR_HOST`/`LOR_PORT` environment vars.
 
 ## [2.0.0] - 2026-08-06
 

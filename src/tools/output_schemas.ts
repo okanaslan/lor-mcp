@@ -159,11 +159,17 @@ const candidate = summary.extend({
     }).optional(),
   }),
 });
+const recommendationAttribution = z.object({
+  mode: z.literal("manual"),
+  instruction: text,
+});
 const matches = z.object({
   agents: z.array(candidate),
   skills: z.array(candidate),
   subagents: z.array(candidate),
   agentsAmbiguous: z.boolean(),
+  recommendationId: text.optional(),
+  attribution: recommendationAttribution.optional(),
   ignoredSignals: strings.optional(),
   querySignals: strings.optional(),
   excludedCandidates: z.array(summary.extend({
@@ -301,6 +307,12 @@ const coverageType = z.object({
   opened: count,
   noRecordedDetail: count,
 });
+const attributionSummary = z.object({
+  impressions: count,
+  attributedOpens: count,
+  attributionRate: z.number(),
+  unattributedDetailOpens: count,
+});
 const usageType = z.enum(["skill", "subagent", "note"]);
 const usagePeriod = z.enum(["lifetime", "last_7_days", "last_30_days"]);
 const usage = z.object({
@@ -342,6 +354,18 @@ const usage = z.object({
     noRecordedDetail: count,
     byEntryType: z.record(usageType, coverageType),
   }),
+  attribution: z.object({
+    partialAttribution: z.boolean(),
+    byEntryType: z.record(usageType, attributionSummary),
+    daily: z.array(z.object({
+      day: text,
+      entryType: usageType,
+      scope: base.scope,
+      entryKey: text,
+      impressions: count,
+      attributedOpens: count,
+    })),
+  }),
   entries: z.array(z.object({
     workspace: text,
     entryType: usageType,
@@ -353,6 +377,7 @@ const usage = z.object({
     firstSeenAt: text.optional(),
     lastSeenAt: text.optional(),
     lastDetailedAt: text.optional(),
+    attribution: attributionSummary.optional(),
   })),
   recommendedActions: strings,
 });
@@ -496,6 +521,8 @@ const outputs: Record<string, z.ZodType> = {
   list_workspace_notes: notes.extend(pagination),
   find_matching_workspace_note: notes.extend({
     query: text,
+    recommendationId: text.optional(),
+    attribution: recommendationAttribution.optional(),
     notes: z.array(noteSummary.extend({
       score: z.number(),
       matchedFields: z.array(text),

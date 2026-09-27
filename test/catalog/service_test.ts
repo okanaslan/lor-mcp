@@ -2552,11 +2552,12 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
       workspace: "Consumer-Workspace",
       task: "backend api implementation",
     });
-    await service.findMatchingSkills({
+    const noSkillMatch = await service.findMatchingSkills({
       workspace: "Consumer-Workspace",
       task: "unrelated watercolor illustration",
       requiredAll: ["missing-signal"],
     });
+    assertEquals(noSkillMatch.data.recommendationId, undefined);
     await service.getSkillDetail({
       workspace: "Consumer-Workspace",
       skillName: "backend-api",
@@ -2567,11 +2568,12 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
       workspace: "Consumer-Workspace",
       task: "backend api tests",
     });
-    await service.findMatchingSubagents({
+    const noSubagentMatch = await service.findMatchingSubagents({
       workspace: "Consumer-Workspace",
       task: "unrelated watercolor illustration",
       requiredAll: ["missing-signal"],
     });
+    assertEquals(noSubagentMatch.data.recommendationId, undefined);
     await service.getSubagentDetail({
       workspace: "Consumer-Workspace",
       subagentName: "backend-api-test-profile",
@@ -2582,10 +2584,11 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
       workspace: "LOR-MCP",
       query: "backend API",
     });
-    await service.findMatchingWorkspaceNotes({
+    const noNoteMatch = await service.findMatchingWorkspaceNotes({
       workspace: "LOR-MCP",
       query: "zzzzzz qqqqqq",
     });
+    assertEquals(noNoteMatch.recommendationId, undefined);
     await service.getWorkspaceNote({
       workspace: "LOR-MCP",
       noteId: note.noteId,
@@ -2697,6 +2700,136 @@ Deno.test("CatalogService records usage analytics for public V2 entries", async 
       entryType: "skill",
       period: "lifetime",
     });
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService attributes detail opens to recommendation ids", async () => {
+  let now = "2026-07-01T12:00:00.000Z";
+  const { repo, service } = await createCatalogService({ now: () => now });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-api",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Skill",
+      primarySpecialty: "backend api implementation",
+      specialtyTags: ["backend", "api"],
+    });
+
+    const match = await service.findMatchingSkills({
+      workspace: "Consumer-Workspace",
+      task: "backend api implementation",
+    });
+    assert(match.data.recommendationId);
+    assertEquals(match.data.attribution?.mode, "manual");
+
+    now = "2026-07-02T12:00:00.000Z";
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "backend-api",
+      scope: "global",
+      recommendationId: match.data.recommendationId,
+    });
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "backend-api",
+      scope: "global",
+      recommendationId: match.data.recommendationId,
+    });
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "backend-api",
+      scope: "global",
+    });
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "backend-api",
+      scope: "global",
+      recommendationId: "missing-recommendation",
+    });
+
+    const report = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "backend-api",
+    });
+
+    assertEquals(report.entries[0].detailed, 4);
+    assertEquals(report.entries[0].attribution, {
+      impressions: 1,
+      attributedOpens: 1,
+      attributionRate: 1,
+      unattributedDetailOpens: 2,
+    });
+    assertEquals(report.attribution.byEntryType.skill, {
+      impressions: 1,
+      attributedOpens: 1,
+      attributionRate: 1,
+      unattributedDetailOpens: 2,
+    });
+    assertEquals(report.attribution.daily, [{
+      day: "2026-07-01",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "backend-api",
+      impressions: 1,
+      attributedOpens: 1,
+    }]);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("CatalogService keeps attribution by recommendation day for period reports", async () => {
+  let now = "2026-07-01T12:00:00.000Z";
+  const { repo, service } = await createCatalogService({ now: () => now });
+  try {
+    await service.introduceSkill({
+      workspace: "LOR-MCP",
+      skillName: "backend-api",
+      projectName: "Local Orchestration Router (LOR)",
+      displayName: "Backend API Skill",
+      primarySpecialty: "backend api implementation",
+      specialtyTags: ["backend", "api"],
+    });
+    const match = await service.findMatchingSkills({
+      workspace: "Consumer-Workspace",
+      task: "backend api implementation",
+    });
+    assert(match.data.recommendationId);
+
+    now = "2026-07-10T12:00:00.000Z";
+    await service.getSkillDetail({
+      workspace: "Consumer-Workspace",
+      skillName: "backend-api",
+      scope: "global",
+      recommendationId: match.data.recommendationId,
+    });
+
+    const last7 = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      period: "last_7_days",
+    });
+    const lifetime = await service.getUsageAnalytics({
+      workspace: "Consumer-Workspace",
+      entryType: "skill",
+      period: "lifetime",
+    });
+
+    assertEquals(last7.entries[0].detailed, 1);
+    assertEquals(last7.entries[0].attribution, {
+      impressions: 0,
+      attributedOpens: 0,
+      attributionRate: 0,
+      unattributedDetailOpens: 0,
+    });
+    assertEquals(last7.attribution.daily, []);
+    assertEquals(lifetime.attribution.byEntryType.skill.attributedOpens, 1);
+    assertEquals(lifetime.attribution.daily[0].day, "2026-07-01");
   } finally {
     repo.close();
   }

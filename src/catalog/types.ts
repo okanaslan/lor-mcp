@@ -720,6 +720,11 @@ export interface FindMatchingWorkspaceNoteResult {
   status: Extract<MatchStatus, "ok" | "no_match">;
   workspace: string;
   query: string;
+  recommendationId?: string;
+  attribution?: {
+    mode: "manual";
+    instruction: string;
+  };
   filters: {
     tags?: readonly string[];
     limit: number;
@@ -730,6 +735,7 @@ export interface FindMatchingWorkspaceNoteResult {
 export interface GetWorkspaceNoteInput {
   workspace: string;
   noteId: string;
+  recommendationId?: string;
 }
 
 export interface RemoveWorkspaceNoteInput {
@@ -782,6 +788,35 @@ export interface UsageMatchOutcomeRecord {
   lastSeenAt: string;
 }
 
+export interface UsageRecommendationRecord {
+  recommendationId: string;
+  workspace: string;
+  entryType: UsageEntryType;
+  scope: CatalogScope;
+  entryKey: string;
+  recommendedAt: string;
+  expiresAt: string;
+}
+
+export interface UsageAttributionRecord {
+  day: string;
+  workspace: string;
+  entryType: UsageEntryType;
+  scope: CatalogScope;
+  entryKey: string;
+  impressions: number;
+  attributedOpens: number;
+}
+
+export interface UsageUnattributedOpenRecord {
+  day: string;
+  workspace: string;
+  entryType: UsageEntryType;
+  scope: CatalogScope;
+  entryKey: string;
+  unattributedDetailOpens: number;
+}
+
 export interface UsageAnalyticsFilter {
   workspace: string;
   entryType?: UsageEntryType;
@@ -806,6 +841,7 @@ export interface UsageAnalyticsEntry {
   firstSeenAt?: string;
   lastSeenAt?: string;
   lastDetailedAt?: string;
+  attribution?: UsageAttributionSummary;
 }
 
 export interface UsageAnalyticsTypeSummary {
@@ -845,6 +881,13 @@ export interface UsageCoverageSummary {
   >;
 }
 
+export interface UsageAttributionSummary {
+  impressions: number;
+  attributedOpens: number;
+  attributionRate: number;
+  unattributedDetailOpens: number;
+}
+
 export interface UsageAnalyticsReport {
   workspace: string;
   checkedAt: string;
@@ -873,6 +916,18 @@ export interface UsageAnalyticsReport {
     byEntryType: Record<UsageEntryType, UsageRoutingOutcomeSummary>;
   };
   coverage: UsageCoverageSummary;
+  attribution: {
+    partialAttribution: boolean;
+    byEntryType: Record<UsageEntryType, UsageAttributionSummary>;
+    daily: {
+      day: string;
+      entryType: UsageEntryType;
+      scope: CatalogScope;
+      entryKey: string;
+      impressions: number;
+      attributedOpens: number;
+    }[];
+  };
   entries: UsageAnalyticsEntry[];
   recommendedActions: string[];
 }
@@ -1001,6 +1056,11 @@ export interface MatchData {
   skills: MatchCandidate[];
   subagents: MatchCandidate[];
   agentsAmbiguous: boolean;
+  recommendationId?: string;
+  attribution?: {
+    mode: "manual";
+    instruction: string;
+  };
   ignoredSignals?: string[];
   querySignals?: string[];
   excludedCandidates?: ExcludedMatchCandidate[];
@@ -1138,6 +1198,29 @@ export interface CatalogRepository {
     increment: UsageMatchOutcomeIncrement,
     options: { now: string },
   ): Promise<void>;
+  recordRecommendationAttributions(
+    records: readonly UsageRecommendationRecord[],
+    options: { now: string },
+  ): Promise<void>;
+  attributeRecommendationOpen(
+    input: {
+      recommendationId: string;
+      workspace: string;
+      entryType: UsageEntryType;
+      scope: CatalogScope;
+      entryKey: string;
+    },
+    options: { now: string },
+  ): Promise<"attributed" | "already_attributed" | "not_found">;
+  recordUnattributedDetailOpen(
+    input: {
+      workspace: string;
+      entryType: UsageEntryType;
+      scope: CatalogScope;
+      entryKey: string;
+    },
+    options: { now: string },
+  ): Promise<void>;
   getUsageCounters(
     workspace: string,
     filter: Omit<UsageAnalyticsFilter, "workspace"> & {
@@ -1152,6 +1235,20 @@ export interface CatalogRepository {
       periodEndDay?: string;
     },
   ): Promise<UsageMatchOutcomeRecord[]>;
+  getUsageAttribution(
+    workspace: string,
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    },
+  ): Promise<UsageAttributionRecord[]>;
+  getUsageUnattributedOpens(
+    workspace: string,
+    filter: Pick<UsageAnalyticsFilter, "entryType" | "period"> & {
+      periodStartDay?: string;
+      periodEndDay?: string;
+    },
+  ): Promise<UsageUnattributedOpenRecord[]>;
   updateEntry(
     workspace: string,
     input: CatalogEntryUpdate & { now: string },

@@ -1113,7 +1113,7 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     });
     const workspaceB = await repo.getUsageCounters("workspace-b", {});
 
-    assertEquals(schemaVersion, 16);
+    assertEquals(schemaVersion, 17);
     assertEquals(workspaceA.map((record) => record.entryKey), [
       "backend-skill",
       "api-test-subagent",
@@ -1125,6 +1125,90 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     assertEquals(skillOnly[0].lastSeenAt, FIXED_NOW);
     assertEquals(workspaceB.length, 1);
     assertEquals(workspaceB[0].workspace, "workspace-b");
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("SqliteCatalogRepository records recommendation attribution and unattributed opens", async () => {
+  const repo = await createInitializedRepository();
+  try {
+    await repo.recordRecommendationAttributions([
+      {
+        recommendationId: "rec-1",
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+        recommendedAt: "2026-07-01T12:00:00.000Z",
+        expiresAt: "2026-07-31T12:00:00.000Z",
+      },
+    ], { now: "2026-07-01T12:00:00.000Z" });
+
+    assertEquals(
+      await repo.attributeRecommendationOpen({
+        recommendationId: "rec-1",
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+      }, { now: "2026-07-02T12:00:00.000Z" }),
+      "attributed",
+    );
+    assertEquals(
+      await repo.attributeRecommendationOpen({
+        recommendationId: "rec-1",
+        workspace: "workspace-a",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+      }, { now: "2026-07-03T12:00:00.000Z" }),
+      "already_attributed",
+    );
+    assertEquals(
+      await repo.attributeRecommendationOpen({
+        recommendationId: "rec-1",
+        workspace: "workspace-b",
+        entryType: "skill",
+        scope: "global",
+        entryKey: "backend-skill",
+      }, { now: "2026-07-03T12:00:00.000Z" }),
+      "not_found",
+    );
+
+    await repo.recordUnattributedDetailOpen({
+      workspace: "workspace-a",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "backend-skill",
+    }, { now: "2026-07-04T12:00:00.000Z" });
+
+    const attribution = await repo.getUsageAttribution("workspace-a", {
+      entryType: "skill",
+      period: "lifetime",
+    });
+    const unattributed = await repo.getUsageUnattributedOpens("workspace-a", {
+      entryType: "skill",
+      period: "lifetime",
+    });
+
+    assertEquals(attribution, [{
+      day: "2026-07-01",
+      workspace: "workspace-a",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "backend-skill",
+      impressions: 1,
+      attributedOpens: 1,
+    }]);
+    assertEquals(unattributed, [{
+      day: "2026-07-04",
+      workspace: "workspace-a",
+      entryType: "skill",
+      scope: "global",
+      entryKey: "backend-skill",
+      unattributedDetailOpens: 1,
+    }]);
   } finally {
     repo.close();
   }

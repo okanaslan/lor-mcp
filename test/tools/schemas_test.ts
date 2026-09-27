@@ -250,6 +250,7 @@ Deno.test("skill schemas accept explicit global scope", () => {
       workspace: "LOR-MCP",
       skillName: "backend-skill",
       scope: "global",
+      recommendationId: "recommendation-1",
     }).success,
     true,
   );
@@ -973,6 +974,7 @@ Deno.test("workspace note schemas require scoped note inputs", () => {
     getWorkspaceNoteInputSchema.safeParse({
       workspace: "LOR-MCP",
       noteId: "note-1",
+      recommendationId: "recommendation-1",
     }).success,
     true,
   );
@@ -982,6 +984,14 @@ Deno.test("workspace note schemas require scoped note inputs", () => {
       noteId: "note-1",
     }).success,
     true,
+  );
+  assertEquals(
+    removeWorkspaceNoteInputSchema.safeParse({
+      workspace: "LOR-MCP",
+      noteId: "note-1",
+      recommendationId: "recommendation-1",
+    }).success,
+    false,
   );
   assertEquals(
     getWorkspaceNoteInputSchema.safeParse({
@@ -1037,6 +1047,7 @@ Deno.test("typed list and detail schemas accept type-specific keys", () => {
       workspace: "LOR-MCP",
       subagentName: "api-test-subagent",
       scope: "global",
+      recommendationId: "recommendation-1",
     }).success,
     true,
   );

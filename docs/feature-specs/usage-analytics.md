@@ -51,6 +51,14 @@ used, so users can improve catalog quality over time.
   - registered entries
   - opened entries with recorded detail reads
   - entries with no recorded detail reads
+- LOR must return an opaque `recommendationId` from match tools and accept it on
+  the corresponding detail tools so opened recommendations can be attributed
+  without storing raw queries or prompt text.
+- LOR must report recommendation attribution:
+  - impressions for entries returned by match tools
+  - attributed opens when a detail read includes a valid recommendation id
+  - attribution rate
+  - detail opens without a valid recommendation id
 - LOR must count when an entry is retrieved by a detail tool:
   - `get_skill_detail`
   - `get_subagent_detail`
@@ -60,8 +68,8 @@ used, so users can improve catalog quality over time.
 - `get_usage_analytics` input may filter by `entryType`, `scope`, `entryKey`,
   and resolved `projectName` when those fields apply.
 - `get_usage_analytics` input may choose `period: "lifetime"`,
-  `period: "last_7_days"`, or `period: "last_30_days"`. If omitted, the
-  period defaults to `lifetime`.
+  `period: "last_7_days"`, or `period: "last_30_days"`. If omitted, the period
+  defaults to `lifetime`.
 - `get_usage_analytics` input may sort rows by `listed`, `matched`, or
   `detailed` counters in descending order. If omitted, the legacy deterministic
   type/scope/project/key order is preserved.
@@ -74,6 +82,7 @@ used, so users can improve catalog quality over time.
   - summary totals by entry type and operation
   - request-level routing outcomes by entry type
   - coverage for current visible catalog entries
+  - recommendation attribution summaries
   - per-entry usage rows
   - recommended next actions
 - Usage rows must be grouped by stable entry identity: workspace, entry type,
@@ -113,6 +122,9 @@ Conceptual `UsageAnalyticsReport` fields:
 - `filters`
 - `metricDefinitions`
 - `summary`
+- `routingOutcomes`
+- `coverage`
+- `attribution`
 - `entries`
 - `recommendedActions`
 
@@ -131,9 +143,11 @@ into fabricated daily history.
 recorded usage rows, not to the counter identity itself. If an entry's project
 metadata changes, its counters remain grouped under the same stable entry key.
 
-Reports include entries with recorded usage history only. A missing entry means
-there is no retained list, match, or detail counter for it in the requested
-workspace/filter, not proof that the underlying catalog entry is unused forever.
+Reports include current visible catalog entries with zero counters as coverage
+rows, plus historical rows with recorded usage. A missing entry means it is not
+visible in the current catalog and has no retained list, match, or detail
+counter for the requested workspace/filter, not proof that the underlying
+catalog entry is unused forever.
 
 Routing outcomes are request-level aggregates by workspace, entry type, and
 period. They do not apply `entryKey`, `scope`, or `projectName` filters because
@@ -146,6 +160,15 @@ with zero counts. Historical rows for deleted entries remain visible as usage
 history but are marked as not currently registered and excluded from coverage.
 Project filters are applied after usage rows are merged with current catalog
 metadata, so renamed entries are filtered by their current project name.
+
+Recommendation attribution is local and aggregate. Match responses may include
+`recommendationId` plus manual guidance to pass that id to the matching detail
+tool. Valid ids expire after 30 days. An attributed open is counted once per
+recommended entry and remains attached to the UTC day the recommendation was
+shown, even if the detail read happens later. Repeated detail reads still
+increment normal `detailed` counters but do not create extra attributed opens.
+Missing, invalid, or expired ids are counted separately as unattributed detail
+opens by the day of the detail read.
 
 ## 7. Error Handling
 
@@ -183,3 +206,5 @@ metadata, so renamed entries are filtered by their current project name.
   because those are the V2 objects users actively maintain.
 - 2026-08-16: Do not store raw query, prompt, task, or note body content.
 - 2026-08-16: Add `get_usage_analytics` as the read-only reporting surface.
+- 2026-08-16: Add opaque recommendation ids for aggregate match-to-detail
+  attribution without storing raw task or query content.
