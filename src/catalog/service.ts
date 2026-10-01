@@ -6,8 +6,11 @@ import {
   contentFingerprint,
   describeSkill,
   freshness,
+  isDeprecated,
   mergeGovernance,
   prepareGovernance,
+  referenceKey,
+  skillReference,
 } from "./skill_governance.ts";
 import { fingerprint } from "@src/catalog/revision.ts";
 import {
@@ -424,6 +427,7 @@ export class CatalogService {
       skillName: string;
       scope?: CatalogScope;
       recommendationId?: string;
+      followReplacement?: boolean;
     },
   ): Promise<SkillCatalogEntry | undefined> {
     const workspace = await this.resolveWorkspace(input.workspace);
@@ -433,7 +437,64 @@ export class CatalogService {
       entryKey: input.skillName,
       scope: input.scope,
     });
-    const skill = entry?.entryType === "skill" ? entry : undefined;
+    let skill = entry?.entryType === "skill" ? entry : undefined;
+    const requested = skill ? skillReference(skill) : undefined;
+    const chain: import("./skill_governance.ts").SkillReference[] = [];
+    const visited = new Set<string>();
+    while (skill && input.followReplacement && isDeprecated(skill)) {
+      const ref = skillReference(skill), key = referenceKey(ref);
+      if (visited.has(key) || chain.length >= 32) {
+        throw new LorError(
+          "validation_error",
+          "Replacement chain is cyclic or exceeds 32 hops.",
+        );
+      }
+      visited.add(key);
+      chain.push(ref);
+      const lifecycle = skill.governance?.lifecycle;
+      const target = lifecycle?.status === "deprecated"
+        ? lifecycle.replacement
+        : undefined;
+      if (!target) break;
+      if (
+        target.scope === "workspace" &&
+        (skill.scope === "global" || target.workspace !== workspace)
+      ) {
+        throw new LorError(
+          "validation_error",
+          "Replacement points outside the allowed workspace.",
+        );
+      }
+      const next = await this.#repository.getEntry(workspace, {
+        workspace,
+        entryType: "skill",
+        entryKey: target.skillName,
+        scope: target.scope,
+      });
+      if (!next || next.entryType !== "skill") {
+        throw new LorError("not_found", "Replacement skill is unavailable.", {
+          target,
+        });
+      }
+      skill = next;
+    }
+    if (skill && requested && input.followReplacement) {
+      const resolved = skillReference(skill);
+      skill = {
+        ...skill,
+        resolution: {
+          requested,
+          resolved,
+          chain: [
+            ...chain,
+            ...(chain.some((r) => referenceKey(r) === referenceKey(resolved))
+              ? []
+              : [skillReference(skill)]),
+          ],
+        },
+      };
+    }
+
     if (skill) {
       await this.recordUsage([
         usageFromCatalogEntry(workspace, skill, "detailed"),
@@ -2001,6 +2062,12 @@ export class CatalogService {
       );
     }
 
+    if (isDeprecated(entry)) {
+      throw new LorError(
+        "validation_error",
+        "Cannot sync deprecated instructions. Select and preview the replacement explicitly.",
+      );
+    }
     return { workspace, proposal, entry };
   }
 
@@ -2373,7 +2440,9 @@ function sanitizeReachabilityError(error: string): string {
 }
 
 function isRoutableEntry(entry: CatalogEntry): boolean {
-  return entry.entryType !== "agent" || entry.agentStatus === "active";
+  return entry.entryType === "skill"
+    ? !isDeprecated(entry)
+    : entry.entryType !== "agent" || entry.agentStatus === "active";
 }
 
 function filterMatchResult(

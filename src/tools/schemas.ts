@@ -221,6 +221,7 @@ export const introduceSubagentInputSchema = z.strictObject({
 });
 
 export const listSkillsInputSchema = z.strictObject({
+  lifecycle: z.enum(["active", "deprecated", "all"]).optional(),
   cursor: z.string().max(512).optional(),
   limit: z.number().int().min(1).max(100).optional(),
   workspace: workspaceSchema,
@@ -253,6 +254,7 @@ export const registerWorkspaceAliasInputSchema = z.strictObject({
 });
 
 export const getSkillDetailInputSchema = z.strictObject({
+  followReplacement: z.boolean().optional(),
   workspace: workspaceSchema,
   skillName: z.string().max(16000).trim().min(1),
   scope: catalogScopeSchema.optional(),

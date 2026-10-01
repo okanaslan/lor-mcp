@@ -260,3 +260,85 @@ Deno.test("review recording uses server time and rejects unrelated fingerprints"
     repo.close();
   }
 });
+
+Deno.test("deprecation preserves exact identity and follows replacements only explicitly", async () => {
+  const { repo, service } = await createCatalogService();
+  const deprecate = async (name: string, replacement?: string) => {
+    const p = await service.proposeSkillUpdate({
+      ...skillInput(name),
+      reason: "Consolidation",
+      governance: {
+        lifecycle: {
+          status: "deprecated",
+          reason: "Use canonical workflow",
+          deprecatedAt: "2099-01-01T00:00:00.000Z",
+          replacement: replacement
+            ? { scope: "global", skillName: replacement }
+            : undefined,
+        },
+      },
+    });
+    await service.applySkillUpdate({
+      workspace: "governance-test",
+      scope: "global",
+      proposalId: p.proposal.proposalId,
+      confirm: true,
+    });
+  };
+  try {
+    for (const name of ["old", "next", "canonical"]) {
+      await service.introduceSkill(skillInput(name));
+    }
+    await deprecate("old", "next");
+    await deprecate("next", "canonical");
+    const exact = await service.getSkillDetail(skillInput("old"));
+    assertEquals(exact?.skillName, "old");
+    assertEquals(exact?.governance?.lifecycle?.status, "deprecated");
+    assertEquals(
+      exact?.governance?.lifecycle?.status === "deprecated" &&
+        exact.governance.lifecycle.deprecatedAt,
+      FIXED_NOW,
+    );
+    const resolved = await service.getSkillDetail({
+      ...skillInput("old"),
+      followReplacement: true,
+    });
+    assertEquals(resolved?.skillName, "canonical");
+    assertEquals(resolved?.resolution?.chain.map((r) => r.skillName), [
+      "old",
+      "next",
+      "canonical",
+    ]);
+    const matches = await service.findMatchingSkills({
+      workspace: "governance-test",
+      task: "review",
+    });
+    assert(
+      !matches.data.skills.some((e) => ["old", "next"].includes(e.entryKey)),
+    );
+    const page = await service.listCatalogPage({
+      workspace: "governance-test",
+      entryType: "skill",
+      lifecycle: "deprecated",
+    }, { limit: 1 });
+    assertEquals(page.total, 2);
+    assert(page.nextCursor);
+    const next = await service.listCatalogPage({
+      workspace: "governance-test",
+      entryType: "skill",
+      lifecycle: "deprecated",
+    }, { limit: 1, cursor: page.nextCursor });
+    assertEquals(next.items.length, 1);
+    await assertRejects(() => deprecate("canonical", "old"));
+    const target = await service.getSkillDetail(skillInput("canonical"));
+    assert(target);
+    await assertRejects(() =>
+      service.removeSkill({
+        ...skillInput("canonical"),
+        expectedRevision: target.revision,
+      })
+    );
+  } finally {
+    repo.close();
+  }
+});

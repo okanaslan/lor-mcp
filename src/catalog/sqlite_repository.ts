@@ -3,7 +3,11 @@ import {
   inboundReferences,
   validateSkillGraph,
 } from "./skill_relationships.ts";
-import { skillReference } from "./skill_governance.ts";
+import {
+  isDeprecated,
+  skillReference,
+  skillTargets,
+} from "./skill_governance.ts";
 import type { Database } from "@db/sqlite";
 import {
   type CatalogPage,
@@ -418,9 +422,11 @@ export class SqliteCatalogRepository implements CatalogRepository {
         workspace,
         entryType: "skill",
         entryKey: input.skillName,
-        scope: input.scope ?? "global",
+        scope: input.scope ?? "workspace",
       }) as SkillCatalogEntry;
-      validateSkillGraph(created, this.allSkills());
+      if (skillTargets(created).length) {
+        validateSkillGraph(created, this.allSkills());
+      }
     });
 
     try {
@@ -429,7 +435,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         workspace,
         entryType: "skill",
         entryKey: input.skillName,
-        scope: input.scope ?? "global",
+        scope: input.scope ?? "workspace",
       });
       return created as SkillCatalogEntry;
     } catch (error) {
@@ -702,8 +708,15 @@ export class SqliteCatalogRepository implements CatalogRepository {
         FROM ${table} WHERE workspace IN (${placeholders(workspaces)})${
         filter.projectName ? " AND projectName = ?" : ""
       }`);
+      if (kind === "skill" && filter.lifecycle && filter.lifecycle !== "all") {
+        parts[parts.length - 1] +=
+          " AND COALESCE(json_extract(governance, '$.lifecycle.status'), 'active') = ?";
+      }
       params.push(...workspaces);
       if (filter.projectName) params.push(filter.projectName);
+      if (kind === "skill" && filter.lifecycle && filter.lifecycle !== "all") {
+        params.push(filter.lifecycle);
+      }
     }
     if (!parts.length) return Promise.resolve({ items: [], total: 0 });
     const db = this.requireDb();
@@ -826,7 +839,11 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
     if (!filter.entryType || filter.entryType === "skill") {
       entries.push(
-        ...this.listSkills(workspace, filter.projectName, filter.scope),
+        ...this.listSkills(workspace, filter.projectName, filter.scope).filter(
+          (e) =>
+            !filter.lifecycle || filter.lifecycle === "all" ||
+            (isDeprecated(e) ? "deprecated" : "active") === filter.lifecycle,
+        ),
       );
     }
     if (!filter.entryType || filter.entryType === "subagent") {

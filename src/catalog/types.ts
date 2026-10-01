@@ -230,6 +230,7 @@ export interface IntroduceSubagentInput {
 }
 
 export interface ListEntriesFilter {
+  lifecycle?: "active" | "deprecated" | "all";
   workspace: string;
   entryType?: EntryType;
   projectName?: string;

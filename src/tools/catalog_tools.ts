@@ -224,6 +224,7 @@ export function registerCatalogTools(
               workspace: input.workspace,
               scope: input.scope,
               projectName: input.projectName,
+              lifecycle: input.lifecycle ?? "active",
             }, input);
           return okResult(
             {

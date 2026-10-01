@@ -1,3 +1,4 @@
+import { isDeprecated } from "./skill_governance.ts";
 import type {
   CatalogEntry,
   ExcludedMatchCandidate,
@@ -423,6 +424,7 @@ function scoreEntry(
   query: NormalizedQuery,
   request: MatchRequest,
 ): ScoreResult {
+  if (entry.entryType === "skill" && isDeprecated(entry)) return undefined;
   if (query.positiveSignals.length === 0) {
     return undefined;
   }
