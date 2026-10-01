@@ -1,4 +1,8 @@
 import {
+  dependencyRevisions,
+  validateSkillGraph,
+} from "./skill_relationships.ts";
+import {
   contentFingerprint,
   freshness,
   mergeGovernance,
@@ -709,7 +713,13 @@ export class CatalogService {
       routing: validated.routing,
       updatedAt: now,
     });
+    const related = (await this.#repository.listEntries(workspace, {
+      workspace,
+      entryType: "skill",
+    })).filter((e): e is SkillCatalogEntry => e.entryType === "skill");
+    validateSkillGraph(after, related, existing);
     const proposal: SkillUpdateProposal = {
+      dependencies: dependencyRevisions(after, related),
       baseRevision: existing.revision,
       originWorkspace: workspace,
       expiresAt: new Date(Date.parse(now) + 24 * 60 * 60 * 1000).toISOString(),

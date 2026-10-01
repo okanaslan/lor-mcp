@@ -115,3 +115,92 @@ Deno.test("freshness is bound to substantive content and an injected clock", asy
     repo.close();
   }
 });
+
+Deno.test("relationships validate scope, cycles, deletion and dependency revisions", async () => {
+  const { repo, service } = await createCatalogService();
+  const relationship = (name: string) => ({
+    responsibility: {
+      summary: "Specialist",
+      owns: ["review"],
+      excludes: [],
+      relationships: [{
+        kind: "specializes" as const,
+        target: { scope: "global" as const, skillName: name },
+        reason: "narrower workflow",
+      }],
+    },
+  });
+  try {
+    await service.introduceSkill(skillInput("base"));
+    await service.introduceSkill({
+      ...skillInput("specialist"),
+      governance: relationship("base"),
+    });
+    await assertRejects(() =>
+      service.proposeSkillUpdate({
+        ...skillInput("base"),
+        reason: "cycle",
+        governance: relationship("specialist"),
+      })
+    );
+    await assertRejects(() =>
+      service.introduceSkill({
+        ...skillInput("missing"),
+        governance: relationship("absent"),
+      })
+    );
+    assertEquals(
+      await service.getSkillDetail(skillInput("missing")),
+      undefined,
+    );
+    const base = await service.getSkillDetail(skillInput("base"));
+    assert(base);
+    await assertRejects(() =>
+      service.removeSkill({
+        ...skillInput("base"),
+        expectedRevision: base.revision,
+      })
+    );
+    const pending = await service.proposeSkillUpdate({
+      ...skillInput("specialist"),
+      reason: "preview",
+      metadata: { displayName: "Updated" },
+    });
+    await service.updateSkill({
+      ...skillInput("base"),
+      expectedRevision: base.revision,
+      displayName: "Base changed",
+    });
+    await assertRejects(() =>
+      service.applySkillUpdate({
+        workspace: "governance-test",
+        scope: "global",
+        proposalId: pending.proposal.proposalId,
+        confirm: true,
+      })
+    );
+    await assertRejects(() =>
+      service.introduceSkill({
+        ...skillInput("cross-scope"),
+        governance: {
+          responsibility: {
+            summary: "No cross scope",
+            owns: [],
+            excludes: [],
+            relationships: [{
+              kind: "complements",
+              target: {
+                scope: "workspace",
+                workspace: "other",
+                skillName: "base",
+              },
+              reason: "invalid",
+            }],
+          },
+        },
+      })
+    );
+  } finally {
+    repo.close();
+  }
+});

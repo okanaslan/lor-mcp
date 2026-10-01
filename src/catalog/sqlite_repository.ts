@@ -1,3 +1,9 @@
+import {
+  assertDependencies,
+  inboundReferences,
+  validateSkillGraph,
+} from "./skill_relationships.ts";
+import { skillReference } from "./skill_governance.ts";
 import type { Database } from "@db/sqlite";
 import {
   type CatalogPage,
@@ -408,6 +414,13 @@ export class SqliteCatalogRepository implements CatalogRepository {
         input.now,
         input.now,
       );
+      const created = this.getEntrySync(workspace, {
+        workspace,
+        entryType: "skill",
+        entryKey: input.skillName,
+        scope: input.scope ?? "global",
+      }) as SkillCatalogEntry;
+      validateSkillGraph(created, this.allSkills());
     });
 
     try {
@@ -503,42 +516,48 @@ export class SqliteCatalogRepository implements CatalogRepository {
       input.scope,
     );
     try {
-      db.exec(
-        `INSERT INTO skill_update_proposals (
+      const create = this.requireDb().transaction(() => {
+        assertDependencies(input.dependencies, this.allSkills());
+        db.exec(
+          `INSERT INTO skill_update_proposals (
           proposalId, workspace, skillName, reason, proposedSkillContext,
           proposedMetadata, proposedRouting, status, createdAt, appliedAt,
           baseRevision, expiresAt, originWorkspace
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        input.proposalId,
-        storageWorkspace,
-        input.skillName,
-        input.reason,
-        input.proposedSkillContext
-          ? JSON.stringify(input.proposedSkillContext)
-          : null,
-        input.proposedMetadata ? JSON.stringify(input.proposedMetadata) : null,
-        input.proposedRouting !== undefined
-          ? JSON.stringify(input.proposedRouting)
-          : null,
-        input.status,
-        input.createdAt,
-        input.appliedAt ?? null,
-        input.baseRevision ?? null,
-        input.expiresAt ?? null,
-        input.originWorkspace ?? null,
-      );
-      this.requireDb().exec(
-        "UPDATE skill_update_proposals SET proposedGovernance = ?, dependencies = ? WHERE proposalId = ?",
-        input.proposedGovernance
-          ? JSON.stringify(input.proposedGovernance)
-          : null,
-        input.dependencies ? JSON.stringify(input.dependencies) : null,
-        input.proposalId,
-      );
-      return Promise.resolve({
-        ...input,
-        workspace: publicSkillWorkspace(storageWorkspace),
+          input.proposalId,
+          storageWorkspace,
+          input.skillName,
+          input.reason,
+          input.proposedSkillContext
+            ? JSON.stringify(input.proposedSkillContext)
+            : null,
+          input.proposedMetadata
+            ? JSON.stringify(input.proposedMetadata)
+            : null,
+          input.proposedRouting !== undefined
+            ? JSON.stringify(input.proposedRouting)
+            : null,
+          input.status,
+          input.createdAt,
+          input.appliedAt ?? null,
+          input.baseRevision ?? null,
+          input.expiresAt ?? null,
+          input.originWorkspace ?? null,
+        );
+        this.requireDb().exec(
+          "UPDATE skill_update_proposals SET proposedGovernance = ?, dependencies = ? WHERE proposalId = ?",
+          input.proposedGovernance
+            ? JSON.stringify(input.proposedGovernance)
+            : null,
+          input.dependencies ? JSON.stringify(input.dependencies) : null,
+          input.proposalId,
+        );
+        return {
+          ...input,
+          workspace: publicSkillWorkspace(storageWorkspace),
+        };
       });
+      return Promise.resolve(create());
     } catch (error) {
       throw mapStorageError(error);
     }
@@ -611,6 +630,13 @@ export class SqliteCatalogRepository implements CatalogRepository {
         scope,
       });
       assertRevision(current?.revision, proposal.baseRevision);
+      const skills = this.allSkills();
+      assertDependencies(proposal.dependencies, skills);
+      validateSkillGraph(
+        input.entry,
+        skills,
+        current?.entryType === "skill" ? current : undefined,
+      );
 
       db.exec(
         `UPDATE introduced_skills
@@ -1012,6 +1038,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         return false;
       }
       assertRevision(existing.revision, lookup.expectedRevision);
+      if (existing.entryType === "skill") this.assertSkillDeletion(existing);
 
       if (lookup.entryType === "agent") {
         db.exec(
@@ -1051,6 +1078,39 @@ export class SqliteCatalogRepository implements CatalogRepository {
       return Promise.resolve(remove());
     } catch (error) {
       throw mapStorageError(error);
+    }
+  }
+
+  private allSkills(): SkillCatalogEntry[] {
+    return this.requireDb().prepare<SkillRow>("SELECT * FROM introduced_skills")
+      .all().map(mapSkillRow);
+  }
+
+  private allProfiles(): SubagentCatalogEntry[] {
+    return this.requireDb().prepare<SubagentRow>(
+      "SELECT * FROM introduced_subagents",
+    ).all().map(mapSubagentRow);
+  }
+
+  private assertSkillDeletion(
+    entry: SkillCatalogEntry,
+    removing: Set<string> = new Set(),
+  ): void {
+    const refs = inboundReferences(
+      skillReference(entry),
+      this.allSkills(),
+      this.allProfiles(),
+    ).filter((ref) =>
+      !removing.has(
+        JSON.stringify([ref.entryType, ref.scope, ref.workspace, ref.entryKey]),
+      )
+    );
+    if (refs.length) {
+      throw new LorError(
+        "validation_error",
+        "Skill has inbound references; update consumers before deletion.",
+        { references: refs },
+      );
     }
   }
 
@@ -1098,6 +1158,21 @@ export class SqliteCatalogRepository implements CatalogRepository {
   ): Promise<ClearWorkspaceCatalogResult> {
     const db = this.requireDb();
     const clear = db.transaction(() => {
+      const skills = this.allSkills().filter((e) =>
+        e.scope === "workspace" && e.workspace === workspace &&
+        (!input.entryType || input.entryType === "skill")
+      );
+      const profiles = this.allProfiles().filter((e) =>
+        e.scope === "workspace" && e.workspace === workspace &&
+        (!input.entryType || input.entryType === "subagent")
+      );
+      const removing = new Set(
+        [...skills, ...profiles].map((e) =>
+          JSON.stringify([e.entryType, e.scope, e.workspace, e.entryKey])
+        ),
+      );
+      for (const skill of skills) this.assertSkillDeletion(skill, removing);
+
       const deletedAgents = input.entryType === "skill" ||
           input.entryType === "subagent"
         ? 0
