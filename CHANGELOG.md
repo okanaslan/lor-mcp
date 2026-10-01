@@ -13,6 +13,21 @@ The project follows Semantic Versioning:
 
 ## [Unreleased]
 
+### Added
+
+- Add optional skill governance: responsibility relationships, source provenance,
+  content-bound review freshness, and deprecation with explicit replacement lookup.
+- Protect relationship updates and deletions with transactional graph validation
+  and proposal dependency revisions; expose reference issues in diagnostics.
+
+### Compatibility
+
+- Migrate SQLite to schema 18. Back up the database before deployment; older
+  binaries refuse the newer schema. Legacy skills remain active and unreviewed.
+- Export catalog format 2, accepting imports in formats 1 and 2. Older servers
+  cannot import format 2. Default skill lists now omit deprecated entries; use
+  the lifecycle filter to inspect them.
+
 ### Changed
 
 - Remove workspace allowlist enforcement and the `LOR_ALLOWED_WORKSPACES`

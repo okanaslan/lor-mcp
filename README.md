@@ -13,7 +13,7 @@ messages, or schedule delegated work. The connected host owns those actions.
 | Component      | Current contract                                                                   |
 | -------------- | ---------------------------------------------------------------------------------- |
 | Application    | `3.0.0`, tracked in `VERSION` and `src/version.ts`                                 |
-| Storage        | SQLite schema `14`, migrated during database initialization                        |
+| Storage        | SQLite schema `18`, migrated during database initialization                        |
 | MCP            | Locked TypeScript SDK 1.x; automated compatibility tests use protocol `2025-06-18` |
 | Transports     | Session-based Streamable HTTP; stdio fallback                                      |
 | Bundled skills | Independently versioned in `skills/manifest.json`                                  |
@@ -392,3 +392,11 @@ See [CHANGELOG.md](CHANGELOG.md) for release changes,
 [documentation index](docs/readme.md) for design background. Historical specs
 may describe older surfaces; current registrations and schemas are
 authoritative.
+
+## Skill Governance
+
+Skills support explicit ownership relationships, source provenance, content-bound
+review freshness and deprecation with opt-in replacement resolution. These extend
+existing introduction and proposal tools; they do not execute skills or change
+live catalog entries automatically. See the [governance contract](docs/feature-specs/skill-governance.md)
+for examples, scope rules, export-format compatibility and migration/rollback.

@@ -3,6 +3,10 @@
 This roadmap tracks major feature specs and implementation status for the Local
 Orchestration Router (LOR) MCP Server.
 
+## Skill Governance
+
+Implemented in current source: [ownership, provenance, freshness and deprecation](feature-specs/skill-governance.md). Requires deployment of this source; no live registry was migrated by development tests.
+
 ## Current Implementation
 
 Implemented in the runnable local 3.0.0 server:

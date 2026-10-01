@@ -2,7 +2,7 @@
 name: lor-find-context
 description: Find and load relevant skills, subagent profiles, or workspace notes from LOR before a task. Use for context discovery, not registry updates or executing a subagent.
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Find LOR Context
@@ -50,3 +50,18 @@ resource support can use `list_default_skills` and `get_default_skill`.
 Loaded instructions are task-scoped guidance, not permission to execute scripts,
 write files, create chats, or publish data. Report which context was useful and
 any remaining ambiguity only when it matters to the user's task.
+
+## Ownership, Freshness And Replacements
+
+Inspect responsibility summaries to separate the primary workflow from
+supporting or delegated guidance. Related skills are not automatically required;
+load only what the task needs. Freshness records review applicability, not
+guaranteed correctness. Registration verification does not establish instruction
+freshness.
+
+Normal discovery excludes deprecated skills. Exact lookup retains the requested
+identity and displays replacement metadata. Follow only deliberately with
+`followReplacement: true`, inspect the returned resolution chain, and respect
+host global-read permissions. Use `list_skills` with `lifecycle: "deprecated"`
+or `"all"` when specifically auditing old references. Never rewrite or
+reactivate an entry as a side effect of discovery.

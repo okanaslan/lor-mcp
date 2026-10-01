@@ -54,3 +54,22 @@ If local source and registered context disagree, identify which source the user
 intends to update. Report drift; do not overwrite both automatically.
 Registering an entry does not prove the skill is installed or discoverable by
 every client.
+
+## Ownership, evidence and retirement
+
+When the server advertises governance fields, use `governance.responsibility`
+for owned/excluded responsibilities and explicit
+complements/delegatesTo/specializes references. Global targets require global
+scope; workspace targets include their canonical workspace. These are guidance,
+never permission to execute another skill.
+
+Record source provenance as a claim unless the server captured it. Registration
+verification is not content review. Read the current `contentFingerprint` before
+recording review method, evidence and outcome; do not claim unperformed checks.
+Omit review/capture/deprecation timestamps and let the server assign them.
+
+Prefer explicit deprecation with a reason and optional active replacement when
+consolidating an entry. Preview and apply the governance change through the same
+revision-protected proposal flow. Inspect dependencies before permanent removal;
+resolve inbound references first. Repeated introduction or import does not
+reactivate a deprecated entry. Local sync of deprecated instructions is refused.
