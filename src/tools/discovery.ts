@@ -59,6 +59,13 @@ export function entrySummary(entry: CatalogEntry, workspace = entry.workspace) {
     primarySpecialty: entry.primarySpecialty,
     specialtyTags: entry.specialtyTags,
     revision: entry.revision,
+    ...(entry.entryType === "skill"
+      ? {
+        responsibility: entry.governance?.responsibility,
+        lifecycle: entry.governance?.lifecycle ?? { status: "active" },
+        freshness: entry.freshness,
+      }
+      : {}),
     resourceUri: entry.entryType !== "agent"
       ? catalogResourceUri(
         entry.entryType,

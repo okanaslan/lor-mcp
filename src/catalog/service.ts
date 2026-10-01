@@ -4,8 +4,10 @@ import {
 } from "./skill_relationships.ts";
 import {
   contentFingerprint,
+  describeSkill,
   freshness,
   mergeGovernance,
+  prepareGovernance,
 } from "./skill_governance.ts";
 import { fingerprint } from "@src/catalog/revision.ts";
 import {
@@ -181,8 +183,16 @@ export class CatalogService {
     const validated = validateIntroduceSkill(input);
     const now = this.#now();
     const workspace = await this.resolveWorkspace(validated.workspace, now);
+    const candidate = {
+      ...validated,
+      workspace,
+      scope: validated.scope ?? "global",
+      entryType: "skill",
+      entryKey: validated.skillName,
+    } as SkillCatalogEntry;
     return await this.#repository.createSkill(workspace, {
       ...validated,
+      governance: prepareGovernance(candidate, validated.governance, now),
       workspace,
       scope: validated.scope ?? "global",
       verification: introductionVerification(now),
@@ -243,7 +253,12 @@ export class CatalogService {
         usageFromCatalogEntry(workspace, entry, "listed")
       ),
     );
-    return result;
+    return {
+      ...result,
+      items: result.items.map((e) =>
+        e.entryType === "skill" ? describeSkill(e, this.#now()) : e
+      ),
+    };
   }
 
   async exportCatalogPage(
@@ -308,7 +323,7 @@ export class CatalogService {
     });
     const skills = entries.filter((entry): entry is SkillCatalogEntry =>
       entry.entryType === "skill"
-    ).map(compactSkillCatalogEntry);
+    ).map((e) => compactSkillCatalogEntry(describeSkill(e, this.#now())));
     await this.recordUsage(
       skills.map((entry) => usageFromCatalogEntry(workspace, entry, "listed")),
     );
@@ -381,7 +396,10 @@ export class CatalogService {
     const validated = validateEntryLookup(lookup);
     const workspace = await this.resolveWorkspace(validated.workspace);
     if (validated.entryType === "skill" || validated.entryType === "subagent") {
-      return await this.resolveScopedEntry(workspace, validated);
+      const entry = await this.resolveScopedEntry(workspace, validated);
+      return entry?.entryType === "skill"
+        ? describeSkill(entry, this.#now())
+        : entry;
     }
     return await this.#repository.getEntry(workspace, {
       ...validated,
@@ -713,6 +731,7 @@ export class CatalogService {
       routing: validated.routing,
       updatedAt: now,
     });
+    after.governance = prepareGovernance(after, validated.governance, now);
     const related = (await this.#repository.listEntries(workspace, {
       workspace,
       entryType: "skill",
@@ -728,7 +747,20 @@ export class CatalogService {
       scope: scopedLookup.scope ?? "workspace",
       skillName: validated.skillName,
       reason: validated.reason,
-      proposedGovernance: validated.governance,
+      proposedGovernance: validated.governance
+        ? {
+          ...validated.governance,
+          ...(validated.governance.provenance
+            ? { provenance: after.governance?.provenance }
+            : {}),
+          ...(validated.governance.review
+            ? { review: after.governance?.review }
+            : {}),
+          ...(validated.governance.lifecycle
+            ? { lifecycle: after.governance?.lifecycle }
+            : {}),
+        }
+        : undefined,
       proposedSkillContext: validated.skillContext,
       proposedMetadata: validated.metadata,
       proposedRouting: validated.routing,
@@ -1567,10 +1599,15 @@ export class CatalogService {
     const entries = await this.#repository.listEntries(workspace, {
       workspace,
     });
-    return findCatalogMatches(entries.filter(isRoutableEntry), {
-      ...validated,
-      workspace,
-    });
+    return findCatalogMatches(
+      entries.filter(isRoutableEntry).map((e) =>
+        e.entryType === "skill" ? describeSkill(e, this.#now()) : e
+      ),
+      {
+        ...validated,
+        workspace,
+      },
+    );
   }
 
   async findMatchingAgents(

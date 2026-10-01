@@ -204,3 +204,59 @@ Deno.test("relationships validate scope, cycles, deletion and dependency revisio
     repo.close();
   }
 });
+
+Deno.test("review recording uses server time and rejects unrelated fingerprints", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    await service.introduceSkill(skillInput("reviewed"));
+    const skill = await service.getSkillDetail(skillInput("reviewed"));
+    assert(skill?.contentFingerprint);
+    const review = {
+      contentFingerprint: skill.contentFingerprint,
+      reviewedAt: "2099-01-01T00:00:00.000Z",
+      method: "source review",
+      evidence: "Inspected current source and tests",
+      outcome: "passed" as const,
+    };
+    const proposal = await service.proposeSkillUpdate({
+      ...skillInput("reviewed"),
+      reason: "Record evidence",
+      governance: { review },
+    });
+    assertEquals(proposal.after.governance?.review?.reviewedAt, FIXED_NOW);
+    await service.applySkillUpdate({
+      workspace: "governance-test",
+      scope: "global",
+      proposalId: proposal.proposal.proposalId,
+      confirm: true,
+    });
+    assertEquals(
+      (await service.getSkillDetail(skillInput("reviewed")))?.freshness,
+      "current",
+    );
+    await assertRejects(() =>
+      service.proposeSkillUpdate({
+        ...skillInput("reviewed"),
+        reason: "Invalid review",
+        governance: {
+          review: { ...review, contentFingerprint: "0".repeat(64) },
+        },
+      })
+    );
+    const claimed = await service.introduceSkill({
+      ...skillInput("claimed"),
+      governance: {
+        provenance: {
+          kind: "repository",
+          locator: "https://example.com/source",
+          assurance: "captured",
+          capturedAt: "2099-01-01T00:00:00.000Z",
+        },
+      },
+    }) as SkillCatalogEntry;
+    assertEquals(claimed.governance?.provenance?.assurance, "claimed");
+    assertEquals(claimed.governance?.provenance?.capturedAt, FIXED_NOW);
+  } finally {
+    repo.close();
+  }
+});

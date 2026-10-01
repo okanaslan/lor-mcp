@@ -161,3 +161,45 @@ export function skillTargets(entry: SkillCatalogEntry): SkillReference[] {
 export function isDeprecated(entry: SkillCatalogEntry): boolean {
   return entry.governance?.lifecycle?.status === "deprecated";
 }
+
+/** Caller supplied sources are claims. Only a trusted source reader may attest capture. */
+export function prepareGovernance(
+  entry: SkillCatalogEntry,
+  patch: GovernancePatch | undefined,
+  now: string,
+): SkillGovernance | undefined {
+  const governance = mergeGovernance(entry.governance, patch);
+  if (!governance) return undefined;
+  if (patch?.provenance) {
+    governance.provenance = {
+      ...patch.provenance,
+      assurance: "claimed",
+      capturedAt: now,
+    };
+  }
+  if (patch?.review) {
+    const expected = contentFingerprint({ ...entry, governance });
+    if (patch.review.contentFingerprint !== expected) {
+      throw new LorError(
+        "validation_error",
+        "Review fingerprint does not cover the proposed skill content.",
+        { expectedFingerprint: expected },
+      );
+    }
+    governance.review = { ...patch.review, reviewedAt: now };
+  }
+  if (patch?.lifecycle?.status === "deprecated") {
+    governance.lifecycle = { ...patch.lifecycle, deprecatedAt: now };
+  }
+  return governance;
+}
+export function describeSkill(
+  entry: SkillCatalogEntry,
+  now: string,
+): SkillCatalogEntry {
+  return {
+    ...entry,
+    freshness: freshness(entry, now),
+    contentFingerprint: contentFingerprint(entry),
+  };
+}

@@ -559,6 +559,8 @@ function scoreEntry(
         dispatchMode: entry.reachability.dispatchMode,
       }
       : undefined,
+    governance: entry.entryType === "skill" ? entry.governance : undefined,
+    freshness: entry.entryType === "skill" ? entry.freshness : undefined,
     skillContext: entry.entryType === "skill"
       ? compactSkillContext(entry.skillContext)
       : undefined,

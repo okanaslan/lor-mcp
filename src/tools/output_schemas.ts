@@ -1,3 +1,7 @@
+import {
+  governanceSchema,
+  skillReferenceSchema,
+} from "@src/catalog/skill_governance.ts";
 import * as z from "zod/v4";
 import {
   exportSkillEntrySchema,
@@ -28,6 +32,19 @@ const verification = {
   verificationMessage: text.optional(),
 };
 const skill = z.object({
+  freshness: z.enum([
+    "unreviewed",
+    "current",
+    "changed-since-review",
+    "review-due",
+    "needs-attention",
+  ]).optional(),
+  contentFingerprint: digest.optional(),
+  resolution: z.object({
+    requested: skillReferenceSchema,
+    resolved: skillReferenceSchema,
+    chain: z.array(skillReferenceSchema),
+  }).optional(),
   ...introduceSkillInputSchema.shape,
   ...base,
   ...verification,
@@ -125,6 +142,8 @@ const signal = z.object({
   ]).optional(),
 });
 const candidate = summary.extend({
+  governance: governanceSchema.optional(),
+  freshness: text.optional(),
   score: z.number(),
   matchedFields: strings,
   matchedSignals: strings,
