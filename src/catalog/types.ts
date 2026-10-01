@@ -1,3 +1,9 @@
+import type {
+  Freshness,
+  GovernancePatch,
+  SkillGovernance,
+  SkillReference,
+} from "./skill_governance.ts";
 export type EntryType = "agent" | "skill" | "subagent";
 export type CatalogScope = "workspace" | "global";
 export type AgentStatus = "active" | "retired";
@@ -142,6 +148,14 @@ export interface AgentCatalogEntry extends BaseCatalogEntry {
 }
 
 export interface SkillCatalogEntry extends BaseCatalogEntry {
+  freshness?: Freshness;
+  contentFingerprint?: string;
+  resolution?: {
+    requested: SkillReference;
+    resolved: SkillReference;
+    chain: SkillReference[];
+  };
+  governance?: SkillGovernance;
   entryType: "skill";
   scope: CatalogScope;
   skillName: string;
@@ -183,6 +197,7 @@ export interface IntroduceAgentInput {
 }
 
 export interface IntroduceSkillInput {
+  governance?: SkillGovernance;
   workspace: string;
   scope?: CatalogScope;
   skillName: string;
@@ -308,6 +323,7 @@ export interface SkillMetadataUpdate {
 export type SkillUpdateProposalStatus = "pending" | "applied";
 
 export interface ProposeSkillUpdateInput {
+  governance?: GovernancePatch;
   workspace: string;
   scope?: CatalogScope;
   skillName: string;
@@ -325,6 +341,8 @@ export interface ApplySkillUpdateInput {
 }
 
 export interface SkillUpdateProposal {
+  proposedGovernance?: GovernancePatch;
+  dependencies?: { target: SkillReference; revision: string }[];
   baseRevision?: string;
   expiresAt?: string;
   originWorkspace?: string;
@@ -404,6 +422,7 @@ export interface CatalogExportAgentEntry extends VerificationMetadata {
 }
 
 export interface CatalogExportSkillEntry extends VerificationMetadata {
+  governance?: SkillGovernance;
   entryType: "skill";
   skillName: string;
   projectName: string;
@@ -1032,6 +1051,8 @@ export interface MatchExplanation {
 }
 
 export interface MatchCandidate {
+  governance?: SkillGovernance;
+  freshness?: Freshness;
   scope: CatalogScope;
   entryType: EntryType;
   entryKey: string;

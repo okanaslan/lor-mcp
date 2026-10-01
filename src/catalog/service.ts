@@ -1,3 +1,8 @@
+import {
+  contentFingerprint,
+  freshness,
+  mergeGovernance,
+} from "./skill_governance.ts";
 import { fingerprint } from "@src/catalog/revision.ts";
 import {
   type AgentCatalogEntry,
@@ -418,7 +423,13 @@ export class CatalogService {
         entryKey: skill.skillName,
       });
     }
-    return skill;
+    return skill
+      ? {
+        ...skill,
+        freshness: freshness(skill, this.#now()),
+        contentFingerprint: contentFingerprint(skill),
+      }
+      : undefined;
   }
 
   async getSubagentDetail(
@@ -692,6 +703,7 @@ export class CatalogService {
 
     const now = this.#now();
     const after = mergeSkillUpdate(existing, {
+      governance: validated.governance,
       skillContext: validated.skillContext,
       metadata: validated.metadata,
       routing: validated.routing,
@@ -706,6 +718,7 @@ export class CatalogService {
       scope: scopedLookup.scope ?? "workspace",
       skillName: validated.skillName,
       reason: validated.reason,
+      proposedGovernance: validated.governance,
       proposedSkillContext: validated.skillContext,
       proposedMetadata: validated.metadata,
       proposedRouting: validated.routing,
@@ -757,6 +770,7 @@ export class CatalogService {
 
     const appliedAt = this.#now();
     const after = mergeSkillUpdate(existing, {
+      governance: proposal.proposedGovernance,
       skillContext: proposal.proposedSkillContext,
       metadata: proposal.proposedMetadata,
       routing: proposal.proposedRouting,
@@ -3043,6 +3057,7 @@ function isHealthEntry(
 function mergeSkillUpdate(
   entry: SkillCatalogEntry,
   input: {
+    governance?: import("./skill_governance.ts").GovernancePatch;
     skillContext?: SkillContext;
     metadata?: SkillMetadataUpdate;
     routing?: SkillCatalogEntry["routing"] | null;
@@ -3056,6 +3071,7 @@ function mergeSkillUpdate(
     primarySpecialty: input.metadata?.primarySpecialty ??
       entry.primarySpecialty,
     specialtyTags: input.metadata?.specialtyTags ?? entry.specialtyTags,
+    governance: mergeGovernance(entry.governance, input.governance),
     skillContext: mergeSkillContext(entry.skillContext, input.skillContext),
     routing: mergeRouting(entry.routing, input.routing),
     updatedAt: input.updatedAt,

@@ -1,3 +1,7 @@
+import {
+  governancePatchSchema,
+  governanceSchema,
+} from "@src/catalog/skill_governance.ts";
 import * as z from "zod/v4";
 const boundedArray = <T extends z.ZodType>(schema: T) =>
   z.array(schema).max(128);
@@ -137,6 +141,7 @@ const implementationGuidanceSchema = z.strictObject({
 );
 
 export const introduceSkillInputSchema = z.strictObject({
+  governance: governanceSchema.optional(),
   idempotencyKey: z.string().min(1).max(120).optional(),
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
@@ -360,6 +365,7 @@ const skillMetadataUpdateSchema = z.strictObject({
 );
 
 export const proposeSkillUpdateInputSchema = z.strictObject({
+  governance: governancePatchSchema.optional(),
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
   skillName: z.string().max(16000).trim().min(1),
@@ -369,6 +375,7 @@ export const proposeSkillUpdateInputSchema = z.strictObject({
   routing: routingMetadataSchema.nullable().optional(),
 }).refine(
   (input) =>
+    input.governance !== undefined ||
     input.skillContext !== undefined ||
     input.metadata !== undefined ||
     input.routing !== undefined,
@@ -448,6 +455,7 @@ const exportAgentEntrySchema = z.strictObject({
 });
 
 export const exportSkillEntrySchema = z.strictObject({
+  governance: governanceSchema.optional(),
   entryType: z.literal("skill"),
   skillName: z.string().max(16000).trim().min(1),
   projectName: z.string().max(16000).trim().min(1),

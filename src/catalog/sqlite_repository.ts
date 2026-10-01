@@ -77,6 +77,7 @@ interface AgentRow {
 }
 
 interface SkillRow {
+  governance: string | null;
   workspace: string;
   skillName: string;
   projectName: string;
@@ -119,6 +120,8 @@ interface SubagentRow {
 }
 
 interface SkillUpdateProposalRow {
+  proposedGovernance: string | null;
+  dependencies: string | null;
   baseRevision: string | null;
   expiresAt: string | null;
   originWorkspace: string | null;
@@ -216,7 +219,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         const current = this.#db.prepare(
           "SELECT MAX(version) AS version FROM schema_migrations",
         ).get<{ version: number }>();
-        if ((current?.version ?? 0) > 17) {
+        if ((current?.version ?? 0) > 18) {
           throw new LorError(
             "setup_error",
             "Catalog schema is newer than this server. Use a compatible release.",
@@ -235,6 +238,19 @@ export class SqliteCatalogRepository implements CatalogRepository {
         migrateAgentReachabilityColumns(db);
         migrateSubagentNegativeRoutingColumn(db);
         migrateRoutingMetadataColumns(db);
+        addColumnIfMissing(db, "introduced_skills", "governance", "TEXT");
+        addColumnIfMissing(
+          db,
+          "skill_update_proposals",
+          "proposedGovernance",
+          "TEXT",
+        );
+        addColumnIfMissing(
+          db,
+          "skill_update_proposals",
+          "dependencies",
+          "TEXT",
+        );
         for (const column of ["baseRevision", "expiresAt", "originWorkspace"]) {
           addColumnIfMissing(db, "skill_update_proposals", column, "TEXT");
         }
@@ -275,7 +291,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
               UPDATE catalog_generation SET token = lower(hex(randomblob(16))) WHERE id = 1; END`);
           }
         }
-        recordSchemaVersion(db, 17);
+        recordSchemaVersion(db, 18);
       });
       migrate();
     } catch (error) {
@@ -372,10 +388,10 @@ export class SqliteCatalogRepository implements CatalogRepository {
       db.exec(
         `INSERT INTO introduced_skills (
           workspace, skillName, projectName, displayName,
-          primarySpecialty, specialtyTags, skillContext, routingMetadata,
+          primarySpecialty, specialtyTags, skillContext, routingMetadata, governance,
           verificationStatus, verificationSource, verifiedAt,
           verificationMessage, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         storageWorkspace,
         input.skillName,
         input.projectName,
@@ -384,6 +400,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
         JSON.stringify(input.specialtyTags),
         input.skillContext ? JSON.stringify(input.skillContext) : null,
         input.routing ? JSON.stringify(input.routing) : null,
+        input.governance ? JSON.stringify(input.governance) : null,
         input.verification.verificationStatus,
         input.verification.verificationSource,
         input.verification.verifiedAt,
@@ -510,6 +527,14 @@ export class SqliteCatalogRepository implements CatalogRepository {
         input.expiresAt ?? null,
         input.originWorkspace ?? null,
       );
+      this.requireDb().exec(
+        "UPDATE skill_update_proposals SET proposedGovernance = ?, dependencies = ? WHERE proposalId = ?",
+        input.proposedGovernance
+          ? JSON.stringify(input.proposedGovernance)
+          : null,
+        input.dependencies ? JSON.stringify(input.dependencies) : null,
+        input.proposalId,
+      );
       return Promise.resolve({
         ...input,
         workspace: publicSkillWorkspace(storageWorkspace),
@@ -590,7 +615,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
       db.exec(
         `UPDATE introduced_skills
          SET projectName = ?, displayName = ?, primarySpecialty = ?,
-           specialtyTags = ?, skillContext = ?, routingMetadata = ?,
+           specialtyTags = ?, skillContext = ?, routingMetadata = ?, governance = ?,
            updatedAt = ?
          WHERE workspace = ? AND skillName = ?`,
         input.entry.projectName,
@@ -601,6 +626,7 @@ export class SqliteCatalogRepository implements CatalogRepository {
           ? JSON.stringify(input.entry.skillContext)
           : null,
         input.entry.routing ? JSON.stringify(input.entry.routing) : null,
+        input.entry.governance ? JSON.stringify(input.entry.governance) : null,
         input.appliedAt,
         storageWorkspace,
         input.entry.skillName,
@@ -2099,6 +2125,7 @@ function mapSkillRow(row: SkillRow): SkillCatalogEntry {
     displayName: row.displayName,
     primarySpecialty: row.primarySpecialty,
     specialtyTags: parseTags(row.specialtyTags),
+    governance: row.governance ? JSON.parse(row.governance) : undefined,
     skillContext: row.skillContext ? JSON.parse(row.skillContext) : undefined,
     routing: row.routingMetadata ? JSON.parse(row.routingMetadata) : undefined,
     verificationStatus: parseVerificationStatus(row.verificationStatus),
@@ -2192,6 +2219,10 @@ function mapSkillUpdateProposalRow(
   row: SkillUpdateProposalRow,
 ): SkillUpdateProposal {
   return {
+    proposedGovernance: row.proposedGovernance
+      ? JSON.parse(row.proposedGovernance)
+      : undefined,
+    dependencies: row.dependencies ? JSON.parse(row.dependencies) : undefined,
     proposalId: row.proposalId,
     baseRevision: row.baseRevision ?? undefined,
     expiresAt: row.expiresAt ?? undefined,

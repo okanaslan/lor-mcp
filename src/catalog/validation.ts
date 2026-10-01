@@ -1,4 +1,8 @@
 import {
+  validateGovernance,
+  validateGovernancePatch,
+} from "./skill_governance.ts";
+import {
   type AgentStatus,
   type ApplySkillFileSyncInput,
   type ApplySkillUpdateInput,
@@ -61,6 +65,9 @@ export function validateIntroduceSkill(
   input: IntroduceSkillInput,
 ): IntroduceSkillInput {
   return {
+    governance: input.governance === undefined
+      ? undefined
+      : validateGovernance(input.governance),
     workspace: requireWorkspace(input.workspace),
     scope: input.scope === undefined ? undefined : requireCatalogScope(
       input.scope,
@@ -560,7 +567,10 @@ export function validateProposeSkillUpdate(
     ? null
     : validateRoutingMetadata(input.routing, "routing");
 
-  if (!skillContext && !metadata && routing === undefined) {
+  if (
+    !skillContext && !metadata && routing === undefined &&
+    input.governance === undefined
+  ) {
     throw new LorError(
       "validation_error",
       "At least one skillContext, metadata, or routing field is required.",
@@ -576,6 +586,9 @@ export function validateProposeSkillUpdate(
     ),
     skillName: requireString(input.skillName, "skillName"),
     reason: requireString(input.reason, "reason"),
+    governance: input.governance === undefined
+      ? undefined
+      : validateGovernancePatch(input.governance),
     skillContext,
     metadata,
     routing,
