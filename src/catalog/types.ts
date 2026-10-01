@@ -148,6 +148,7 @@ export interface AgentCatalogEntry extends BaseCatalogEntry {
 }
 
 export interface SkillCatalogEntry extends BaseCatalogEntry {
+  governanceIssues?: CatalogHealthIssue[];
   freshness?: Freshness;
   contentFingerprint?: string;
   resolution?: {
@@ -164,6 +165,7 @@ export interface SkillCatalogEntry extends BaseCatalogEntry {
 }
 
 export interface SubagentCatalogEntry extends BaseCatalogEntry {
+  referenceIssues?: CatalogHealthIssue[];
   entryType: "subagent";
   scope: CatalogScope;
   name: string;
@@ -459,7 +461,7 @@ export type CatalogExportEntry =
   | CatalogExportSubagentEntry;
 
 export interface CatalogExport {
-  version: 1;
+  version: 1 | 2;
   exportedAt: string;
   workspace: string;
   filters: {
@@ -485,7 +487,7 @@ export interface CatalogImportIssue {
 
 export interface CatalogImportResult {
   workspace: string;
-  version: 1;
+  version: 1 | 2;
   conflictStrategy: CatalogImportConflictStrategy;
   importedCount: number;
   skippedCount: number;
@@ -674,6 +676,13 @@ export interface WorkspaceDiagnosticsLocalSkillStatus {
 }
 
 export interface WorkspaceDiagnosticsLocalContext {
+  governance?: {
+    skillName: string;
+    scope: CatalogScope;
+    freshness: Freshness;
+    lifecycle: string;
+    issues: CatalogHealthIssue[];
+  }[];
   agentsMd: WorkspaceDiagnosticsAgentsMdStatus;
   skills: WorkspaceDiagnosticsLocalSkillStatus;
   recommendedActions: readonly string[];
@@ -1149,6 +1158,15 @@ export interface PrepareAgentInitializationResult {
 }
 
 export interface CatalogRepository {
+  importSkills(
+    workspace: string,
+    inputs: readonly (IntroduceSkillInput & {
+      verification: VerificationMetadata;
+      now: string;
+    })[],
+    conflictStrategy: "skip" | "fail",
+  ): Promise<{ imported: string[]; skipped: number }>;
+
   listEntryPage(
     workspace: string,
     filter: ListEntriesFilter,

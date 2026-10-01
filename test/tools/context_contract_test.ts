@@ -235,7 +235,7 @@ Deno.test("native prompt reuses the tool generator and diagnostics identify the 
     );
     assertEquals(
       diagnostics.structuredContent.data.storageStatus.schemaVersion,
-      17,
+      18,
     );
     assert(
       /^[a-f0-9]{64}$/.test(

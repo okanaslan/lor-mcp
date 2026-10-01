@@ -1,4 +1,5 @@
 import {
+  governanceInputSchema,
   governancePatchSchema,
   governanceSchema,
 } from "@src/catalog/skill_governance.ts";
@@ -141,7 +142,7 @@ const implementationGuidanceSchema = z.strictObject({
 );
 
 export const introduceSkillInputSchema = z.strictObject({
-  governance: governanceSchema.optional(),
+  governance: governanceInputSchema.optional(),
   idempotencyKey: z.string().min(1).max(120).optional(),
   workspace: workspaceSchema,
   scope: catalogScopeSchema.optional(),
@@ -500,7 +501,7 @@ export const importCatalogInputSchema = z.strictObject({
   workspace: workspaceSchema,
   conflictStrategy: z.enum(["skip", "fail"]).optional(),
   catalog: z.strictObject({
-    version: z.literal(1),
+    version: z.union([z.literal(1), z.literal(2)]),
     exportedAt: z.string().max(16000).trim().min(1),
     workspace: z.string().max(16000).trim().min(1),
     filters: z.strictObject({

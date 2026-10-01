@@ -1498,7 +1498,7 @@ Deno.test("CatalogService exports workspace catalog entries with filters", async
       projectName: "Local Orchestration Router (LOR)",
     });
 
-    assertEquals(catalog.version, 1);
+    assertEquals(catalog.version, 2);
     assertEquals(catalog.workspace, "LOR-MCP");
     assertEquals(catalog.exportedAt, FIXED_NOW);
     assertEquals(catalog.filters, {
@@ -1572,7 +1572,7 @@ Deno.test("CatalogService imports exported catalog entries into requested worksp
 
     assertEquals(result, {
       workspace: "LOR-MCP",
-      version: 1,
+      version: 2,
       conflictStrategy: "skip",
       importedCount: 2,
       skippedCount: 0,

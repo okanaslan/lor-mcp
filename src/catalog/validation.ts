@@ -467,10 +467,10 @@ export function validateCatalogImportInput(
       { field: "conflictStrategy" },
     );
   }
-  if (!input.catalog || input.catalog.version !== 1) {
+  if (!input.catalog || ![1, 2].includes(input.catalog.version)) {
     throw new LorError(
       "validation_error",
-      "catalog version must be 1.",
+      "catalog version must be 1 or 2.",
       { field: "catalog.version" },
     );
   }
@@ -486,7 +486,7 @@ export function validateCatalogImportInput(
     workspace,
     conflictStrategy,
     catalog: {
-      version: 1,
+      version: input.catalog.version,
       exportedAt: requireString(input.catalog.exportedAt, "catalog.exportedAt"),
       workspace: requireString(input.catalog.workspace, "catalog.workspace"),
       filters: {
@@ -791,6 +791,9 @@ function validateCatalogImportEntry(
       entry.skillName,
       `catalog.entries.${index}.skillName`,
     ),
+    governance: entry.governance === undefined
+      ? undefined
+      : validateGovernance(entry.governance),
     skillContext: entry.skillContext
       ? validateSkillContext(
         entry.skillContext,

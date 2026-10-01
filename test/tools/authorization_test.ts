@@ -116,3 +116,19 @@ Deno.test("workspace access does not grant global reads or local file permission
     }
   }
 });
+
+Deno.test("following replacements cannot bypass disabled global reads", () => {
+  assertThrows(() =>
+    authorizeOperation({ ...policy, globalRead: false }, "get_skill_detail", {
+      workspace: "local",
+      scope: "workspace",
+      skillName: "old",
+      followReplacement: true,
+    })
+  );
+  authorizeOperation({ ...policy, globalRead: false }, "get_skill_detail", {
+    workspace: "local",
+    scope: "workspace",
+    skillName: "old",
+  });
+});

@@ -74,7 +74,14 @@ export function validateSkillGraph(
   }
   // Separate graphs: complementary/delegation links may be reciprocal.
   for (const kind of ["specializes", "replacement"] as const) {
+    let budget = 4096;
     const visit = (key: string, path: Set<string>, depth: number): void => {
+      if (--budget < 0) {
+        throw new LorError(
+          "validation_error",
+          "Skill graph traversal limit exceeded.",
+        );
+      }
       if (path.has(key)) {
         throw new LorError("validation_error", `Cyclic ${kind} relationship.`);
       }
@@ -110,9 +117,17 @@ export function dependencyRevisions(
   );
   const found = new Map<string, { target: SkillReference; revision: string }>();
   const own = referenceKey(skillReference(entry));
-  const visit = (ref: SkillReference): void => {
+  const pending = [...skillTargets(entry)];
+  while (pending.length) {
+    const ref = pending.pop()!;
     const key = referenceKey(ref);
-    if (key === own || found.has(key)) return;
+    if (key === own || found.has(key)) continue;
+    if (found.size >= 1024) {
+      throw new LorError(
+        "validation_error",
+        "Skill dependency graph exceeds 1024 entries.",
+      );
+    }
     const target = graph.get(key);
     if (!target?.revision) {
       throw new LorError("validation_error", "Referenced skill is missing.", {
@@ -120,9 +135,8 @@ export function dependencyRevisions(
       });
     }
     found.set(key, { target: ref, revision: target.revision });
-    for (const next of skillTargets(target)) visit(next);
-  };
-  for (const ref of skillTargets(entry)) visit(ref);
+    pending.push(...skillTargets(target));
+  }
   return [...found.values()];
 }
 export function assertDependencies(
@@ -180,4 +194,53 @@ export function inboundReferences(
     }
   }
   return refs;
+}
+
+export function relationshipIssues(
+  entry: SkillCatalogEntry,
+  entries: readonly SkillCatalogEntry[],
+): { code: string; message: string }[] {
+  const graph = new Map(
+    entries.map((e) => [referenceKey(skillReference(e)), e]),
+  );
+  const issues: { code: string; message: string }[] = [];
+  for (const ref of skillTargets(entry)) {
+    const target = graph.get(referenceKey(ref));
+    if (!target) {
+      issues.push({
+        code: "unresolved_skill_reference",
+        message:
+          `Referenced ${ref.scope} skill ${ref.skillName} is unavailable.`,
+      });
+    } else if (isDeprecated(target)) {
+      issues.push({
+        code: "deprecated_skill_reference",
+        message:
+          `Referenced ${ref.scope} skill ${ref.skillName} is deprecated. Inspect its replacement explicitly.`,
+      });
+    }
+  }
+  for (
+    const relation of entry.governance?.responsibility?.relationships ?? []
+  ) {
+    const target = graph.get(referenceKey(relation.target));
+    if (relation.kind === "specializes" || !target) continue;
+    const owns = new Set(
+      target.governance?.responsibility?.owns.map((s) =>
+        s.toLowerCase().trim()
+      ),
+    );
+    if (
+      entry.governance?.responsibility?.owns.some((s) =>
+        owns.has(s.toLowerCase().trim())
+      )
+    ) {
+      issues.push({
+        code: "ownership_overlap",
+        message:
+          `Declared responsibilities overlap with ${target.skillName}; inspect whether this is intentional.`,
+      });
+    }
+  }
+  return issues;
 }

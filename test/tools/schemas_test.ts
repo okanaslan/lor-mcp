@@ -692,7 +692,7 @@ Deno.test("importCatalogInputSchema requires versioned catalog data", () => {
   assertEquals(
     importCatalogInputSchema.safeParse({
       workspace: "LOR-MCP",
-      catalog: { ...validCatalog, version: 2 },
+      catalog: { ...validCatalog, version: 3 },
     }).success,
     false,
   );

@@ -375,69 +375,120 @@ export class SqliteCatalogRepository implements CatalogRepository {
     }
   }
 
-  async createSkill(
+  private insertSkill(
+    workspace: string,
+    input: IntroduceSkillInput & {
+      verification: VerificationMetadata;
+      now: string;
+    },
+  ): SkillCatalogEntry {
+    const db = this.requireDb();
+    const storageWorkspace = skillStorageWorkspace(workspace, input.scope);
+    if (this.skillExists(storageWorkspace, input.skillName)) {
+      throw new LorError(
+        "duplicate_entry",
+        input.scope === "global"
+          ? "Skill already exists in global scope."
+          : "Skill already exists in this workspace.",
+        { entryType: "skill" },
+      );
+    }
+
+    db.exec(
+      `INSERT INTO introduced_skills (
+          workspace, skillName, projectName, displayName,
+          primarySpecialty, specialtyTags, skillContext, routingMetadata, governance,
+          verificationStatus, verificationSource, verifiedAt,
+          verificationMessage, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      storageWorkspace,
+      input.skillName,
+      input.projectName,
+      input.displayName,
+      input.primarySpecialty,
+      JSON.stringify(input.specialtyTags),
+      input.skillContext ? JSON.stringify(input.skillContext) : null,
+      input.routing ? JSON.stringify(input.routing) : null,
+      input.governance ? JSON.stringify(input.governance) : null,
+      input.verification.verificationStatus,
+      input.verification.verificationSource,
+      input.verification.verifiedAt,
+      input.verification.verificationMessage ?? null,
+      input.now,
+      input.now,
+    );
+
+    return this.getEntrySync(workspace, {
+      workspace,
+      entryType: "skill",
+      entryKey: input.skillName,
+      scope: input.scope ?? "workspace",
+    }) as SkillCatalogEntry;
+  }
+
+  createSkill(
     workspace: string,
     input: IntroduceSkillInput & {
       verification: VerificationMetadata;
       now: string;
     },
   ): Promise<SkillCatalogEntry> {
-    const db = this.requireDb();
-    const storageWorkspace = skillStorageWorkspace(workspace, input.scope);
-    const insert = db.transaction(() => {
-      if (this.skillExists(storageWorkspace, input.skillName)) {
-        throw new LorError(
-          "duplicate_entry",
-          input.scope === "global"
-            ? "Skill already exists in global scope."
-            : "Skill already exists in this workspace.",
-          { entryType: "skill" },
-        );
+    const create = this.requireDb().transaction(() => {
+      const entry = this.insertSkill(workspace, input);
+      if (skillTargets(entry).length) {
+        validateSkillGraph(entry, this.allSkills());
       }
-
-      db.exec(
-        `INSERT INTO introduced_skills (
-          workspace, skillName, projectName, displayName,
-          primarySpecialty, specialtyTags, skillContext, routingMetadata, governance,
-          verificationStatus, verificationSource, verifiedAt,
-          verificationMessage, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        storageWorkspace,
-        input.skillName,
-        input.projectName,
-        input.displayName,
-        input.primarySpecialty,
-        JSON.stringify(input.specialtyTags),
-        input.skillContext ? JSON.stringify(input.skillContext) : null,
-        input.routing ? JSON.stringify(input.routing) : null,
-        input.governance ? JSON.stringify(input.governance) : null,
-        input.verification.verificationStatus,
-        input.verification.verificationSource,
-        input.verification.verifiedAt,
-        input.verification.verificationMessage ?? null,
-        input.now,
-        input.now,
-      );
-      const created = this.getEntrySync(workspace, {
-        workspace,
-        entryType: "skill",
-        entryKey: input.skillName,
-        scope: input.scope ?? "workspace",
-      }) as SkillCatalogEntry;
-      if (skillTargets(created).length) {
-        validateSkillGraph(created, this.allSkills());
-      }
+      return entry;
     });
-
     try {
-      insert();
-      const created = await this.getEntry(workspace, {
-        workspace,
-        entryType: "skill",
-        entryKey: input.skillName,
-        scope: input.scope ?? "workspace",
-      });
-      return created as SkillCatalogEntry;
+      return Promise.resolve(create());
+    } catch (error) {
+      throw mapStorageError(error);
+    }
+  }
+
+  importSkills(
+    workspace: string,
+    inputs: readonly (IntroduceSkillInput & {
+      verification: VerificationMetadata;
+      now: string;
+    })[],
+    conflictStrategy: "skip" | "fail",
+  ): Promise<{ imported: string[]; skipped: number }> {
+    const restore = this.requireDb().transaction(() => {
+      const created: SkillCatalogEntry[] = [];
+      let skipped = 0;
+      for (const input of inputs) {
+        if (input.scope !== "workspace") {
+          throw new LorError(
+            "validation_error",
+            "Catalog imports are workspace-local.",
+          );
+        }
+        if (this.skillExists(workspace, input.skillName)) {
+          if (conflictStrategy === "fail") {
+            throw new LorError(
+              "duplicate_entry",
+              "Skill already exists during import.",
+            );
+          }
+          skipped++;
+          continue;
+        }
+        created.push(this.insertSkill(workspace, input));
+      }
+      const graph = created.some((e) => skillTargets(e).length)
+        ? this.allSkills()
+        : [];
+      for (const entry of created) {
+        if (skillTargets(entry).length) {
+          validateSkillGraph(entry, graph, entry);
+        }
+      }
+      return { imported: created.map((e) => e.skillName), skipped };
+    });
+    try {
+      return Promise.resolve(restore());
     } catch (error) {
       throw mapStorageError(error);
     }

@@ -1113,7 +1113,7 @@ Deno.test("SqliteCatalogRepository stores and filters usage counters", async () 
     });
     const workspaceB = await repo.getUsageCounters("workspace-b", {});
 
-    assertEquals(schemaVersion, 17);
+    assertEquals(schemaVersion, 18);
     assertEquals(workspaceA.map((record) => record.entryKey), [
       "backend-skill",
       "api-test-subagent",

@@ -342,3 +342,157 @@ Deno.test("deprecation preserves exact identity and follows replacements only ex
     repo.close();
   }
 });
+
+Deno.test("v2 import resolves out-of-order and reciprocal relationships atomically", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const base = { ...skillInput("a"), scope: "workspace" as const };
+    await service.introduceSkill(base);
+    await service.introduceSkill({
+      ...base,
+      skillName: "b",
+      governance: {
+        responsibility: {
+          summary: "B",
+          owns: [],
+          excludes: [],
+          relationships: [{
+            kind: "complements",
+            reason: "together",
+            target: {
+              scope: "workspace",
+              workspace: base.workspace,
+              skillName: "a",
+            },
+          }],
+        },
+      },
+    });
+    const p = await service.proposeSkillUpdate({
+      ...base,
+      reason: "reciprocal",
+      governance: {
+        responsibility: {
+          summary: "A",
+          owns: [],
+          excludes: [],
+          relationships: [{
+            kind: "complements",
+            reason: "together",
+            target: {
+              scope: "workspace",
+              workspace: base.workspace,
+              skillName: "b",
+            },
+          }],
+        },
+      },
+    });
+    await service.applySkillUpdate({
+      workspace: base.workspace,
+      scope: "workspace",
+      proposalId: p.proposal.proposalId,
+      confirm: true,
+    });
+    const exported = await service.exportCatalog({ workspace: base.workspace });
+    assertEquals(exported.version, 2);
+    exported.entries.reverse();
+    const result = await service.importCatalog({
+      workspace: "destination",
+      catalog: exported,
+    });
+    assertEquals(result.importedCount, 2);
+    const restored = await service.getSkillDetail({
+      workspace: "destination",
+      scope: "workspace",
+      skillName: "b",
+    });
+    assertEquals(
+      restored?.governance?.responsibility?.relationships[0].target,
+      { scope: "workspace", workspace: "destination", skillName: "a" },
+    );
+    assertEquals(restored?.governance?.provenance?.kind, "catalog-import");
+    const invalid = structuredClone(exported);
+    const first = invalid.entries.find((e) => e.entryType === "skill");
+    assert(first?.entryType === "skill" && first.governance?.responsibility);
+    first.governance.responsibility.relationships[0].target = {
+      scope: "global",
+      skillName: "missing",
+    };
+    await assertRejects(() =>
+      service.importCatalog({ workspace: "failed-import", catalog: invalid })
+    );
+    assertEquals(
+      (await service.listEntries({
+        workspace: "failed-import",
+        scope: "workspace",
+      })).length,
+      0,
+    );
+    await assertRejects(() =>
+      service.promoteSkillToGlobal({
+        workspace: base.workspace,
+        skillName: "a",
+      })
+    );
+    assertEquals(
+      await service.getSkillDetail({
+        workspace: base.workspace,
+        scope: "global",
+        skillName: "a",
+      }),
+      undefined,
+    );
+    await service.introduceSubagent({
+      workspace: "destination",
+      scope: "workspace",
+      name: "consumer",
+      projectName: "test",
+      displayName: "consumer",
+      purpose: "review",
+      limitedScope: "review",
+      primarySpecialty: "review",
+      specialtyTags: ["review"],
+      skillReferences: [{ entryType: "skill", name: "a", scope: "workspace" }],
+    });
+    await assertRejects(() =>
+      service.clearWorkspaceSkills({ workspace: "destination", confirm: true })
+    );
+    const cleared = await service.clearWorkspaceCatalog({
+      workspace: "destination",
+      confirm: true,
+    });
+    assertEquals(cleared.deletedSkills, 2);
+  } finally {
+    repo.close();
+  }
+});
+
+Deno.test("legacy v1 imports stay active and unreviewed", async () => {
+  const { repo, service } = await createCatalogService();
+  try {
+    const catalog = {
+      version: 1 as const,
+      exportedAt: FIXED_NOW,
+      workspace: "legacy",
+      filters: {},
+      entries: [{
+        entryType: "skill" as const,
+        ...skillInput("legacy"),
+        verificationStatus: "verified" as const,
+        verificationSource: "mcp_introduction",
+        verifiedAt: FIXED_NOW,
+      }],
+    };
+    await service.importCatalog({ workspace: "legacy", catalog });
+    const skill = await service.getSkillDetail({
+      workspace: "legacy",
+      scope: "workspace",
+      skillName: "legacy",
+    });
+    assertEquals(skill?.freshness, "unreviewed");
+    assertEquals(skill?.governance?.lifecycle, undefined);
+  } finally {
+    repo.close();
+  }
+});

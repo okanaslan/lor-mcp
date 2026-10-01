@@ -32,6 +32,7 @@ export const provenanceSchema = z.strictObject({
     "repository",
     "remote-package",
     "bundled",
+    "catalog-import",
   ]),
   locator: text.optional(),
   version: text.optional(),
@@ -62,11 +63,34 @@ export const governanceSchema = z.strictObject({
   review: reviewSchema.optional(),
   lifecycle: lifecycleSchema.optional(),
 });
+// Input defaults are placeholders only; service preparation assigns server time.
+const unspecifiedTime = "1970-01-01T00:00:00.000Z";
+const provenanceInputSchema = provenanceSchema.extend({
+  capturedAt: timestamp.default(unspecifiedTime),
+  assurance: z.enum(["claimed", "captured"]).default("claimed"),
+});
+const reviewInputSchema = reviewSchema.extend({
+  reviewedAt: timestamp.default(unspecifiedTime),
+});
+const lifecycleInputSchema = z.discriminatedUnion("status", [
+  z.strictObject({ status: z.literal("active") }),
+  z.strictObject({
+    status: z.literal("deprecated"),
+    reason: text,
+    deprecatedAt: timestamp.default(unspecifiedTime),
+    replacement: skillReferenceSchema.optional(),
+  }),
+]);
+export const governanceInputSchema = governanceSchema.extend({
+  provenance: provenanceInputSchema.optional(),
+  review: reviewInputSchema.optional(),
+  lifecycle: lifecycleInputSchema.optional(),
+});
 export const governancePatchSchema = z.strictObject({
   responsibility: responsibilitySchema.nullable().optional(),
-  provenance: provenanceSchema.nullable().optional(),
-  review: reviewSchema.nullable().optional(),
-  lifecycle: lifecycleSchema.optional(),
+  provenance: provenanceInputSchema.nullable().optional(),
+  review: reviewInputSchema.nullable().optional(),
+  lifecycle: lifecycleInputSchema.optional(),
 }).refine(
   (v) => Object.values(v).some((x) => x !== undefined),
   "Specify a governance change.",
@@ -121,6 +145,7 @@ export function contentFingerprint(entry: SkillCatalogEntry): string {
 export function freshness(entry: SkillCatalogEntry, now: string): Freshness {
   const review = entry.governance?.review;
   if (!review) return "unreviewed";
+  if (Date.parse(review.reviewedAt) > Date.parse(now)) return "needs-attention";
   if (review.contentFingerprint !== contentFingerprint(entry)) {
     return "changed-since-review";
   }

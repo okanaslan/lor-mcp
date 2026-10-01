@@ -16,6 +16,10 @@ export function authorizeOperation(
 ): void {
   if (!input || typeof input !== "object") deny();
   const fields = input as Record<string, unknown>;
+  if (
+    name === "get_skill_detail" && fields.followReplacement === true &&
+    !policy.globalRead
+  ) deny();
   if (name === "register_workspace_alias") {
     if (!policy.aliases) deny();
   }

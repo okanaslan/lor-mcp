@@ -32,6 +32,7 @@ const verification = {
   verificationMessage: text.optional(),
 };
 const skill = z.object({
+  governanceIssues: z.array(z.object({ code: text, message: text })).optional(),
   freshness: z.enum([
     "unreviewed",
     "current",
@@ -46,11 +47,13 @@ const skill = z.object({
     chain: z.array(skillReferenceSchema),
   }).optional(),
   ...introduceSkillInputSchema.shape,
+  governance: governanceSchema.optional(),
   ...base,
   ...verification,
   entryType: z.literal("skill"),
 });
 const subagent = z.object({
+  referenceIssues: z.array(z.object({ code: text, message: text })).optional(),
   ...introduceSubagentInputSchema.shape,
   constraints: z.array(text),
   ...base,
@@ -413,7 +416,7 @@ const usage = z.object({
 });
 const importResult = z.object({
   workspace: text,
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
   conflictStrategy: z.enum(["skip", "fail"]),
   importedCount: count,
   skippedCount: count,
@@ -530,6 +533,15 @@ const outputs: Record<string, z.ZodType> = {
       toolContractFingerprint: digest,
     }),
     localContext: z.object({
+      governance: z.array(
+        z.object({
+          skillName: text,
+          scope: base.scope,
+          freshness: text,
+          lifecycle: text,
+          issues: z.array(z.object({ code: text, message: text })),
+        }),
+      ).optional(),
       agentsMd: z.object({
         status: z.enum(["present", "missing", "not_inspected"]),
         instruction: text,

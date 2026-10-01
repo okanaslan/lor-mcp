@@ -21,7 +21,7 @@ Deno.test("SDK client downloads the package through actual MCP resource handlers
       await fetchRemoteSkill(
         "http://127.0.0.1:8765/mcp",
         "lor-manage-skill",
-        "1.1.0",
+        (await loadBundledSkill("lor-manage-skill")).manifest.version,
       ),
       await loadBundledSkill("lor-manage-skill"),
     );
@@ -54,11 +54,11 @@ Deno.test("remote package rejects tampered resources and closes the session", as
   };
   try {
     await assertRejects(
-      () =>
+      async () =>
         fetchRemoteSkill(
           "http://127.0.0.1:8765/mcp",
           "lor-manage-skill",
-          "1.1.0",
+          (await loadBundledSkill("lor-manage-skill")).manifest.version,
         ),
       Error,
       "integrity",

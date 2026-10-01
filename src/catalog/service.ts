@@ -1,5 +1,6 @@
 import {
   dependencyRevisions,
+  relationshipIssues,
   validateSkillGraph,
 } from "./skill_relationships.ts";
 import {
@@ -11,6 +12,7 @@ import {
   prepareGovernance,
   referenceKey,
   skillReference,
+  skillTargets,
 } from "./skill_governance.ts";
 import { fingerprint } from "@src/catalog/revision.ts";
 import {
@@ -281,7 +283,7 @@ export class CatalogService {
       input,
     );
     return {
-      version: 1 as const,
+      version: 2 as const,
       exportedAt: this.#now(),
       workspace,
       filters: {
@@ -506,8 +508,19 @@ export class CatalogService {
         entryKey: skill.skillName,
       });
     }
+    const visible: SkillCatalogEntry[] = [];
+    for (const ref of skill ? skillTargets(skill) : []) {
+      const related = await this.#repository.getEntry(workspace, {
+        workspace,
+        entryType: "skill",
+        entryKey: ref.skillName,
+        scope: ref.scope,
+      });
+      if (related?.entryType === "skill") visible.push(related);
+    }
     return skill
       ? {
+        governanceIssues: relationshipIssues(skill, visible),
         ...skill,
         freshness: freshness(skill, this.#now()),
         contentFingerprint: contentFingerprint(skill),
@@ -542,7 +555,30 @@ export class CatalogService {
         entryKey: subagent.name,
       });
     }
-    return subagent;
+    if (!subagent) return undefined;
+    const visible = await this.#repository.listEntries(workspace, {
+      workspace,
+      entryType: "skill",
+    });
+    const referenceIssues = subagent.skillReferences.flatMap((ref) => {
+      const candidates = visible.filter((e): e is SkillCatalogEntry =>
+        e.entryType === "skill" && e.skillName === (ref.entryKey ?? ref.name) &&
+        (!ref.scope || e.scope === ref.scope)
+      );
+      return candidates.length !== 1
+        ? [{
+          code: "unresolved_skill_reference",
+          message: `Skill reference ${ref.name} is missing or ambiguous.`,
+        }]
+        : isDeprecated(candidates[0])
+        ? [{
+          code: "deprecated_skill_reference",
+          message:
+            `Skill reference ${ref.name} is deprecated; inspect the replacement explicitly.`,
+        }]
+        : [];
+    });
+    return { ...subagent, referenceIssues };
   }
 
   async updateCatalogEntry(
@@ -635,6 +671,7 @@ export class CatalogService {
       displayName: source.displayName,
       primarySpecialty: source.primarySpecialty,
       specialtyTags: source.specialtyTags,
+      governance: source.governance,
       skillContext: source.skillContext,
       routing: source.routing,
       verification: {
@@ -1038,7 +1075,7 @@ export class CatalogService {
     });
 
     return {
-      version: 1,
+      version: 2,
       exportedAt: this.#now(),
       workspace,
       filters: {
@@ -1071,8 +1108,38 @@ export class CatalogService {
     let importedCount = 0;
     let skippedCount = 0;
     const now = this.#now();
+    const importedSkills = await this.#repository.importSkills(
+      workspace,
+      resolvedInput.catalog.entries.filter((
+        e,
+      ): e is import("./types.ts").CatalogExportSkillEntry =>
+        e.entryType === "skill"
+      ).map((entry) => ({
+        ...entry,
+        workspace,
+        scope: "workspace" as const,
+        governance: remapImportedGovernance(
+          entry,
+          validated.catalog.workspace,
+          workspace,
+          now,
+        ),
+        verification: {
+          verificationStatus: entry.verificationStatus,
+          verificationSource: entry.verificationSource,
+          verifiedAt: entry.verifiedAt,
+          verificationMessage: entry.verificationMessage,
+        },
+        now,
+      })),
+      validated.conflictStrategy,
+    );
+    importedCount += importedSkills.imported.length;
+    skippedCount += importedSkills.skipped;
+
     for (let index = 0; index < resolvedInput.catalog.entries.length; index++) {
       const entry = resolvedInput.catalog.entries[index];
+      if (entry.entryType === "skill") continue;
       const entryKey = exportEntryKey(entry);
       const existing = await this.#repository.getEntry(workspace, {
         workspace,
@@ -1106,25 +1173,6 @@ export class CatalogService {
           retiredAt: entry.retiredAt,
           retirementReason: entry.retirementReason,
           replacedByAgentEntryKey: entry.replacedByAgentEntryKey,
-        });
-      } else if (entry.entryType === "skill") {
-        await this.#repository.createSkill(workspace, {
-          workspace,
-          scope: "workspace",
-          skillName: entry.skillName,
-          projectName: entry.projectName,
-          displayName: entry.displayName,
-          primarySpecialty: entry.primarySpecialty,
-          specialtyTags: entry.specialtyTags,
-          skillContext: entry.skillContext,
-          routing: entry.routing,
-          verification: {
-            verificationStatus: entry.verificationStatus,
-            verificationSource: entry.verificationSource,
-            verifiedAt: entry.verifiedAt,
-            verificationMessage: entry.verificationMessage,
-          },
-          now,
         });
       } else {
         await this.#repository.createSubagent(workspace, {
@@ -1194,7 +1242,7 @@ export class CatalogService {
       workspace: preview.targetWorkspace,
       conflictStrategy: "skip",
       catalog: {
-        version: 1,
+        version: 2,
         exportedAt: this.#now(),
         workspace: preview.sourceWorkspace,
         filters: {
@@ -1244,9 +1292,30 @@ export class CatalogService {
     const filteredEntries = validated.entryKey
       ? entries.filter((entry) => entry.entryKey === validated.entryKey)
       : entries;
-    const healthEntries = filteredEntries.filter(isHealthEntry).map(
-      toHealthEntry,
-    );
+    const visibleSkills = (await this.#repository.listEntries(workspace, {
+      workspace,
+      entryType: "skill",
+    })).filter((e): e is SkillCatalogEntry => e.entryType === "skill");
+    const healthEntries = filteredEntries.filter(isHealthEntry).map((e) => {
+      const health = toHealthEntry(e);
+      if (e.entryType === "skill") {
+        const state = freshness(e, this.#now());
+        health.issues.push(...relationshipIssues(e, visibleSkills));
+        if (isDeprecated(e)) {
+          health.issues.push({
+            code: "skill_deprecated",
+            message: "Skill is deprecated; inspect its replacement before use.",
+          });
+        }
+        if (!["current", "unreviewed"].includes(state)) {
+          health.issues.push({
+            code: "skill_" + state.replaceAll("-", "_"),
+            message: "Instruction review status: " + state,
+          });
+        }
+      }
+      return health;
+    });
     const coverageEntries = await this.#repository.listEntries(workspace, {
       workspace,
       projectName: validated.projectName,
@@ -1790,6 +1859,13 @@ export class CatalogService {
 
     return {
       agentsMd,
+      governance: registeredSkills.map((e) => ({
+        skillName: e.skillName,
+        scope: e.scope,
+        freshness: freshness(e, this.#now()),
+        lifecycle: e.governance?.lifecycle?.status ?? "active",
+        issues: relationshipIssues(e, registeredSkills),
+      })),
       skills: {
         configuredRoots: this.#localSkillSync.configuredRootCount,
         discoveredSkillNames,
@@ -2346,6 +2422,7 @@ function toExportEntry(entry: CatalogEntry): CatalogExport["entries"][number] {
       ...base,
       entryType: "skill",
       skillName: entry.skillName,
+      ...(entry.governance ? { governance: entry.governance } : {}),
       skillContext: entry.skillContext,
       routing: entry.routing,
     };
@@ -3823,4 +3900,41 @@ function renderAgentInitializationPrompt(input: {
   );
 
   return sections.join("\n");
+}
+
+function remapImportedGovernance(
+  entry: import("./types.ts").CatalogExportSkillEntry,
+  sourceWorkspace: string,
+  workspace: string,
+  now: string,
+): import("./skill_governance.ts").SkillGovernance {
+  const governance = structuredClone(entry.governance ?? {});
+  const remap = (ref: import("./skill_governance.ts").SkillReference) => {
+    if (ref.scope === "global") return ref;
+    if (ref.workspace !== sourceWorkspace) {
+      throw new LorError(
+        "validation_error",
+        "Import contains a reference outside its source workspace.",
+      );
+    }
+    return { ...ref, workspace };
+  };
+  if (governance.responsibility) {
+    governance.responsibility.relationships = governance.responsibility
+      .relationships.map((r) => ({ ...r, target: remap(r.target) }));
+  }
+  if (
+    governance.lifecycle?.status === "deprecated" &&
+    governance.lifecycle.replacement
+  ) governance.lifecycle.replacement = remap(governance.lifecycle.replacement);
+  // Existing provenance is an imported claim; absent sources get a captured export fingerprint.
+  governance.provenance = governance.provenance
+    ? { ...governance.provenance, assurance: "claimed" }
+    : {
+      kind: "catalog-import",
+      sourceHash: fingerprint(entry),
+      capturedAt: now,
+      assurance: "captured",
+    };
+  return governance;
 }
